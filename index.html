@@ -518,7 +518,8 @@
 
   // ---------- Notifications (OneSignal) ----------
   const ONESIGNAL_APP_ID='e0fe6864-f2ca-4b41-8c87-00586a7634e4';
-  let OS=null, pushReady=false;
+  let OS=null, pushReady=false, pushErr='';
+  setTimeout(()=>{ if(!pushReady && !pushErr){ pushErr='OneSignal didn\'t load (timed out).'; refreshPushUI(); } }, 12000);
   const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
   const standalone=window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   window.OneSignalDeferred=window.OneSignalDeferred||[];
@@ -534,14 +535,14 @@
       OS=OneSignal; pushReady=true;
       OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
       linkUser(); refreshPushUI();
-    }catch(e){ pushReady=false; refreshPushUI(); }
+    }catch(e){ pushReady=false; pushErr=(e&&e.message)||String(e); refreshPushUI(); }
   });
   function linkUser(){ try{ if(OS&&state&&state.me&&state.me.pushId) OS.login(state.me.pushId); }catch(e){} }
   function pushStatus(){
     if(isIOS && !standalone) return 'ios';
     if(!('Notification' in window)) return 'unsupported';
     if(Notification.permission==='denied') return 'blocked';
-    if(!pushReady) return 'loading';
+    if(!pushReady) return pushErr ? 'error' : 'loading';
     return OS.Notifications.permission ? 'on' : 'off';
   }
   function pushBanner(){
@@ -558,6 +559,7 @@
     else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
     else if(st==='blocked') top='<p>Notifications are blocked for this app. Turn them on in your phone\'s settings for Greco Picks (or Chrome → Site settings → Notifications), then come back.</p>';
     else if(st==='loading') top='<p>Getting notifications ready…</p>';
+    else if(st==='error') top='<p>Notifications couldn\'t start: <b>'+esc(pushErr)+'</b></p>';
     else if(st==='off') top='<p>Get a reminder before picks lock, a heads-up when a new week is up, and your weekly results.</p><button class="nbtn" data-push="on">Turn on notifications</button>';
     else top='<p>✅ Notifications are on for this phone. Choose what you get:</p>';
     const tog=(k,t,sub)=>`<label class="tog"><span>${t}<small>${sub}</small></span><input type="checkbox" data-pref="${k}"${p[k]?' checked':''}></label>`;
