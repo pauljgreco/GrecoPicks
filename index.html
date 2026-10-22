@@ -570,7 +570,14 @@
       OS=OneSignal; pushReady=true;
       OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
       OneSignal.User.PushSubscription.addEventListener('change',()=>refreshPushUI());
+      plog('Ready: '+subInfo());
       linkUser(); refreshPushUI();
+      let wasReset=false; try{ wasReset=sessionStorage.getItem('nflpicks_pushreset')==='1'; sessionStorage.removeItem('nflpicks_pushreset'); }catch(e){}
+      if(wasReset){
+        plog('Reset finished');
+        try{ document.getElementById('settings').classList.add('on'); }catch(e){}
+        if(Notification.permission==='granted') turnOnPush(); else toast('Reset done. Tap Turn on notifications.');
+      }
     }catch(e){ pushReady=false; pushErr=(e&&e.message)||String(e); refreshPushUI(); }
   });
   function linkUser(){ try{ if(OS&&state&&state.me&&state.me.pushId) OS.login(state.me.pushId); }catch(e){} }
@@ -608,35 +615,79 @@
       diag=`<button class="nbtn" data-push="local" style="margin-top:12px;background:none;color:var(--accent);border:1px solid var(--accent)">Show a test notification (no internet)</button><p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details (admin): status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
       if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>{const el=document.getElementById('swinfo'); if(el) el.textContent=rs.length?rs.map(r=>(r.active&&r.active.scriptURL||'?').replace(location.origin,'')).join(', '):'none';}).catch(()=>{});
     }
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+diag;
+    const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
+    const log=pushLog.length?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0"></pre>';
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+reset+diag+log;
     if(view==='picks' && state) render();
   }
+  // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
+  const pushLog=[];
+  function plog(m){ pushLog.push(new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})+' '+m); if(pushLog.length>12) pushLog.shift(); const el=document.getElementById('plog'); if(el) el.textContent=pushLog.join('\n'); }
+  function subInfo(){ const s=OS&&OS.User&&OS.User.PushSubscription; return 'perm '+(('Notification' in window)?Notification.permission:'n/a')+', opted in '+(s?s.optedIn:'-')+', token '+(s&&s.token?'yes':'no'); }
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  async function waitForToken(ms){
+    const end=Date.now()+ms;
+    while(Date.now()<end){ const s=OS.User.PushSubscription; if(s.optedIn&&s.token) return true; await wait(500); }
+    return false;
+  }
+  let turningOn=false;
   async function turnOnPush(){
     if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
+    if(turningOn) return;
+    turningOn=true; toast('Turning on…');
     try{
-      if(Notification.permission==='granted'){
-        // Clear any stale browser push subscription first so OneSignal gets a fresh delivery token.
-        try{
-          const reg=await navigator.serviceWorker.getRegistration('/GrecoPicks/push/');
-          const old=reg && await reg.pushManager.getSubscription();
-          if(old) await old.unsubscribe();
-        }catch(e){}
-        await OS.User.PushSubscription.optIn();
+      plog('Turn on tapped: '+subInfo());
+      if(Notification.permission!=='granted'){
+        plog('Asking phone for permission…');
+        await OS.Notifications.requestPermission();
+        plog('Permission answer: '+Notification.permission);
+        if(Notification.permission!=='granted'){ toast(Notification.permission==='denied'?'Notifications are blocked in your phone settings.':'Permission wasn\'t given.'); return; }
       }
-      else { await OS.Notifications.requestPermission(); }
+      const s=OS.User.PushSubscription;
+      if(s.optedIn && !s.token){
+        // OneSignal thinks it's on but has no delivery token, so optIn() alone would do nothing. Flip it off and on.
+        plog('Stuck (on with no token): flipping off and on');
+        try{ await s.optOut(); }catch(e){ plog('optOut error: '+(e&&e.message||e)); }
+        await wait(800);
+      }
+      if(!s.optedIn || !s.token){ plog('Opting in…'); await s.optIn(); }
       linkUser();
-      setTimeout(()=>{ refreshPushUI(); toast(OS.User.PushSubscription.optedIn&&OS.User.PushSubscription.id?'Notifications are on.':'Still not subscribed. See the details under Notifications.'); },2500);
-    }catch(e){ toast('Couldn\'t turn on notifications: '+((e&&e.message)||e)); }
-    refreshPushUI();
+      const ok=await waitForToken(10000);
+      plog(ok?'Done: '+subInfo():'No token after 10s: '+subInfo());
+      toast(ok?'Notifications are on.':'Still not working. Tap "Reset notifications on this phone" below.');
+    }catch(e){ plog('Error: '+((e&&e.message)||e)); toast('Couldn\'t turn on notifications: '+((e&&e.message)||e)); }
+    finally{ turningOn=false; refreshPushUI(); }
   }
   async function turnOffPush(){
-    try{ await OS.User.PushSubscription.optOut(); toast('Notifications off for this phone.'); }catch(e){ toast('Couldn\'t turn off notifications.'); }
+    try{ await OS.User.PushSubscription.optOut(); plog('Turned off'); toast('Notifications off for this phone.'); }catch(e){ toast('Couldn\'t turn off notifications.'); }
     refreshPushUI();
+  }
+  // Full reset: forget every notification sign-up on this phone, then reload and sign up fresh.
+  async function resetPush(){
+    toast('Resetting notifications…');
+    try{ if(OS){ try{ await OS.User.PushSubscription.optOut(); }catch(e){} try{ await OS.logout(); }catch(e){} } }catch(e){}
+    try{
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const r of regs){
+        try{ const sub=await r.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){}
+        const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
+        if(u.indexOf('OneSignal')>=0 || r.scope.indexOf('/push/')>=0) { try{ await r.unregister(); }catch(e){} }
+      }
+    }catch(e){}
+    try{
+      let names=['ONE_SIGNAL_SDK_DB'];
+      if(indexedDB.databases){ try{ (await indexedDB.databases()).forEach(d=>{ if(d.name && /one.?signal/i.test(d.name) && names.indexOf(d.name)<0) names.push(d.name); }); }catch(e){} }
+      await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
+    }catch(e){}
+    try{ Object.keys(localStorage).forEach(k=>{ if(/onesignal|^os_/i.test(k)) localStorage.removeItem(k); }); }catch(e){}
+    try{ sessionStorage.setItem('nflpicks_pushreset','1'); sessionStorage.setItem('nflpicks_reloaded',String(Date.now())); }catch(e){}
+    location.reload();
   }
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-push]'); if(!b) return;
     if(b.dataset.push==='on') turnOnPush();
     if(b.dataset.push==='off') turnOffPush();
+    if(b.dataset.push==='reset') resetPush();
     if(b.dataset.push==='testme'){
       b.disabled=true;
       api('testme',{}).then(()=>toast('Sent! It should pop up in a few seconds.')).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;});
@@ -664,7 +715,8 @@
     const info=[
       'Screen: '+view+(state?' · week '+state.selected:''),
       'Installed app: '+(standalone?'yes':'no'),
-      'Notifications: '+pushStatus(),
+      'Notifications: '+pushStatus()+(pushReady?' ('+subInfo()+')':''),
+      'Notification steps:\n'+pushLog.join('\n'),
       'Screen size: '+window.innerWidth+'x'+window.innerHeight,
       'Device: '+navigator.userAgent,
       'Time: '+new Date().toString(),
