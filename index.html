@@ -527,8 +527,10 @@
     try{
       // Self-repair: an older version of the app registered sw.js without OneSignal's settings,
       // which silently stops notifications. Remove that registration so OneSignal can redo it.
-      if('serviceWorker' in navigator){
+      let lastFix=0; try{ lastFix=Number(localStorage.getItem('nflpicks_swfix')||0); }catch(e){}
+      if('serviceWorker' in navigator && Date.now()-lastFix>86400e3){   // at most once a day
         try{
+          try{ localStorage.setItem('nflpicks_swfix',String(Date.now())); }catch(e){}
           const regs=await navigator.serviceWorker.getRegistrations();
           for(const r of regs){
             const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
