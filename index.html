@@ -13,6 +13,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="config.js"></script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
   :root{--bg:#f3f4f7;--card:#fff;--ink:#14171c;--muted:#687083;--line:#e2e5eb;--accent:#0b5cff;--sel:#e7efff;--win:#15803d;--loss:#c62828;--me:#fff7d6;--bar:#0b1f3a}
   @media (prefers-color-scheme:dark){:root{--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a}}
@@ -111,6 +112,18 @@
   .st .rk{text-align:center;color:var(--muted);width:30px}
   .st tr.me td{background:var(--me)}
   .st td.best{font-weight:700;color:var(--win)}
+  /* Notifications */
+  .nbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .nbox p{margin:0 0 10px;font-size:15px;color:var(--muted);line-height:1.4}
+  .nbtn{font:inherit;font-weight:600;padding:9px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+  .tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+  .tog small{display:block;color:var(--muted);font-size:13px}
+  .tog input{width:22px;height:22px;accent-color:var(--accent)}
+  .banner{display:flex;align-items:center;gap:10px;background:var(--sel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:15px}
+  .banner span{flex:1}
+  .banner button{font:inherit;border:0;background:none;cursor:pointer}
+  .banner .go{color:#fff;background:var(--accent);border-radius:9px;padding:6px 12px;font-weight:600}
+  .banner .x2{color:var(--muted);font-size:18px;padding:2px 4px}
   .icon.q{font-size:17px;font-weight:700;width:32px;height:32px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%}
   #help{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
   #help.on{display:flex}
@@ -154,6 +167,9 @@
 <div id="help" role="dialog" aria-modal="true" aria-label="Help">
   <div class="sheet">
     <div class="sheet-top"><h2>How it works</h2><button class="x" id="helpClose" aria-label="Close">✕</button></div>
+
+    <h3>Notifications</h3>
+    <div class="nbox" id="nbox"><p>Checking…</p></div>
 
     <h3>Picking</h3>
     <details class="faq"><summary>How do I make a pick?</summary><div>Tap the team you think will win. It saves on its own; you'll see <b>Saving…</b> for a second. Regular-season games also have a small <b>Tie</b> button for the rare game that ends tied.</div></details>
@@ -214,7 +230,7 @@
   function load(wk, busy){
     spin(true); if(busy) document.body.classList.add('busy');
     return api('state', {wk: wk||''})
-      .then(s=>{ if(!pending){ state=s; save(); render(); } })
+      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -262,7 +278,7 @@
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
-    m.innerHTML=s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>';
+    m.innerHTML=(pushBanner())+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
   }
 
   // ---------- Group tab: everyone's picks for the week ----------
@@ -500,6 +516,69 @@
     </div>`;
   }
 
+  // ---------- Notifications (OneSignal) ----------
+  const ONESIGNAL_APP_ID='e0fe6864-f2ca-4b41-8c87-00586a7634e4';
+  let OS=null, pushReady=false;
+  const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  const standalone=window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  window.OneSignalDeferred=window.OneSignalDeferred||[];
+  OneSignalDeferred.push(async function(OneSignal){
+    try{
+      await OneSignal.init({
+        appId:ONESIGNAL_APP_ID,
+        serviceWorkerPath:'GrecoPicks/sw.js',
+        serviceWorkerParam:{scope:'/GrecoPicks/'},
+        notifyButton:{enable:false},
+      });
+      OS=OneSignal; pushReady=true;
+      OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
+      linkUser(); refreshPushUI();
+    }catch(e){ pushReady=false; refreshPushUI(); }
+  });
+  function linkUser(){ try{ if(OS&&state&&state.me&&state.me.pushId) OS.login(state.me.pushId); }catch(e){} }
+  function pushStatus(){
+    if(isIOS && !standalone) return 'ios';
+    if(!('Notification' in window)) return 'unsupported';
+    if(Notification.permission==='denied') return 'blocked';
+    if(!pushReady) return 'loading';
+    return OS.Notifications.permission ? 'on' : 'off';
+  }
+  function pushBanner(){
+    const st=pushStatus();
+    let hide=false; try{ hide=localStorage.getItem('nflpicks_pushdismiss')==='1'; }catch(e){}
+    if(hide || st!=='off') return '';
+    return `<div class="banner"><span>🔔 Get a heads-up before picks lock?</span><button class="go" data-push="on">Turn on</button><button class="x2" data-push="dismiss" aria-label="Dismiss">✕</button></div>`;
+  }
+  function refreshPushUI(){
+    const box=document.getElementById('nbox'); if(!box) return;
+    const st=pushStatus(), p=(state&&state.me&&state.me.prefs)||{remind:true,newweek:true,results:true};
+    let top;
+    if(st==='ios') top='<p>On iPhone, notifications only work from the home-screen app. In Safari, tap Share → <b>Add to Home Screen</b>, then open Greco Picks from there and come back here.</p>';
+    else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
+    else if(st==='blocked') top='<p>Notifications are blocked for this app. Turn them on in your phone\'s settings for Greco Picks (or Chrome → Site settings → Notifications), then come back.</p>';
+    else if(st==='loading') top='<p>Getting notifications ready…</p>';
+    else if(st==='off') top='<p>Get a reminder before picks lock, a heads-up when a new week is up, and your weekly results.</p><button class="nbtn" data-push="on">Turn on notifications</button>';
+    else top='<p>✅ Notifications are on for this phone. Choose what you get:</p>';
+    const tog=(k,t,sub)=>`<label class="tog"><span>${t}<small>${sub}</small></span><input type="checkbox" data-pref="${k}"${p[k]?' checked':''}></label>`;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final'):'');
+    if(view==='picks' && state) render();
+  }
+  async function turnOnPush(){
+    if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
+    try{ await OS.Notifications.requestPermission(); linkUser(); }catch(e){ toast('Couldn\'t turn on notifications.'); }
+    refreshPushUI();
+  }
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-push]'); if(!b) return;
+    if(b.dataset.push==='on') turnOnPush();
+    if(b.dataset.push==='dismiss'){ try{localStorage.setItem('nflpicks_pushdismiss','1');}catch(x){} render(); }
+  });
+  document.addEventListener('change',e=>{
+    const k=e.target.dataset&&e.target.dataset.pref; if(!k) return;
+    const on=e.target.checked;
+    api('prefs',{type:k,on:on?'1':'0'}).then(p=>{ if(state&&state.me) state.me.prefs=p; save(); }).catch(err=>{ e.target.checked=!on; toast(err.message); });
+  });
+
   // ---------- Taps ----------
   document.getElementById('main').addEventListener('click',e=>{
     const b=e.target.closest('[data-act]'); if(!b||!state) return;
@@ -536,7 +615,7 @@
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
   document.getElementById('reload').addEventListener('click',()=>{ load(state&&state.selected,false); if(view==='stats') loadHistory(true); });
   const help=document.getElementById('help');
-  document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
+  document.getElementById('helpBtn').addEventListener('click',()=>{ refreshPushUI(); help.classList.add('on'); });
   document.getElementById('helpClose').addEventListener('click',()=>help.classList.remove('on'));
   help.addEventListener('click',e=>{if(e.target===help) help.classList.remove('on');});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state) load(state.selected,false);});
