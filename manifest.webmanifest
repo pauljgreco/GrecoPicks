@@ -1,7 +1,7 @@
 {
-  "name": "NFL Picks",
-  "short_name": "NFL Picks",
-  "description": "Weekly NFL picks for family and friends.",
+  "name": "Greco Picks",
+  "short_name": "Greco Picks",
+  "description": "Weekly NFL picks for the Greco family and friends.",
   "display": "standalone",
   "scope": "./",
   "background_color": "#0b1f3a",
