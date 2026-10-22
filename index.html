@@ -74,6 +74,43 @@
   #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%;z-index:10}
   .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.5}
   body.busy main{opacity:.6;pointer-events:none}
+  /* Group grid */
+  .gridwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:14px;-webkit-overflow-scrolling:touch}
+  table.grid{border-collapse:separate;border-spacing:0;font-size:14px;min-width:100%}
+  .grid th,.grid td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+  .grid tr:last-child td{border-bottom:0}
+  .grid thead th{font-size:13px;color:var(--muted);font-weight:600;vertical-align:bottom}
+  .grid thead th b{display:block;color:var(--ink);font-size:14px}
+  .grid .g{position:sticky;left:0;z-index:1;background:var(--card);text-align:left;border-right:1px solid var(--line);min-width:96px}
+  .grid .g b{display:block;font-size:14px}
+  .grid .g span{font-size:12px;color:var(--muted)}
+  .grid th.me,.grid td.me{background:var(--sel)}
+  .grid td img{width:24px;height:24px;object-fit:contain;display:block;margin:0 auto}
+  .grid td small{display:block;font-size:11px;color:var(--muted)}
+  .grid td.cw{box-shadow:inset 0 -3px 0 var(--win)}
+  .grid td.cl{box-shadow:inset 0 -3px 0 var(--loss);opacity:.75}
+  .grid .hid{color:var(--muted)}
+  /* Stats */
+  .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .filters select{font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1;min-width:0}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .sec{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:18px 2px 8px;font-weight:600}
+  .hl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .hl div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+  .hl small{display:block;font-size:12px;color:var(--muted)}
+  .hl b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hl span{font-size:13px;color:var(--muted)}
+  table.st{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:15px}
+  .st th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .st td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .st tr:last-child td{border-bottom:0}
+  .st .n{text-align:left;font-weight:600;position:sticky;left:0;background:var(--card);z-index:1}
+  .st th.n{font-weight:600}
+  .st .rk{text-align:center;color:var(--muted);width:30px}
+  .st tr.me td{background:var(--me)}
+  .st td.best{font-weight:700;color:var(--win)}
   .icon.q{font-size:17px;font-weight:700;width:32px;height:32px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%}
   #help{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
   #help.on{display:flex}
@@ -106,7 +143,8 @@
     <div class="mine" id="mine"></div>
     <div class="tabs">
       <button class="tab on" data-view="picks">Picks</button>
-      <button class="tab" data-view="board">Leaderboard</button>
+      <button class="tab" data-view="group">Group</button>
+      <button class="tab" data-view="stats">Stats</button>
     </div>
   </div>
 </header>
@@ -125,7 +163,10 @@
 
     <h3>Scoring</h3>
     <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
-    <details class="faq"><summary>How does the leaderboard rank people?</summary><div>By <b>season win percentage</b>, then total wins. Joining partway through the season doesn't hurt you.</div></details>
+    <details class="faq"><summary>How are people ranked?</summary><div>On the <b>Stats</b> tab, by <b>win percentage</b> for whatever range you pick, then total wins. Joining partway through the season doesn't hurt you.</div></details>
+    <details class="faq"><summary>What's on the Group tab?</summary><div>Everyone's picks for the week in one grid. A <b>✓</b> means that person has picked but you can't see it yet; make your own pick on that game (or wait for kickoff) to see theirs.</div></details>
+    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings, week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap names to include or leave people out. Only games that have kicked off count.</div></details>
+    <details class="faq"><summary>What are "upsets" and "with group"?</summary><div><b>Upsets</b>: correct picks of the team with the worse record going into the game. <b>With group</b>: how often your pick matched what most of the selected people picked.</div></details>
     <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
     <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
 
@@ -217,16 +258,182 @@
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
+    document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
     const m=document.getElementById('main');
-    if(view==='board'){ m.innerHTML=board(); return; }
+    if(view==='group'){ m.innerHTML=groupView(); return; }
+    if(view==='stats'){ m.innerHTML=statsView(); return; }
     m.innerHTML=s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>';
   }
 
-  function board(){
+  // ---------- Group tab: everyone's picks for the week ----------
+  function groupView(){
     const s=state;
-    const rows=s.board.map(r=>`<tr class="${r.id===s.me.id?'me':''}"><td>${esc(r.rank)}</td><td>${esc(r.name)}</td><td>${esc(r.week)}</td><td>${esc(r.season)}</td><td>${esc(r.pctText)}</td></tr>`).join('');
-    return `<table class="lb"><thead><tr><th>#</th><th>Name</th><th>Week</th><th>Season</th><th>Pct</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="note">Ranked by season win %, then total wins. "Week" is the week picked at the top.</div>`;
+    if(!s.games.length) return '<div class="empty">No games loaded yet.</div>';
+    const players=s.players||[{id:s.me.id,name:s.me.name}];
+    const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
+    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const rows=s.games.map(g=>{
+      const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
+      let sub;
+      if(g.status==='final') sub=`Final ${esc(g.away.score)}-${esc(g.home.score)}`;
+      else if(g.status==='in') sub=`${esc(g.away.score)}-${esc(g.home.score)} · live`;
+      else sub=esc(new Date(g.kickoff).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'}));
+      const cells=players.map(p=>{
+        const x=(g.all||{})[p.id], me=p.id===s.me.id?' me':'';
+        if(!x) return `<td class="${me.trim()}"><span class="hid">${locked?'—':''}</span></td>`;
+        if(x.h) return `<td class="${me.trim()}"><span class="hid">✓</span></td>`;
+        const cls=(x.r==='W'?'cw':x.r==='L'?'cl':'')+me;
+        const t=x.p===g.away.abbr?g.away:x.p===g.home.abbr?g.home:null;
+        const body=t?`${t.logo?`<img src="${esc(t.logo)}" alt="" loading="lazy">`:''}<small>${esc(t.abbr)}</small>`:`<small>${x.p==='TIE'?'Tie':x.p==='MISSED'?'Missed':esc(x.p)}</small>`;
+        return `<td class="${cls.trim()}">${body}</td>`;
+      }).join('');
+      return `<tr><td class="g"><b>${esc(g.away.abbr)} @ ${esc(g.home.abbr)}</b><span>${sub}</span></td>${cells}</tr>`;
+    }).join('');
+    return `<div class="gridwrap"><table class="grid"><thead><tr><th class="g">Game</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="note">Records shown are for this week. ✓ means picked but hidden until you make your pick on that game (or it kicks off).</div>`;
+  }
+
+  // ---------- Stats tab ----------
+  const hist={};                      // season -> history data
+  let histLoading=false;
+  let sf={season:'', range:'season', from:'', to:'', people:null};
+  try{ const saved=JSON.parse(localStorage.getItem('nflpicks_statsf')||'null'); if(saved) sf=Object.assign(sf,saved); }catch(e){}
+  function saveSf(){ try{ localStorage.setItem('nflpicks_statsf', JSON.stringify(sf)); }catch(e){} }
+
+  function curSeason(){ return (state.selected||'').split('|')[0]||''; }
+  function loadHistory(force){
+    const season=sf.season||curSeason();
+    if(!season || histLoading || (hist[season] && !force)) return;
+    histLoading=true; spin(true);
+    api('history',{season:season})
+      .then(h=>{ hist[season]=h; if(view==='stats') render(); })
+      .catch(e=>toast(e.message))
+      .finally(()=>{ histLoading=false; spin(false); });
+  }
+
+  const wkKey=g=>g.season+'|'+g.type+'|'+g.week;
+  const wkOrder=k=>{const [a,b,c]=k.split('|').map(Number); return a*1000+b*100+c;};
+  const wkName=k=>{const [a,b,c]=k.split('|').map(Number); const n=b===3?({1:'Wild Card',2:'Divisional',3:'Conf. Champ.',5:'Super Bowl'}[c]||('Post Wk '+c)):('Wk '+c); return n;};
+  function recPct(r){ const m=String(r||'').split('-').map(Number); if(m.length<2||m.some(isNaN)) return null; const w=m[0],l=m[1],t=m[2]||0,n=w+l+t; return n?(w+t/2)/n:null; }
+  const fmtPct=x=>x==null?'—':x.toFixed(3).replace(/^0/,'');
+
+  function computeStats(h){
+    const weeksAll=Array.from(new Set(h.games.map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
+    let inRange;
+    if(sf.range==='week'){ inRange=g=>wkKey(g)===state.selected; }
+    else if(sf.range==='reg'){ inRange=g=>g.type===2; }
+    else if(sf.range==='post'){ inRange=g=>g.type===3; }
+    else if(sf.range==='span'){
+      const a=weeksAll.indexOf(sf.from), b=weeksAll.indexOf(sf.to);
+      const lo=Math.min(a<0?0:a, b<0?weeksAll.length-1:b), hi=Math.max(a<0?0:a, b<0?weeksAll.length-1:b);
+      const ok=new Set(weeksAll.slice(lo,hi+1)); inRange=g=>ok.has(wkKey(g));
+    } else { inRange=()=>true; }
+    const games=h.games.filter(inRange).sort((a,b)=>a.kickoff.localeCompare(b.kickoff));
+    const gmap={}; games.forEach(g=>{gmap[g.id]=g;});
+    const names={}; h.players.forEach(p=>{names[p.id]=p.name;});
+    const withPicks=new Set(h.picks.map(x=>x[1]));
+    const everyone=h.players.filter(p=>p.active||withPicks.has(p.id)).map(p=>p.id);
+    const sel=(sf.people||everyone).filter(id=>everyone.indexOf(id)>=0);
+    const per={};
+    sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0};});
+    const byGame={};
+    h.picks.forEach(([gid,pid,pick,res])=>{ if(gmap[gid]&&per[pid]) (byGame[gid]=byGame[gid]||[]).push({pid,pick,res}); });
+    games.forEach(g=>{
+      const list=byGame[g.id]||[];
+      const cnt={}; list.forEach(x=>{ if(x.pick!=='MISSED') cnt[x.pick]=(cnt[x.pick]||0)+1; });
+      const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+      const maj=(list.length>=3 && top.length && (top.length===1||top[0][1]>top[1][1]))?top[0][0]:null;
+      const k=wkKey(g);
+      list.forEach(x=>{
+        const s=per[x.pid];
+        if(maj && x.pick!=='MISSED'){ s.withN++; if(x.pick===maj) s.withG++; }
+        if(x.res!=='W'&&x.res!=='L') return;
+        s[x.res]++; s.seq.push(x.res);
+        const w=s.weeks[k]||(s.weeks[k]={W:0,L:0}); w[x.res]++;
+        if(x.pick===g.home) s['h'+x.res]++; else if(x.pick===g.away) s['a'+x.res]++;
+        if(x.res==='W'){
+          const mine=x.pick===g.home?g.homePre:x.pick===g.away?g.awayPre:'';
+          const oth=x.pick===g.home?g.awayPre:x.pick===g.away?g.homePre:'';
+          const a=recPct(mine), b=recPct(oth);
+          if(a!=null&&b!=null&&a<b) s.ups++;
+        }
+      });
+    });
+    const people=Object.values(per);
+    people.forEach(s=>{
+      const n=s.W+s.L; s.pct=n?s.W/n:null;
+      let best=0,run=0; s.seq.forEach(r=>{ if(r==='W'){run++; best=Math.max(best,run);} else run=0; });
+      s.longest=best;
+      let cur=0; const last=s.seq[s.seq.length-1]; for(let i=s.seq.length-1;i>=0&&s.seq[i]===last;i--) cur++;
+      s.streak=last?last+cur:'—';
+    });
+    people.sort((a,b)=>((b.pct==null?-1:b.pct)-(a.pct==null?-1:a.pct))||(b.W-a.W)||a.name.localeCompare(b.name));
+    let rank=0,prev=null; people.forEach((s,i)=>{ const key=s.pct+'|'+s.W; if(key!==prev){rank=i+1;prev=key;} s.rank=s.pct==null?'':rank; });
+    const weeks=Array.from(new Set(games.map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
+    return {people, weeks, weeksAll, everyone, names, sel, gameCount:games.length};
+  }
+
+  function statsView(){
+    const season=sf.season||curSeason();
+    const h=hist[season];
+    if(!h){ loadHistory(); return '<div class="empty">Loading stats…</div>'; }
+    const st=computeStats(h);
+    const me=state.me.id;
+
+    const seasonOpts=(h.seasons.length>1?[['all','All seasons']]:[]).concat(h.seasons.map(x=>[String(x),String(x)+' season']));
+    const rangeOpts=[['season','Whole season'],['week','Week picked on Picks tab'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
+    const opt=(list,val)=>list.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(t)}</option>`).join('');
+    const wkOpts=v=>st.weeksAll.map(k=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('');
+    let html=`<div class="filters">
+        <select data-sf="season">${opt(seasonOpts,season)}</select>
+        <select data-sf="range">${opt(rangeOpts,sf.range)}</select>
+      </div>`;
+    if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
+    const allOn=st.sel.length===st.everyone.length;
+    html+=`<div class="chips"><button class="chip${allOn?' on':''}" data-chip="__all">Everyone</button>${st.everyone.map(id=>`<button class="chip${st.sel.indexOf(id)>=0&&!allOn?' on':''}" data-chip="${esc(id)}">${esc(id===me?'You':st.names[id])}</button>`).join('')}</div>`;
+
+    if(!st.gameCount) return html+'<div class="empty">No finished games in this range yet.</div>';
+    const P=st.people;
+
+    // Standings
+    html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Streak</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
+    }</tbody></table></div>`;
+
+    // Highlights
+    let bestWk=null, worstWk=null, longest=null, ups=null;
+    P.forEach(s=>{
+      Object.entries(s.weeks).forEach(([k,w])=>{
+        const n=w.W+w.L, pct=n?w.W/n:0;
+        if(!bestWk||w.W>bestWk.w.W||(w.W===bestWk.w.W&&pct>bestWk.pct)) bestWk={s,k,w,pct};
+        if(n&&(!worstWk||pct<worstWk.pct||(pct===worstWk.pct&&w.L>worstWk.w.L))) worstWk={s,k,w,pct};
+      });
+      if(!longest||s.longest>longest.longest) longest=s;
+      if(!ups||s.ups>ups.ups) ups=s;
+    });
+    const card=(label,who,detail)=>`<div><small>${label}</small><b>${esc(who)}</b><span>${detail}</span></div>`;
+    html+=`<div class="sec">Highlights</div><div class="hl">${
+      bestWk?card('Best week',bestWk.s.name,`${bestWk.w.W}-${bestWk.w.L} · ${esc(wkName(bestWk.k))}`):''}${
+      longest?card('Longest win streak',longest.name,`${longest.longest} straight`):''}${
+      ups?card('Most upsets',ups.name,`${ups.ups} hit`):''}</div>`;
+    if(worstWk && P.length>1) html+=`<div class="note">Rough week: ${esc(worstWk.s.name)} went ${worstWk.w.W}-${worstWk.w.L} in ${esc(wkName(worstWk.k))}.</div>`;
+
+    // Week by week
+    if(st.weeks.length>1 || sf.range!=='week'){
+      html+=`<div class="sec">Week by week</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Week</th>${P.map(s=>`<th>${esc(s.id===me?'You':s.name)}</th>`).join('')}</tr></thead><tbody>${
+        st.weeks.slice().reverse().map(k=>{
+          const top=Math.max(...P.map(s=>(s.weeks[k]||{W:0}).W));
+          return `<tr><td class="n">${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</td>${P.map(s=>{const w=s.weeks[k]; return w?`<td class="${w.W===top&&top>0&&P.length>1?'best':''}">${w.W}-${w.L}</td>`:'<td>—</td>';}).join('')}</tr>`;
+        }).join('')
+      }</tbody></table></div>`;
+    }
+
+    // Splits
+    html+=`<div class="sec">Splits</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Home picks</th><th>Away picks</th><th>Upsets</th><th>With group</th><th>Best streak</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td><td>${s.longest}</td></tr>`).join('')
+    }</tbody></table></div>
+    <div class="note">Only games that have kicked off count. Upsets = correct picks of the team with the worse record going in. With group = how often a pick matched most of the selected people.</div>`;
+    return html;
   }
 
   function card(g){
@@ -299,8 +506,28 @@
     }
   });
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{view=t.dataset.view;render();window.scrollTo(0,0);}));
+  document.getElementById('main').addEventListener('change',e=>{
+    const k=e.target.dataset&&e.target.dataset.sf; if(!k) return;
+    sf[k]=e.target.value;
+    if(k==='season'){ sf.from=''; sf.to=''; if(sf.season===curSeason()) sf.season=''; }
+    saveSf(); render(); if(k==='season') loadHistory();
+  });
+  document.getElementById('main').addEventListener('click',e=>{
+    const c=e.target.closest('[data-chip]'); if(!c) return;
+    const id=c.dataset.chip, h=hist[sf.season||curSeason()]; if(!h) return;
+    const all=computeStats(h).everyone;
+    if(id==='__all'){ sf.people=null; }
+    else {
+      let cur=sf.people? sf.people.slice() : [];
+      if(!sf.people){ cur=[id]; }                       // from "Everyone", tapping a name starts a custom list
+      else if(cur.indexOf(id)>=0){ cur=cur.filter(x=>x!==id); }
+      else cur.push(id);
+      sf.people=(cur.length===0||cur.length===all.length)?null:cur;
+    }
+    saveSf(); render();
+  });
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
-  document.getElementById('reload').addEventListener('click',()=>load(state&&state.selected,false));
+  document.getElementById('reload').addEventListener('click',()=>{ load(state&&state.selected,false); if(view==='stats') loadHistory(true); });
   const help=document.getElementById('help');
   document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
   document.getElementById('helpClose').addEventListener('click',()=>help.classList.remove('on'));
