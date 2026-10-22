@@ -534,6 +534,7 @@
       });
       OS=OneSignal; pushReady=true;
       OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
+      OneSignal.User.PushSubscription.addEventListener('change',()=>refreshPushUI());
       linkUser(); refreshPushUI();
     }catch(e){ pushReady=false; pushErr=(e&&e.message)||String(e); refreshPushUI(); }
   });
@@ -543,7 +544,7 @@
     if(!('Notification' in window)) return 'unsupported';
     if(Notification.permission==='denied') return 'blocked';
     if(!pushReady) return pushErr ? 'error' : 'loading';
-    return OS.Notifications.permission ? 'on' : 'off';
+    return (OS.Notifications.permission && OS.User.PushSubscription.optedIn) ? 'on' : 'off';
   }
   function pushBanner(){
     const st=pushStatus();
@@ -562,18 +563,28 @@
     else if(st==='error') top='<p>Notifications couldn\'t start: <b>'+esc(pushErr)+'</b></p>';
     else if(st==='off') top='<p>Get a reminder before picks lock, a heads-up when a new week is up, and your weekly results.</p><button class="nbtn" data-push="on">Turn on notifications</button>';
     else top='<p>✅ Notifications are on for this phone. Choose what you get:</p>';
+    const off=st==='on'?'<button class="nbtn" data-push="off" style="background:none;color:var(--muted);border:1px solid var(--line);margin-top:12px">Turn off notifications on this phone</button>':'';
     const tog=(k,t,sub)=>`<label class="tog"><span>${t}<small>${sub}</small></span><input type="checkbox" data-pref="${k}"${p[k]?' checked':''}></label>`;
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final'):'');
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+off:'');
     if(view==='picks' && state) render();
   }
   async function turnOnPush(){
     if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
-    try{ await OS.Notifications.requestPermission(); linkUser(); }catch(e){ toast('Couldn\'t turn on notifications.'); }
+    try{
+      if(Notification.permission==='granted'){ await OS.User.PushSubscription.optIn(); }
+      else { await OS.Notifications.requestPermission(); }
+      linkUser();
+    }catch(e){ toast('Couldn\'t turn on notifications.'); }
+    refreshPushUI();
+  }
+  async function turnOffPush(){
+    try{ await OS.User.PushSubscription.optOut(); toast('Notifications off for this phone.'); }catch(e){ toast('Couldn\'t turn off notifications.'); }
     refreshPushUI();
   }
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-push]'); if(!b) return;
     if(b.dataset.push==='on') turnOnPush();
+    if(b.dataset.push==='off') turnOffPush();
     if(b.dataset.push==='dismiss'){ try{localStorage.setItem('nflpicks_pushdismiss','1');}catch(x){} render(); }
   });
   document.addEventListener('change',e=>{
