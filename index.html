@@ -124,6 +124,8 @@
   .banner button{font:inherit;border:0;background:none;cursor:pointer}
   .banner .go{color:#fff;background:var(--accent);border-radius:9px;padding:6px 12px;font-weight:600}
   .banner .x2{color:var(--muted);font-size:18px;padding:2px 4px}
+  .rep textarea{width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
+  .rep p{margin:0 0 8px;font-size:14px;color:var(--muted)}
   .icon.gear{font-size:22px;padding:4px}
   .right{gap:4px}
   #help,#settings{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
@@ -174,6 +176,12 @@
     <div class="sheet-top"><h2>Settings</h2><button class="x" id="setClose" aria-label="Close">✕</button></div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
+    <h3>Report a problem</h3>
+    <div class="nbox rep">
+      <p>Something not working or look wrong? Tell us what happened. Your name and phone details are sent along automatically.</p>
+      <textarea id="repText" maxlength="2000" placeholder="e.g. My pick for the Bears game didn't save"></textarea>
+      <button class="nbtn" id="repSend" style="margin-top:10px">Send report</button>
+    </div>
   </div>
 </div>
 
@@ -183,6 +191,7 @@
 
 
     <h3>Picking</h3>
+    <details class="faq"><summary>Something's not working?</summary><div>Tap the <b>⚙</b> at the top, then <b>Report a problem</b>. Describe what happened and tap Send; Paul gets it right away.</div></details>
     <details class="faq"><summary>Where are notification settings?</summary><div>Tap the <b>⚙</b> at the top to turn notifications on or off and choose which ones you get.</div></details>
     <details class="faq"><summary>How do I make a pick?</summary><div>Tap the team you think will win. It saves on its own; you'll see <b>Saving…</b> for a second. Regular-season games also have a small <b>Tie</b> button for the rare game that ends tied.</div></details>
     <details class="faq"><summary>Can I change my pick?</summary><div>Yes. Tap the other team any time <b>until that game kicks off</b>.</div></details>
@@ -645,6 +654,26 @@
     const k=e.target.dataset&&e.target.dataset.pref; if(!k) return;
     const on=e.target.checked;
     api('prefs',{type:k,on:on?'1':'0'}).then(p=>{ if(state&&state.me) state.me.prefs=p; save(); }).catch(err=>{ e.target.checked=!on; toast(err.message); });
+  });
+
+  // ---------- Report a problem ----------
+  document.getElementById('repSend').addEventListener('click',()=>{
+    const ta=document.getElementById('repText'), btn=document.getElementById('repSend');
+    const text=ta.value.trim(); if(!text){ toast('Type what happened first.'); return; }
+    let sw='';
+    const info=[
+      'Screen: '+view+(state?' · week '+state.selected:''),
+      'Installed app: '+(standalone?'yes':'no'),
+      'Notifications: '+pushStatus(),
+      'Screen size: '+window.innerWidth+'x'+window.innerHeight,
+      'Device: '+navigator.userAgent,
+      'Time: '+new Date().toString(),
+    ].join('\n');
+    btn.disabled=true; btn.textContent='Sending…';
+    api('report',{text:text,info:info})
+      .then(()=>{ ta.value=''; toast('Thanks! Your report was sent.'); })
+      .catch(e=>toast(e.message))
+      .finally(()=>{ btn.disabled=false; btn.textContent='Send report'; });
   });
 
   // ---------- Taps ----------
