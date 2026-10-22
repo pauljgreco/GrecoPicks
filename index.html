@@ -525,6 +525,17 @@
   window.OneSignalDeferred=window.OneSignalDeferred||[];
   OneSignalDeferred.push(async function(OneSignal){
     try{
+      // Self-repair: an older version of the app registered sw.js without OneSignal's settings,
+      // which silently stops notifications. Remove that registration so OneSignal can redo it.
+      if('serviceWorker' in navigator){
+        try{
+          const regs=await navigator.serviceWorker.getRegistrations();
+          for(const r of regs){
+            const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
+            if(u.indexOf('/GrecoPicks/sw.js')>=0 && u.indexOf('appId=')<0) await r.unregister();
+          }
+        }catch(e){}
+      }
       await OneSignal.init({
         appId:ONESIGNAL_APP_ID,
         serviceWorkerPath:'GrecoPicks/sw.js',
