@@ -646,11 +646,8 @@
     navigator.serviceWorker.addEventListener('message',e=>{ if(e.data==='nflpicks-updated' && !pending) reloadOnce(); });
     const hadController=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(hadController && !pending) reloadOnce(); });
-    // OneSignal registers sw.js itself (with its own settings attached). Only register it here if
-    // nothing is registered yet, so the two don't keep replacing each other.
-    window.addEventListener('load',()=>{
-      navigator.serviceWorker.getRegistration('./').then(r=>{ if(!r) return navigator.serviceWorker.register('sw.js'); }).catch(()=>{});
-    });
+    // sw.js is registered by OneSignal (it needs its own settings attached to the address),
+    // so the app never registers it itself; registering it here broke notifications.
   }
 </script>
 </body>
