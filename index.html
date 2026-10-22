@@ -630,6 +630,25 @@
     while(Date.now()<end){ const s=OS.User.PushSubscription; if(s.optedIn&&s.token) return true; await wait(500); }
     return false;
   }
+  // Catch OneSignal's own warnings/errors so they show in the log.
+  ['error','warn'].forEach(k=>{ const o=console[k]; console[k]=function(){ try{ const t=Array.from(arguments).map(a=>a&&a.message?a.message:(typeof a==='object'?JSON.stringify(a):String(a))).join(' '); if(/onesignal|push|subscri|service ?worker/i.test(t)) plog(k+': '+t.slice(0,180)); }catch(e){} return o.apply(console,arguments); }; });
+  // Raw check of the phone's push service, without OneSignal: makes a throwaway subscription and removes it.
+  async function rawPushTest(){
+    for(const scope of ['/GrecoPicks/push/','/GrecoPicks/']){
+      try{
+        const reg=await navigator.serviceWorker.getRegistration(scope);
+        if(!reg || reg.scope.indexOf(scope)<0){ plog('Raw test '+scope+': no worker'); continue; }
+        const ps=await reg.pushManager.permissionState({userVisibleOnly:true});
+        const old=await reg.pushManager.getSubscription();
+        if(old){ plog('Raw test '+scope+': already has a subscription ('+new URL(old.endpoint).host+')'); continue; }
+        const kp=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveBits']);
+        const raw=new Uint8Array(await crypto.subtle.exportKey('raw',kp.publicKey));
+        const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:raw});
+        plog('Raw test '+scope+': OK, phone push works ('+new URL(sub.endpoint).host+', perm '+ps+')');
+        await sub.unsubscribe();
+      }catch(e){ plog('Raw test '+scope+': FAILED '+((e&&e.name)||'')+': '+((e&&e.message)||e)); }
+    }
+  }
   let turningOn=false;
   async function turnOnPush(){
     if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
@@ -654,7 +673,8 @@
       linkUser();
       const ok=await waitForToken(10000);
       plog(ok?'Done: '+subInfo():'No token after 10s: '+subInfo());
-      toast(ok?'Notifications are on.':'Still not working. Tap "Reset notifications on this phone" below.');
+      if(!ok){ plog('Checking the phone\'s push service…'); await rawPushTest(); }
+      toast(ok?'Notifications are on.':'Still not working. Screenshot the log under Notifications.');
     }catch(e){ plog('Error: '+((e&&e.message)||e)); toast('Couldn\'t turn on notifications: '+((e&&e.message)||e)); }
     finally{ turningOn=false; refreshPushUI(); }
   }
