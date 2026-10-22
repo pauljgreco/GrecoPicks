@@ -317,7 +317,21 @@
     load('', false);
   }
 
-  if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  // ---------- Auto-update: reload once when a newer version of the app is published ----------
+  if('serviceWorker' in navigator){
+    function reloadOnce(){
+      try{
+        const last=Number(sessionStorage.getItem('nflpicks_reloaded')||0);
+        if(Date.now()-last<30000) return;            // never loop
+        sessionStorage.setItem('nflpicks_reloaded',String(Date.now()));
+      }catch(e){}
+      location.reload();
+    }
+    navigator.serviceWorker.addEventListener('message',e=>{ if(e.data==='nflpicks-updated' && !pending) reloadOnce(); });
+    const hadController=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(hadController && !pending) reloadOnce(); });
+    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
 </script>
 </body>
 </html>

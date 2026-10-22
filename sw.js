@@ -1,6 +1,7 @@
 // Keeps the app's own files on the phone so it opens instantly.
 // Picks and scores always come live from the Google script (never cached here).
-const CACHE = 'nfl-picks-v1';
+// When a newer version of the app is published, the open page is told to reload once.
+const CACHE = 'nfl-picks-v2';
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
@@ -13,14 +14,28 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Serve the saved copy right away, then quietly fetch a fresh one for next time.
+async function tellPagesToReload() {
+  const pages = await self.clients.matchAll({ type: 'window' });
+  pages.forEach(p => p.postMessage('nflpicks-updated'));
+}
+
+// Serve the saved copy right away, then fetch a fresh one. If the page or its
+// settings changed, save the new copy and ask the open app to reload.
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  const isText = e.request.mode === 'navigate' || /(\/|\.html|\.js|\.webmanifest)$/.test(url.pathname);
   e.respondWith(caches.open(CACHE).then(async cache => {
     const cached = await cache.match(e.request, { ignoreSearch: true });
-    const fresh = fetch(e.request).then(r => {
-      if (r && r.ok) cache.put(e.request, r.clone());
+    const fresh = fetch(e.request, { cache: 'no-cache' }).then(async r => {
+      if (!r || !r.ok) return r;
+      if (cached && isText) {
+        const [oldText, newText] = await Promise.all([cached.clone().text(), r.clone().text()]);
+        await cache.put(e.request, r.clone());
+        if (oldText !== newText) tellPagesToReload();
+      } else {
+        await cache.put(e.request, r.clone());
+      }
       return r;
     }).catch(() => cached);
     return cached || fresh;
