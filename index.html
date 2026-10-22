@@ -182,6 +182,11 @@
       <textarea id="repText" maxlength="2000" placeholder="e.g. My pick for the Bears game didn't save"></textarea>
       <button class="nbtn" id="repSend" style="margin-top:10px">Send report</button>
     </div>
+    <h3>Fix the app</h3>
+    <div class="nbox">
+      <p>App acting weird, stuck on an old version, or notifications won't turn on? This clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
+      <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
+    </div>
   </div>
 </div>
 
@@ -191,7 +196,7 @@
 
 
     <h3>Picking</h3>
-    <details class="faq"><summary>Something's not working?</summary><div>Tap the <b>⚙</b> at the top, then <b>Report a problem</b>. Describe what happened and tap Send; Paul gets it right away.</div></details>
+    <details class="faq"><summary>Something's not working?</summary><div>First try <b>⚙ → Reset the app on this phone</b>. It clears the app's saved data and reloads it, and your picks are safe. Still broken? In <b>⚙</b>, use <b>Report a problem</b>. Describe what happened and tap Send; Paul gets it right away.</div></details>
     <details class="faq"><summary>Where are notification settings?</summary><div>Tap the <b>⚙</b> at the top to turn notifications on or off and choose which ones you get.</div></details>
     <details class="faq"><summary>How do I make a pick?</summary><div>Tap the team you think will win. It saves on its own; you'll see <b>Saving…</b> for a second. Regular-season games also have a small <b>Tie</b> button for the rare game that ends tied.</div></details>
     <details class="faq"><summary>Can I change my pick?</summary><div>Yes. Tap the other team any time <b>until that game kicks off</b>.</div></details>
@@ -725,6 +730,33 @@
     const k=e.target.dataset&&e.target.dataset.pref; if(!k) return;
     const on=e.target.checked;
     api('prefs',{type:k,on:on?'1':'0'}).then(p=>{ if(state&&state.me) state.me.prefs=p; save(); }).catch(err=>{ e.target.checked=!on; toast(err.message); });
+  });
+
+  // ---------- Reset the app on this phone (works in any browser) ----------
+  let resetArmed=0;
+  document.getElementById('appReset').addEventListener('click',async()=>{
+    const btn=document.getElementById('appReset');
+    if(Date.now()-resetArmed>4000){ resetArmed=Date.now(); btn.textContent='Tap again to reset'; setTimeout(()=>{ if(Date.now()-resetArmed>=4000) btn.textContent='Reset the app on this phone'; },4100); return; }
+    btn.disabled=true; btn.textContent='Resetting…';
+    const key=KEY;
+    try{ if(OS){ try{ await OS.User.PushSubscription.optOut(); }catch(e){} try{ await OS.logout(); }catch(e){} } }catch(e){}
+    // Service workers (and their notification sign-ups)
+    try{ if('serviceWorker' in navigator){ for(const r of await navigator.serviceWorker.getRegistrations()){
+      try{ const sub=r.pushManager&&await r.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){}
+      try{ await r.unregister(); }catch(e){}
+    } } }catch(e){}
+    // Offline copies
+    try{ if(window.caches){ for(const k of await caches.keys()) await caches.delete(k); } }catch(e){}
+    // Databases (OneSignal keeps its state here)
+    try{
+      let names=['ONE_SIGNAL_SDK_DB'];
+      if(indexedDB.databases){ try{ (await indexedDB.databases()).forEach(d=>{ if(d.name&&names.indexOf(d.name)<0) names.push(d.name); }); }catch(e){} }
+      await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
+    }catch(e){}
+    // Saved settings, keeping who you are
+    try{ localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); }catch(e){}
+    try{ sessionStorage.clear(); }catch(e){}
+    location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
 
   // ---------- Report a problem ----------
