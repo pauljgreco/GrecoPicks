@@ -590,7 +590,15 @@
   async function turnOnPush(){
     if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
     try{
-      if(Notification.permission==='granted'){ await OS.User.PushSubscription.optIn(); }
+      if(Notification.permission==='granted'){
+        // Clear any stale browser push subscription first so OneSignal gets a fresh delivery token.
+        try{
+          const reg=await navigator.serviceWorker.getRegistration('/GrecoPicks/');
+          const old=reg && await reg.pushManager.getSubscription();
+          if(old) await old.unsubscribe();
+        }catch(e){}
+        await OS.User.PushSubscription.optIn();
+      }
       else { await OS.Notifications.requestPermission(); }
       linkUser();
       setTimeout(()=>{ refreshPushUI(); toast(OS.User.PushSubscription.optedIn&&OS.User.PushSubscription.id?'Notifications are on.':'Still not subscribed. See the details under Notifications.'); },2500);
