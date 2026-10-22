@@ -1,0 +1,14 @@
+{
+  "name": "NFL Picks",
+  "short_name": "NFL Picks",
+  "description": "Weekly NFL picks for family and friends.",
+  "display": "standalone",
+  "scope": "./",
+  "background_color": "#0b1f3a",
+  "theme_color": "#0b1f3a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
