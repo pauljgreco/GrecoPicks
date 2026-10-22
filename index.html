@@ -529,6 +529,7 @@
         serviceWorkerPath:'GrecoPicks/sw.js',
         serviceWorkerParam:{scope:'/GrecoPicks/'},
         notifyButton:{enable:false},
+        welcomeNotification:{disable:true},
       });
       OS=OneSignal; pushReady=true;
       OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
