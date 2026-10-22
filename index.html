@@ -525,23 +525,24 @@
   window.OneSignalDeferred=window.OneSignalDeferred||[];
   OneSignalDeferred.push(async function(OneSignal){
     try{
-      // Self-repair: an older version of the app registered sw.js without OneSignal's settings,
-      // which silently stops notifications. Remove that registration so OneSignal can redo it.
-      let lastFix=0; try{ lastFix=Number(localStorage.getItem('nflpicks_swfix')||0); }catch(e){}
-      if('serviceWorker' in navigator && Date.now()-lastFix>86400e3){   // at most once a day
+      // One-time move: OneSignal used to share sw.js with the app. It now has its own worker in
+      // push/, so remove the old shared registration (the app re-registers a plain sw.js below).
+      let moved=false; try{ moved=localStorage.getItem('nflpicks_swmove')==='1'; }catch(e){}
+      if('serviceWorker' in navigator && !moved){
         try{
-          try{ localStorage.setItem('nflpicks_swfix',String(Date.now())); }catch(e){}
           const regs=await navigator.serviceWorker.getRegistrations();
           for(const r of regs){
             const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
-            if(u.indexOf('/GrecoPicks/sw.js')>=0 && u.indexOf('appId=')<0) await r.unregister();
+            if(u.indexOf('/GrecoPicks/sw.js')>=0) await r.unregister();
           }
+          localStorage.setItem('nflpicks_swmove','1');
         }catch(e){}
+        try{ await navigator.serviceWorker.register('sw.js'); }catch(e){}
       }
       await OneSignal.init({
         appId:ONESIGNAL_APP_ID,
-        serviceWorkerPath:'GrecoPicks/sw.js',
-        serviceWorkerParam:{scope:'/GrecoPicks/'},
+        serviceWorkerPath:'GrecoPicks/push/OneSignalSDKWorker.js',
+        serviceWorkerParam:{scope:'/GrecoPicks/push/'},
         notifyButton:{enable:false},
         welcomeNotification:{disable:true},
       });
@@ -594,7 +595,7 @@
       if(Notification.permission==='granted'){
         // Clear any stale browser push subscription first so OneSignal gets a fresh delivery token.
         try{
-          const reg=await navigator.serviceWorker.getRegistration('/GrecoPicks/');
+          const reg=await navigator.serviceWorker.getRegistration('/GrecoPicks/push/');
           const old=reg && await reg.pushManager.getSubscription();
           if(old) await old.unsubscribe();
         }catch(e){}
@@ -615,7 +616,8 @@
     if(b.dataset.push==='on') turnOnPush();
     if(b.dataset.push==='off') turnOffPush();
     if(b.dataset.push==='local'){
-      navigator.serviceWorker.getRegistration('/GrecoPicks/')
+      navigator.serviceWorker.getRegistration('/GrecoPicks/push/')
+        .then(r=>r||navigator.serviceWorker.getRegistration('/GrecoPicks/'))
         .then(r=>{ if(!r) throw new Error('no notification helper registered'); return r.showNotification('Greco Picks',{body:'Local test from this phone 🏈',icon:'icon-192.png'}); })
         .then(()=>toast('Sent a local test. Did it pop up?'))
         .catch(e=>toast('Local test failed: '+((e&&e.message)||e)));
@@ -692,8 +694,8 @@
     navigator.serviceWorker.addEventListener('message',e=>{ if(e.data==='nflpicks-updated' && !pending) reloadOnce(); });
     const hadController=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(hadController && !pending) reloadOnce(); });
-    // sw.js is registered by OneSignal (it needs its own settings attached to the address),
-    // so the app never registers it itself; registering it here broke notifications.
+    // The app's own worker (offline copy + auto-update). OneSignal uses a separate worker in push/.
+    window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
   }
 </script>
 </body>
