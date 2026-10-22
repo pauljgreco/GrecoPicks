@@ -74,6 +74,22 @@
   #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%;z-index:10}
   .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.5}
   body.busy main{opacity:.6;pointer-events:none}
+  .icon.q{font-size:17px;font-weight:700;width:32px;height:32px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%}
+  #help{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on{display:flex}
+  .sheet{background:var(--bg);width:100%;max-width:560px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(24px + env(safe-area-inset-bottom))}
+  .sheet-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .sheet h2{font-size:20px;margin:0}
+  .sheet h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:18px 0 6px}
+  .sheet .x{background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:50%;width:34px;height:34px;font-size:18px;cursor:pointer}
+  .faq{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+  .faq summary{padding:12px 14px;font-weight:600;cursor:pointer;list-style:none}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:'+';float:right;color:var(--muted);font-weight:400}
+  .faq[open] summary::after{content:'–'}
+  .faq div{padding:0 14px 12px;font-size:15px;color:var(--muted);line-height:1.45}
+  .faq div b{color:var(--ink)}
+  .faq ol{margin:6px 0 0;padding-left:20px}
 </style>
 </head>
 <body>
@@ -84,6 +100,7 @@
       <div class="right">
         <select id="week" aria-label="Week"></select>
         <button class="icon" id="reload" aria-label="Refresh">↻</button>
+        <button class="icon q" id="helpBtn" aria-label="Help">?</button>
       </div>
     </div>
     <div class="mine" id="mine"></div>
@@ -95,6 +112,37 @@
 </header>
 <main class="wrap" id="main"><div class="empty">Loading…</div></main>
 <div id="toast"></div>
+
+<div id="help" role="dialog" aria-modal="true" aria-label="Help">
+  <div class="sheet">
+    <div class="sheet-top"><h2>How it works</h2><button class="x" id="helpClose" aria-label="Close">✕</button></div>
+
+    <h3>Picking</h3>
+    <details class="faq"><summary>How do I make a pick?</summary><div>Tap the team you think will win. It saves on its own; you'll see <b>Saving…</b> for a second. Regular-season games also have a small <b>Tie</b> button for the rare game that ends tied.</div></details>
+    <details class="faq"><summary>Can I change my pick?</summary><div>Yes. Tap the other team any time <b>until that game kicks off</b>.</div></details>
+    <details class="faq"><summary>When do picks lock?</summary><div>Each game locks on its own at its <b>scheduled kickoff time</b>. Thursday's game locks Thursday, Sunday's games lock when each one starts. If a game starts late, it still locks at the listed time. If the NFL moves a game, the lock time moves with it.</div></details>
+    <details class="faq"><summary>When can I see everyone else's picks?</summary><div>On each game, once you've made <b>your</b> pick. Before that you only see how many people have picked. Once a game kicks off, everyone's picks for it are shown.</div></details>
+
+    <h3>Scoring</h3>
+    <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
+    <details class="faq"><summary>How does the leaderboard rank people?</summary><div>By <b>season win percentage</b>, then total wins. Joining partway through the season doesn't hurt you.</div></details>
+    <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
+    <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
+
+    <h3>The app</h3>
+    <details class="faq"><summary>How do I put this on my home screen?</summary><div><b>Android:</b> open your link in Chrome, tap ⋮, then <b>Install app</b>.<br><b>iPhone:</b> open your link in Safari, tap the Share button, then <b>Add to Home Screen</b>.</div></details>
+    <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
+
+    <div id="adminHelp" hidden>
+      <h3>Admin (only you see this)</h3>
+      <details class="faq"><summary>Add someone</summary><div><ol><li>In the Sheet, go to the <b>Players</b> tab and type their name in the next empty row (leave the other cells blank).</li><li>In the script editor, run <b>showLinks</b>.</li><li>Copy their link from the <b>Link</b> column and text it to them.</li></ol></div></details>
+      <details class="faq"><summary>Remove someone</summary><div>On the <b>Players</b> tab, set their <b>Active</b> cell to <b>FALSE</b>. Their link stops working; their past picks stay.</div></details>
+      <details class="faq"><summary>Fix or add a pick after kickoff</summary><div>Open <b>Admin override</b> on that game's card, pick the team (or <b>Missed</b>, which counts as a loss) for that person, and tap <b>Save</b>. It's marked "override."</div></details>
+      <details class="faq"><summary>Someone's link got shared</summary><div>On the <b>Players</b> tab, clear their <b>Key</b> cell, run <b>showLinks</b>, and send them the new link. The old one stops working.</div></details>
+      <details class="faq"><summary>Changing the script</summary><div>After saving Code.gs, use <b>Deploy → Manage deployments → pencil → New version → Deploy</b>. Never <b>New deployment</b>; that changes the address the app uses.</div></details>
+    </div>
+  </div>
+</div>
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
@@ -165,6 +213,7 @@
   function render(){
     const s=state; if(!s) return;
     document.getElementById('hi').textContent='Hi, '+s.me.name;
+    document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
@@ -252,6 +301,10 @@
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{view=t.dataset.view;render();window.scrollTo(0,0);}));
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
   document.getElementById('reload').addEventListener('click',()=>load(state&&state.selected,false));
+  const help=document.getElementById('help');
+  document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
+  document.getElementById('helpClose').addEventListener('click',()=>help.classList.remove('on'));
+  help.addEventListener('click',e=>{if(e.target===help) help.classList.remove('on');});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state) load(state.selected,false);});
 
   // ---------- Start ----------
