@@ -290,13 +290,13 @@
       return `<tr><td class="g"><b>${esc(g.away.abbr)} @ ${esc(g.home.abbr)}</b><span>${sub}</span></td>${cells}</tr>`;
     }).join('');
     return `<div class="gridwrap"><table class="grid"><thead><tr><th class="g">Game</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="note">Records shown are for this week. ✓ means picked but hidden until you make your pick on that game (or it kicks off).</div>`;
+      <div class="note">Records shown are for the week picked at the top. ✓ means picked but hidden until you make your pick on that game (or it kicks off).</div>`;
   }
 
   // ---------- Stats tab ----------
   const hist={};                      // season -> history data
   let histLoading=false;
-  let sf={season:'', range:'season', from:'', to:'', people:null};
+  let sf={season:'', range:'season', week:'', from:'', to:'', people:null};
   try{ const saved=JSON.parse(localStorage.getItem('nflpicks_statsf')||'null'); if(saved) sf=Object.assign(sf,saved); }catch(e){}
   function saveSf(){ try{ localStorage.setItem('nflpicks_statsf', JSON.stringify(sf)); }catch(e){} }
 
@@ -320,7 +320,10 @@
   function computeStats(h){
     const weeksAll=Array.from(new Set(h.games.map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
     let inRange;
-    if(sf.range==='week'){ inRange=g=>wkKey(g)===state.selected; }
+    if(sf.range==='week'){
+      const wk=weeksAll.indexOf(sf.week)>=0?sf.week:(weeksAll.indexOf(state.selected)>=0?state.selected:weeksAll[weeksAll.length-1]);
+      inRange=g=>wkKey(g)===wk;
+    }
     else if(sf.range==='reg'){ inRange=g=>g.type===2; }
     else if(sf.range==='post'){ inRange=g=>g.type===3; }
     else if(sf.range==='span'){
@@ -381,13 +384,17 @@
     const me=state.me.id;
 
     const seasonOpts=(h.seasons.length>1?[['all','All seasons']]:[]).concat(h.seasons.map(x=>[String(x),String(x)+' season']));
-    const rangeOpts=[['season','Whole season'],['week','Week picked on Picks tab'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
+    const rangeOpts=[['season','Whole season'],['week','Single week…'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
     const opt=(list,val)=>list.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(t)}</option>`).join('');
     const wkOpts=v=>st.weeksAll.map(k=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('');
     let html=`<div class="filters">
         <select data-sf="season">${opt(seasonOpts,season)}</select>
         <select data-sf="range">${opt(rangeOpts,sf.range)}</select>
       </div>`;
+    if(sf.range==='week'){
+      const cur=st.weeksAll.indexOf(sf.week)>=0?sf.week:(st.weeksAll.indexOf(state.selected)>=0?state.selected:st.weeksAll[st.weeksAll.length-1]);
+      html+=`<div class="filters"><select data-sf="week">${st.weeksAll.slice().reverse().map(k=>`<option value="${esc(k)}"${k===cur?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('')}</select></div>`;
+    }
     if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
     const allOn=st.sel.length===st.everyone.length;
     html+=`<div class="chips"><button class="chip${allOn?' on':''}" data-chip="__all">Everyone</button>${st.everyone.map(id=>`<button class="chip${st.sel.indexOf(id)>=0&&!allOn?' on':''}" data-chip="${esc(id)}">${esc(id===me?'You':st.names[id])}</button>`).join('')}</div>`;
@@ -509,7 +516,7 @@
   document.getElementById('main').addEventListener('change',e=>{
     const k=e.target.dataset&&e.target.dataset.sf; if(!k) return;
     sf[k]=e.target.value;
-    if(k==='season'){ sf.from=''; sf.to=''; if(sf.season===curSeason()) sf.season=''; }
+    if(k==='season'){ sf.from=''; sf.to=''; sf.week=''; if(sf.season===curSeason()) sf.season=''; }
     saveSf(); render(); if(k==='season') loadHistory();
   });
   document.getElementById('main').addEventListener('click',e=>{
