@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NFL Picks</title>
+<meta name="theme-color" content="#0b1f3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NFL Picks">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="config.js"></script>
+<style>
+  :root{--bg:#f3f4f7;--card:#fff;--ink:#14171c;--muted:#687083;--line:#e2e5eb;--accent:#0b5cff;--sel:#e7efff;--win:#15803d;--loss:#c62828;--me:#fff7d6;--bar:#0b1f3a}
+  @media (prefers-color-scheme:dark){:root{--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a}}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent;padding-bottom:env(safe-area-inset-bottom)}
+  header{position:sticky;top:0;z-index:5;background:var(--bar);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 14px 0}
+  .wrap{max-width:560px;margin:0 auto}
+  .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  h1{font-size:21px;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .right{display:flex;align-items:center;gap:8px;min-width:0}
+  header select{font:inherit;font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;max-width:170px}
+  header select option{color:#14171c}
+  .icon{background:none;border:0;color:#fff;font-size:22px;line-height:1;padding:6px;cursor:pointer;border-radius:8px}
+  .icon.spin{animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .mine{margin-top:6px;font-size:14px;color:rgba(255,255,255,.75)} .mine b{color:#fff}
+  .tabs{display:flex;margin-top:8px}
+  .tab{flex:1;padding:11px 0;border:0;background:none;color:rgba(255,255,255,.65);font:inherit;font-weight:600;border-bottom:3px solid transparent;cursor:pointer}
+  .tab.on{color:#fff;border-bottom-color:#fff}
+  main{padding:12px 14px 48px}
+  select{font:inherit}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px}
+  .meta{display:flex;justify-content:space-between;gap:8px;font-size:14px;color:var(--muted);margin-bottom:8px}
+  .teams{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .team{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+  .team img{width:44px;height:44px;object-fit:contain}
+  .team .nm{font-weight:600;font-size:17px;text-align:center}
+  .team .rc{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .team .ha{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .team .sc{font-size:24px;font-weight:700}
+  .team.sel{border-color:var(--accent);background:var(--sel)}
+  .team:disabled{cursor:default;color:var(--ink)}
+  .closed .team:not(.sel){opacity:.55}
+  .team.won .sc{color:var(--win)}
+  .tie{display:block;margin:6px auto 0;background:none;border:1px dashed var(--line);border-radius:999px;padding:5px 16px;color:var(--muted);font:inherit;font-size:14px;cursor:pointer}
+  .tie.sel{border:2px solid var(--accent);color:var(--accent);background:var(--sel)}
+  .tie:disabled{cursor:default}
+  .you{margin-top:8px;font-size:15px}
+  .grp{margin-top:6px;font-size:14px;color:var(--muted);line-height:1.5}
+  .grp b{color:var(--ink)}
+  .W{color:var(--win);font-weight:700} .L{color:var(--loss);font-weight:700}
+  .ovr{font-size:11px;border:1px solid var(--line);border-radius:6px;padding:0 4px;margin-left:3px}
+  details.adm{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px;font-size:15px}
+  details.adm summary{color:var(--muted);cursor:pointer}
+  .admrow{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .admrow span{flex:0 0 80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admrow select{flex:1;font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .admrow button{font:inherit;padding:7px 12px;border-radius:9px;border:0;background:var(--accent);color:#fff}
+  table.lb{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-variant-numeric:tabular-nums}
+  .lb th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;text-align:right;padding:10px 8px;border-bottom:1px solid var(--line)}
+  .lb td{padding:12px 8px;border-bottom:1px solid var(--line);text-align:right}
+  .lb tr:last-child td{border-bottom:0}
+  .lb th:nth-child(2),.lb td:nth-child(2){text-align:left}
+  .lb th:first-child,.lb td:first-child{text-align:center;width:36px;color:var(--muted)}
+  .lb td:nth-child(2){font-weight:600}
+  .lb tr.me td{background:var(--me)}
+  .note{font-size:13px;color:var(--muted);margin-top:10px;text-align:center}
+  #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%;z-index:10}
+  .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.5}
+  body.busy main{opacity:.6;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <h1 id="hi">NFL Picks</h1>
+      <div class="right">
+        <select id="week" aria-label="Week"></select>
+        <button class="icon" id="reload" aria-label="Refresh">↻</button>
+      </div>
+    </div>
+    <div class="mine" id="mine"></div>
+    <div class="tabs">
+      <button class="tab on" data-view="picks">Picks</button>
+      <button class="tab" data-view="board">Leaderboard</button>
+    </div>
+  </div>
+</header>
+<main class="wrap" id="main"><div class="empty">Loading…</div></main>
+<div id="toast"></div>
+
+<script>
+  // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
+  const params = new URLSearchParams(location.search);
+  const urlKey = (params.get('k') || '').toLowerCase();
+  let KEY = '';
+  try { if (/^[a-f0-9]{32}$/.test(urlKey)) localStorage.setItem('nflpicks_key', urlKey); KEY = localStorage.getItem('nflpicks_key') || ''; } catch (e) { KEY = urlKey; }
+  if (!KEY && /^[a-f0-9]{32}$/.test(urlKey)) KEY = urlKey;
+  const API = window.NFL_PICKS_API || '';
+  const CACHE_KEY = 'nflpicks_state_' + KEY;
+
+  let state = null, view = 'picks', pending = 0;
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3500);}
+  function spin(on){document.getElementById('reload').classList.toggle('spin',on);}
+  function save(){try{localStorage.setItem(CACHE_KEY,JSON.stringify(state));}catch(e){}}
+
+  // ---------- Talking to the Google script ----------
+  function api(action, extra){
+    const u = new URL(API);
+    u.searchParams.set('api', action);
+    u.searchParams.set('k', KEY);
+    Object.keys(extra||{}).forEach(k=>u.searchParams.set(k, extra[k]));
+    return fetch(u.toString()).then(r=>r.json()).then(j=>{ if(!j.ok) throw new Error(j.error||'Something went wrong.'); return j.data; });
+  }
+
+  function load(wk, busy){
+    spin(true); if(busy) document.body.classList.add('busy');
+    return api('state', {wk: wk||''})
+      .then(s=>{ if(!pending){ state=s; save(); render(); } })
+      .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
+      .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
+  }
+
+  // Picks show instantly; the save happens in the background.
+  function pick(gid,p){
+    const i=state.games.findIndex(x=>x.id===gid); if(i<0) return;
+    const before=state.games[i];
+    state.games[i]=Object.assign({},before,{mine:{pick:p,result:'',override:false},saving:true});
+    render(); pending++;
+    api('pick',{g:gid,p:p})
+      .then(r=>{const j=state.games.findIndex(x=>x.id===gid);if(j>=0)state.games[j]=r.game;save();})
+      .catch(e=>{const j=state.games.findIndex(x=>x.id===gid);if(j>=0)state.games[j]=before;toast(e.message);})
+      .finally(()=>{pending--;render();});
+  }
+
+  function adminSet(gid,pl,p){
+    document.body.classList.add('busy'); spin(true);
+    api('admin',{g:gid,pl:pl,p:p,wk:state.selected})
+      .then(s=>{state=s;save();render();toast('Saved.');})
+      .catch(e=>toast(e.message))
+      .finally(()=>{document.body.classList.remove('busy');spin(false);});
+  }
+
+  // ---------- Drawing the screen ----------
+  function kick(iso){return new Date(iso).toLocaleString([], {weekday:'short',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});}
+  function pickLabel(g,p){
+    if(p==='TIE') return 'Tie';
+    if(p==='MISSED') return 'Missed';
+    if(p===g.away.abbr) return g.away.name;
+    if(p===g.home.abbr) return g.home.name;
+    return p;
+  }
+  function res(r){return r==='W'?' <span class="W">✓</span>':r==='L'?' <span class="L">✗</span>':'';}
+  function showMsg(html){document.getElementById('main').innerHTML=`<div class="empty">${html}</div>`;}
+
+  function render(){
+    const s=state; if(!s) return;
+    document.getElementById('hi').textContent='Hi, '+s.me.name;
+    document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
+    document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
+    const m=document.getElementById('main');
+    if(view==='board'){ m.innerHTML=board(); return; }
+    m.innerHTML=s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>';
+  }
+
+  function board(){
+    const s=state;
+    const rows=s.board.map(r=>`<tr class="${r.id===s.me.id?'me':''}"><td>${esc(r.rank)}</td><td>${esc(r.name)}</td><td>${esc(r.week)}</td><td>${esc(r.season)}</td><td>${esc(r.pctText)}</td></tr>`).join('');
+    return `<table class="lb"><thead><tr><th>#</th><th>Name</th><th>Week</th><th>Season</th><th>Pct</th></tr></thead><tbody>${rows}</tbody></table>
+      <div class="note">Ranked by season win %, then total wins. "Week" is the week picked at the top.</div>`;
+  }
+
+  function card(g){
+    const s=state, my=g.mine&&g.mine.pick, locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
+    const open=!locked&&!g.frozen, show=g.status!=='pre';
+    const team=(t,ha)=>`<button class="team${my===t.abbr?' sel':''}${g.winner===t.abbr?' won':''}" ${open?`data-act="pick" data-g="${esc(g.id)}" data-p="${esc(t.abbr)}"`:'disabled'}>
+        ${t.logo?`<img src="${esc(t.logo)}" alt="" loading="lazy">`:''}
+        <div class="nm">${esc(t.name)}</div>
+        ${t.record?`<div class="rc">${esc(t.record)}</div>`:''}
+        ${show?`<div class="sc">${esc(t.score)}</div>`:`<div class="ha">${ha}</div>`}
+      </button>`;
+    const tie=g.canTie?`<button class="tie${my==='TIE'?' sel':''}" ${open?`data-act="pick" data-g="${esc(g.id)}" data-p="TIE"`:'disabled'}>Tie</button>`:'';
+
+    let st;
+    if(g.status==='final') st=g.winner==='TIE'?'Final · Tie':'Final';
+    else if(g.status==='in') st=esc(g.detail)||'In progress';
+    else if(locked) st=esc(g.detail)||'Locked';
+    else if(g.saving) st='Saving…';
+    else if(g.frozen) st='Locked in';
+    else st='Open';
+
+    const ov=p=>p&&p.override?'<span class="ovr">override</span>':'';
+    const you=g.mine?`You: <b>${esc(pickLabel(g,g.mine.pick))}</b>${res(g.mine.result)}${ov(g.mine)}`:(locked?'You: no pick':'You: not picked yet');
+
+    let grp='';
+    if(g.othersTotal){
+      if(!g.mine && !g.locked){
+        grp=`${g.othersPicked} of ${g.othersTotal} others picked · make your pick to see theirs`;
+      } else {
+        const by={};
+        (g.others||[]).forEach(o=>{(by[o.pick]=by[o.pick]||[]).push(o);});
+        const parts=Object.keys(by).map(p=>`<b>${esc(pickLabel(g,p))}:</b> ${by[p].map(o=>esc(o.name)+res(o.result)+ov(o)).join(', ')}`);
+        const left=g.othersTotal-g.othersPicked;
+        if(left) parts.push(g.locked?`${left} no pick`:`${left} still to pick`);
+        grp=parts.join('<br>');
+      }
+    }
+
+    let admin='';
+    if(g.admin){
+      const opts=[['', 'No pick'],[g.away.abbr,g.away.name],[g.home.abbr,g.home.name]];
+      if(g.canTie) opts.push(['TIE','Tie']);
+      opts.push(['MISSED','Missed (counts as loss)']);
+      const row=a=>`<div class="admrow"><span>${esc(a.name)}</span>
+          <select>${opts.map(o=>`<option value="${esc(o[0])}"${a.pick===o[0]?' selected':''}>${esc(o[1])}</option>`).join('')}</select>
+          <button data-act="adm" data-g="${esc(g.id)}" data-pl="${esc(a.id)}">Save</button></div>`;
+      admin=`<details class="adm"><summary>Admin override</summary>${g.admin.map(row).join('')}</details>`;
+    }
+
+    return `<div class="card${open?'':' closed'}">
+      <div class="meta"><span>${esc(kick(g.kickoff))}</span><span>${st}</span></div>
+      <div class="teams">${team(g.away,'Away')}${team(g.home,'Home')}</div>
+      ${tie}
+      <div class="you">${you}</div>
+      ${grp?`<div class="grp">${grp}</div>`:''}
+      ${admin}
+    </div>`;
+  }
+
+  // ---------- Taps ----------
+  document.getElementById('main').addEventListener('click',e=>{
+    const b=e.target.closest('[data-act]'); if(!b||!state) return;
+    if(b.dataset.act==='pick'){
+      const g=state.games.find(x=>x.id===b.dataset.g);
+      if(g&&g.mine&&g.mine.pick===b.dataset.p) return;
+      pick(b.dataset.g,b.dataset.p);
+    }
+    if(b.dataset.act==='adm'){
+      adminSet(b.dataset.g,b.dataset.pl,b.parentNode.querySelector('select').value||'CLEAR');
+    }
+  });
+  document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{view=t.dataset.view;render();window.scrollTo(0,0);}));
+  document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
+  document.getElementById('reload').addEventListener('click',()=>load(state&&state.selected,false));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state) load(state.selected,false);});
+
+  // ---------- Start ----------
+  if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(API)){
+    showMsg('This app isn\'t connected yet.<br>Put the script\'s /exec address in <b>config.js</b>.');
+  } else if(!KEY){
+    showMsg('Open your personal link once to sign in.<br>Ask Paul for it if you don\'t have it.');
+  } else {
+    try{ const c=localStorage.getItem(CACHE_KEY); if(c){ state=JSON.parse(c); state.weeks=state.weeks||[]; render(); } }catch(e){}
+    load('', false);
+  }
+
+  if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
