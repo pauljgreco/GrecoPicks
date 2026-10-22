@@ -582,7 +582,7 @@
     let diag='';
     if(state&&state.me&&state.me.isAdmin){
       const sub=OS&&OS.User&&OS.User.PushSubscription;
-      diag=`<p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details (admin): status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
+      diag=`<button class="nbtn" data-push="local" style="margin-top:12px;background:none;color:var(--accent);border:1px solid var(--accent)">Show a test notification (no internet)</button><p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details (admin): status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
       if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>{const el=document.getElementById('swinfo'); if(el) el.textContent=rs.length?rs.map(r=>(r.active&&r.active.scriptURL||'?').replace(location.origin,'')).join(', '):'none';}).catch(()=>{});
     }
     box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+off:'')+diag;
@@ -614,6 +614,12 @@
     const b=e.target.closest('[data-push]'); if(!b) return;
     if(b.dataset.push==='on') turnOnPush();
     if(b.dataset.push==='off') turnOffPush();
+    if(b.dataset.push==='local'){
+      navigator.serviceWorker.getRegistration('/GrecoPicks/')
+        .then(r=>{ if(!r) throw new Error('no notification helper registered'); return r.showNotification('Greco Picks',{body:'Local test from this phone 🏈',icon:'icon-192.png'}); })
+        .then(()=>toast('Sent a local test. Did it pop up?'))
+        .catch(e=>toast('Local test failed: '+((e&&e.message)||e)));
+    }
     if(b.dataset.push==='dismiss'){ try{localStorage.setItem('nflpicks_pushdismiss','1');}catch(x){} render(); }
   });
   document.addEventListener('change',e=>{
