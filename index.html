@@ -590,6 +590,7 @@
     else if(st==='error') top='<p>Notifications couldn\'t start: <b>'+esc(pushErr)+'</b></p>';
     else if(st==='off') top='<p>Get a reminder before picks lock, a heads-up when a new week is up, and your weekly results.</p><button class="nbtn" data-push="on">Turn on notifications</button>';
     else top='<p>✅ Notifications are on for this phone. Choose what you get:</p>';
+    const testBtn=st==='on'?'<button class="nbtn" data-push="testme" style="margin-top:12px">Send me a test notification</button><br>':'';
     const off=st==='on'?'<button class="nbtn" data-push="off" style="background:none;color:var(--muted);border:1px solid var(--line);margin-top:12px">Turn off notifications on this phone</button>':'';
     const tog=(k,t,sub)=>`<label class="tog"><span>${t}<small>${sub}</small></span><input type="checkbox" data-pref="${k}"${p[k]?' checked':''}></label>`;
     let diag='';
@@ -598,7 +599,7 @@
       diag=`<button class="nbtn" data-push="local" style="margin-top:12px;background:none;color:var(--accent);border:1px solid var(--accent)">Show a test notification (no internet)</button><p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details (admin): status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
       if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>{const el=document.getElementById('swinfo'); if(el) el.textContent=rs.length?rs.map(r=>(r.active&&r.active.scriptURL||'?').replace(location.origin,'')).join(', '):'none';}).catch(()=>{});
     }
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+off:'')+diag;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+diag;
     if(view==='picks' && state) render();
   }
   async function turnOnPush(){
@@ -627,6 +628,10 @@
     const b=e.target.closest('[data-push]'); if(!b) return;
     if(b.dataset.push==='on') turnOnPush();
     if(b.dataset.push==='off') turnOffPush();
+    if(b.dataset.push==='testme'){
+      b.disabled=true;
+      api('testme',{}).then(()=>toast('Sent! It should pop up in a few seconds.')).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;});
+    }
     if(b.dataset.push==='local'){
       navigator.serviceWorker.getRegistration('/GrecoPicks/push/')
         .then(r=>r||navigator.serviceWorker.getRegistration('/GrecoPicks/'))
