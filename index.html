@@ -557,7 +557,8 @@
     if(!('Notification' in window)) return 'unsupported';
     if(Notification.permission==='denied') return 'blocked';
     if(!pushReady) return pushErr ? 'error' : 'loading';
-    return (OS.Notifications.permission && OS.User.PushSubscription.optedIn) ? 'on' : 'off';
+    // Only "on" when the phone itself allows notifications AND there's a delivery token.
+    return (Notification.permission==='granted' && OS.User.PushSubscription.optedIn && OS.User.PushSubscription.token) ? 'on' : 'off';
   }
   function pushBanner(){
     const st=pushStatus();
