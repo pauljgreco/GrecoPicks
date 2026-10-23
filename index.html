@@ -127,6 +127,17 @@
   .rep textarea{width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
   .rep p{margin:0 0 8px;font-size:14px;color:var(--muted)}
   .icon.gear{font-size:22px;padding:4px}
+  .tab .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:#ef4444;color:#fff;font-size:12px;line-height:18px;vertical-align:1px}
+  .crown{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:10px;font-size:15px}
+  .split{color:var(--muted);font-size:13px;margin-top:4px}
+  .namerow{display:flex;gap:8px}
+  .namerow input{flex:1;min-width:0;font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .person{border-top:1px solid var(--line);padding:10px 0}
+  .person b{display:block;font-size:15px}
+  .person small{color:var(--muted)}
+  .person .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+  .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
   #help,#settings{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
   #help.on,#settings.on{display:flex}
@@ -174,8 +185,21 @@
 <div id="settings" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet">
     <div class="sheet-top"><h2>Settings</h2><button class="x" id="setClose" aria-label="Close">✕</button></div>
+    <h3>Your name</h3>
+    <div class="nbox">
+      <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
+      <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
+    </div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
+    <div id="peopleWrap" hidden>
+      <h3>People (only you see this)</h3>
+      <div class="nbox">
+        <p>Add someone, then send them their link. "New link" makes a fresh link for someone (their old one stops working; their picks stay).</p>
+        <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="New person's name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
+        <div id="people" style="margin-top:10px"><p>Loading…</p></div>
+      </div>
+    </div>
     <h3>Report a problem</h3>
     <div class="nbox rep">
       <p>Something not working or look wrong? Tell us what happened. Your name and phone details are sent along automatically.</p>
@@ -214,14 +238,16 @@
 
     <h3>The app</h3>
     <details class="faq"><summary>How do I put this on my home screen?</summary><div><b>Android:</b> open your link in Chrome, tap ⋮, then <b>Install app</b>.<br><b>iPhone:</b> open your link in Safari, tap the Share button, then <b>Add to Home Screen</b>.</div></details>
+    <details class="faq"><summary>Can I change my name?</summary><div>Yes. Tap <b>⚙</b>, change <b>Your name</b>, and tap <b>Save</b>. Everyone sees the new name right away, and your picks and records stay with you.</div></details>
+    <details class="faq"><summary>What's the 👑?</summary><div>The winner of the most recent finished week (most wins that week). Ties share the crown.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
-      <details class="faq"><summary>Add someone</summary><div><ol><li>In the Sheet, go to the <b>Players</b> tab and type their name in the next empty row (leave the other cells blank).</li><li>In the script editor, run <b>showLinks</b>.</li><li>Copy their link from the <b>Link</b> column and text it to them.</li></ol></div></details>
+      <details class="faq"><summary>Add someone</summary><div>Tap <b>⚙</b>, scroll to <b>People</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
       <details class="faq"><summary>Remove someone</summary><div>On the <b>Players</b> tab, set their <b>Active</b> cell to <b>FALSE</b>. Their link stops working; their past picks stay.</div></details>
       <details class="faq"><summary>Fix or add a pick after kickoff</summary><div>Open <b>Admin override</b> on that game's card, pick the team (or <b>Missed</b>, which counts as a loss) for that person, and tap <b>Save</b>. It's marked "override."</div></details>
-      <details class="faq"><summary>Someone's link got shared</summary><div>On the <b>Players</b> tab, clear their <b>Key</b> cell, run <b>showLinks</b>, and send them the new link. The old one stops working.</div></details>
+      <details class="faq"><summary>Someone's link got shared</summary><div>In <b>⚙ → People</b>, tap <b>New link</b> next to them (tap twice to confirm) and send them the new one. The old link stops working; their picks stay.</div></details>
       <details class="faq"><summary>Changing the script</summary><div>After saving Code.gs, use <b>Deploy → Manage deployments → pencil → New version → Deploy</b>. Never <b>New deployment</b>; that changes the address the app uses.</div></details>
     </div>
   </div>
@@ -300,11 +326,20 @@
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
+    const openN=s.games.filter(g=>!g.mine && !(g.locked||Date.now()>=new Date(g.kickoff).getTime())).length;
+    document.querySelector('.tab[data-view="picks"]').innerHTML='Picks'+(openN?`<span class="badge" aria-label="${openN} open">${openN}</span>`:'');
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
-    m.innerHTML=(pushBanner())+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+    m.innerHTML=(pushBanner())+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+  }
+
+  function crowned(id){ return !!(state&&state.crown&&state.crown.ids.indexOf(id)>=0); }
+  function crownLine(){
+    const c=state.crown; if(!c) return '';
+    const who=c.ids.map((id,i)=>id===state.me.id?'You':c.names[i]);
+    return `<div class="crown">👑 ${esc(c.label)} winner${who.length>1?'s':''}: <b>${esc(who.join(', '))}</b> (${esc(c.rec)})</div>`;
   }
 
   // ---------- Group tab: everyone's picks for the week ----------
@@ -313,7 +348,7 @@
     if(!s.games.length) return '<div class="empty">No games loaded yet.</div>';
     const players=s.players||[{id:s.me.id,name:s.me.name}];
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${crowned(p.id)?'👑 ':''}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -446,7 +481,7 @@
 
     // Standings
     html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Streak</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${crowned(s.id)?'👑 ':''}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
     }</tbody></table></div>`;
 
     // Highlights
@@ -519,6 +554,12 @@
         if(left) parts.push(g.locked?`${left} no pick`:`${left} still to pick`);
         grp=parts.join('<br>');
       }
+    }
+    if(locked && g.all){
+      const cnt={}; let n=0;
+      Object.values(g.all).forEach(x=>{ if(x&&x.p&&x.p!=='MISSED'){ cnt[x.p]=(cnt[x.p]||0)+1; n++; } });
+      const order=[g.away.abbr,g.home.abbr,'TIE'].filter(k=>cnt[k]);
+      if(n>1 && order.length) grp=(grp?grp+'<br>':'')+`<span class="split">Group split: ${order.map(k=>`${esc(k==='TIE'?'Tie':k)} ${cnt[k]}`).join(' · ')} (of ${n})</span>`;
     }
 
     let admin='';
@@ -611,7 +652,7 @@
   }
   function refreshPushUI(){
     const box=document.getElementById('nbox'); if(!box) return;
-    const st=pushStatus(), p=(state&&state.me&&state.me.prefs)||{remind:true,newweek:true,results:true};
+    const st=pushStatus(), p=Object.assign({remind:true,newweek:true,results:true,evening:true},(state&&state.me&&state.me.prefs)||{});
     let top;
     if(st==='ios') top='<p>On iPhone, notifications only work from the home-screen app. In Safari, tap Share → <b>Add to Home Screen</b>, then open Greco Picks from there and come back here.</p>';
     else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
@@ -633,7 +674,7 @@
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
     const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
     const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+reset+diagTog+diag+log;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
@@ -792,6 +833,73 @@
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
 
+  // ---------- Your name ----------
+  document.getElementById('nameSave').addEventListener('click',()=>{
+    const inp=document.getElementById('myName'), btn=document.getElementById('nameSave');
+    const name=inp.value.replace(/\s+/g,' ').trim();
+    if(!name){ toast('Type a name first.'); return; }
+    if(state&&name===state.me.name){ toast('That\'s already your name.'); return; }
+    btn.disabled=true;
+    api('rename',{name:name}).then(st=>{ state=st; save(); render(); toast('Saved. Everyone now sees '+name+'.'); })
+      .catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
+  });
+
+  // ---------- People (admin) ----------
+  let people=null, armedLink='';
+  function shareLink(name,link){
+    const text='Here\'s your Greco Picks link, '+name+'. Open it on your phone, then add it to your home screen: '+link;
+    if(navigator.share) navigator.share({title:'Greco Picks',text:text}).catch(()=>{});
+    else copyText(link,'Link copied.');
+  }
+  function copyText(t,msg){
+    const done=()=>toast(msg||'Copied.');
+    if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done).catch(()=>fallbackCopy(t,done));
+    else fallbackCopy(t,done);
+  }
+  function fallbackCopy(t,done){ const a=document.createElement('textarea'); a.value=t; a.style.position='fixed'; a.style.opacity='0'; document.body.appendChild(a); a.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('Couldn\'t copy. Long-press the link instead.'); } a.remove(); }
+  function renderPeople(){
+    const el=document.getElementById('people'); if(!el) return;
+    if(!people){ el.innerHTML='<p>Loading…</p>'; return; }
+    el.innerHTML=people.people.map(p=>`<div class="person">
+        <b>${esc(p.name)}${p.id===state.me.id?' (you)':''}${p.active?'':' <small>(inactive)</small>'}</b>
+        <small style="word-break:break-all">${p.link?esc(p.link):'No link yet'}</small>
+        ${p.link?`<div class="acts"><button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button></div>`:''}
+      </div>`).join('')||'<p>No one yet.</p>';
+  }
+  function loadPeople(){
+    if(!state||!state.me.isAdmin) return;
+    api('people',{}).then(d=>{ people=d; renderPeople(); }).catch(e=>{ document.getElementById('people').innerHTML='<p>'+esc(e.message)+'</p>'; });
+  }
+  document.getElementById('people').addEventListener('click',e=>{
+    const b=e.target.closest('[data-pp]'); if(!b||!people) return;
+    const p=people.people.find(x=>x.id===b.dataset.id); if(!p) return;
+    if(b.dataset.pp==='share') shareLink(p.name,p.link);
+    if(b.dataset.pp==='copy') copyText(p.link,'Link copied.');
+    if(b.dataset.pp==='new'){
+      if(armedLink!==p.id){ armedLink=p.id; renderPeople(); setTimeout(()=>{ if(armedLink===p.id){ armedLink=''; renderPeople(); } },4000); return; }
+      armedLink=''; b.disabled=true; b.textContent='Making…';
+      api('newlink',{pl:p.id}).then(d=>{
+        if(d.myNewKey){ KEY=d.myNewKey; try{ localStorage.setItem('nflpicks_key',KEY); }catch(x){} }
+        people=d; renderPeople();
+        const np=d.people.find(x=>x.id===p.id);
+        toast('New link made for '+p.name+'. Their old link no longer works.');
+        if(np&&np.id!==state.me.id) setTimeout(()=>shareLink(np.name,np.link),300);
+      }).catch(err=>{ toast(err.message); renderPeople(); });
+    }
+  });
+  document.getElementById('addBtn').addEventListener('click',()=>{
+    const inp=document.getElementById('addName'), btn=document.getElementById('addBtn');
+    const name=inp.value.replace(/\s+/g,' ').trim(); if(!name){ toast('Type their name first.'); return; }
+    btn.disabled=true;
+    api('addperson',{name:name}).then(d=>{
+      people=d; renderPeople(); inp.value='';
+      const np=d.people.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      toast(name+' added. Send them their link.');
+      if(np&&np.link) setTimeout(()=>shareLink(np.name,np.link),300);
+      load(state&&state.selected,false);
+    }).catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
+  });
+
   // ---------- Report a problem ----------
   document.getElementById('repSend').addEventListener('click',()=>{
     const ta=document.getElementById('repText'), btn=document.getElementById('repSend');
@@ -851,7 +959,11 @@
   const help=document.getElementById('help');
   document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
   const settings=document.getElementById('settings');
-  document.getElementById('setBtn').addEventListener('click',()=>{ refreshPushUI(); settings.classList.add('on'); });
+  document.getElementById('setBtn').addEventListener('click',()=>{
+    refreshPushUI();
+    if(state){ document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    settings.classList.add('on');
+  });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
   settings.addEventListener('click',e=>{if(e.target===settings) settings.classList.remove('on');});
   document.getElementById('helpClose').addEventListener('click',()=>help.classList.remove('on'));
