@@ -261,6 +261,7 @@
   <div class="sheet">
     <div class="sheet-top"><h2>People</h2><button class="x" id="peopleClose" aria-label="Close">✕</button></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
+    <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
     <div id="people"><p>Loading…</p></div>
     <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
@@ -320,6 +321,7 @@
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
       <details class="faq"><summary>Add someone</summary><div>Tap <b>Settings → Manage people</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
+      <details class="faq"><summary>Remind someone to pick</summary><div>Tap their name (Group tab or Stats) and tap <b>🔔 Remind … to pick</b>, or use <b>🔔 Remind everyone with open picks</b> at the top of <b>Settings → Manage people</b>. It goes out right away, even if they turned pick reminders off, and only to people who still have open picks. Once per person every 10 minutes.</div></details>
       <details class="faq"><summary>Groups</summary><div>In <b>Settings → Manage people</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
       <details class="faq"><summary>Someone stopped playing</summary><div>In <b>Settings → Manage people</b>, tap <b>Retire</b> (twice to confirm). They disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Bring back</b> undoes it.</div></details>
       <details class="faq"><summary>Fix or add a pick after kickoff</summary><div>Open <b>Admin override</b> on that game's card, pick the team (or <b>Missed</b>, which counts as a loss) for that person, and tap <b>Save</b>. It's marked "override."</div></details>
@@ -331,7 +333,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.8';
+  const APP_VERSION = '2.6.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1027,6 +1029,8 @@
       <h3>Record</h3>
       <div class="pstats"><div><b>${esc(b.week)}</b><small>${esc(wk.split(' · ')[0])}</small></div><div><b>${esc(b.season)}</b><small>Season</small></div><div><b>${b.rank?'#'+esc(b.rank):'—'}</b><small>Overall rank</small></div></div>
       ${badges.length?`<h3>Right now</h3><p>${badges.map(esc).join('<br>')}</p>`:''}
+      ${state.me.isAdmin&&!me?(()=>{ const openN=(state.games||[]).filter(g=>!(g.locked||Date.now()>=new Date(g.kickoff).getTime())&&!(g.all||{})[id]).length;
+        return `<h3>Nudge</h3><button class="nbtn" data-nudge="${esc(id)}" style="width:100%">🔔 Remind ${esc(p.name)} to pick${openN?' ('+openN+' open)':''}</button><p style="color:var(--muted);font-size:13px;margin-top:6px">Sends them a notification right now with how many picks they still need this week. Only you can do this.</p>`; })():''}
       ${state.me.isAdmin&&id!==state.adminId&&!me?`<h3>Edit groups (only you can)</h3><div class="namerow"><input id="pTags" value="${esc(groups.join(', '))}" placeholder="e.g. Greco's, Friends" maxlength="80"><button class="nbtn" id="pTagSave" data-id="${esc(id)}">Save</button></div><p style="color:var(--muted);font-size:13px;margin-top:6px">Separate with commas.${(state.groups||[]).length?' In use: '+state.groups.map(esc).join(', '):''}</p>`:''}
       ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}Change your name in Settings.${state.me.isAdmin?'':' Groups are set by Paul.'}</p>`:''}`;
     document.getElementById('profile').classList.add('on');
@@ -1042,6 +1046,16 @@
   document.getElementById('hi').addEventListener('click',()=>state&&openProfile(state.me.id));
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
   document.getElementById('profile').addEventListener('click',e=>{ if(e.target.id==='profile') e.target.classList.remove('on'); });
+
+  // ---------- Nudge (admin) ----------
+  document.addEventListener('click',e=>{
+    const b=e.target.closest('[data-nudge]'); if(!b) return;
+    const id=b.dataset.nudge, txt=b.textContent; b.disabled=true; b.textContent='Sending…';
+    api('nudge',{pl:id}).then(r=>{
+      if(id==='ALL') toast(r.sent.length?'Reminded '+r.sent.join(', ')+'.'+(r.skipped.length?' Skipped: '+r.skipped.join(', ')+'.':''):'Nobody to remind. '+r.skipped.join(', '));
+      else toast('Reminder sent to '+r.sent.join(', ')+'.');
+    }).catch(err=>toast(err.message)).finally(()=>{ b.disabled=false; b.textContent=txt; });
+  });
 
   // ---------- Hide people (just for you) ----------
   function renderHide(){

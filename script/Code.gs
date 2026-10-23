@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.5.8';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.6.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview' };
 const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden'];
@@ -237,6 +237,7 @@ function api_(p) {
     else if (p.api === 'groups') data = setGroups_(p.k, p.pl, p.groups);
     else if (p.api === 'hide') data = setHidden_(p.k, p.pl, p.on);
     else if (p.api === 'active') data = setActive_(p.k, p.pl, p.on);
+    else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else throw new Error('Unknown request.');
     out = { ok: true, data: data };
   } catch (err) {
@@ -1139,6 +1140,43 @@ function crown_(games, pickVals, roster) {
     label: weekLabel_(parts[1], parts[2]), ids: winners.map(x => x.id), names: winners.map(x => x.name), rec: winners[0].rec,
     poop: losers.length ? { ids: losers.map(x => x.id), names: losers.map(x => x.name), rec: losers[0].rec } : null,
   };
+}
+
+/**
+ * Admin: nudge one person (or 'ALL' = everyone with open picks) to make their picks for the current week.
+ * Sent even if they turned pick reminders off (it's a personal nudge). Once per person per 10 minutes.
+ */
+function nudge_(key, playerId) {
+  const me = requireAdmin_(key);
+  if (!String(settings_().OneSignalKey || '').trim()) throw new Error('Notifications aren\'t set up (OneSignalKey).');
+  const cur = PropertiesService.getScriptProperties().getProperty('CURRENT_WEEK') || '';
+  const now = Date.now();
+  const open = readGames_().filter(g => weekKey_(g) === cur && g.status === 'pre' && g.kickoff.getTime() > now)
+    .sort((a, b) => a.kickoff - b.kickoff);
+  if (!open.length) throw new Error('No open games left this week.');
+  const picks = readPicks_();
+  const cache = CacheService.getScriptCache();
+  const parts = cur.split('|');
+  const label = weekLabel_(parts[1], parts[2]);
+  const targets = String(playerId || '').toUpperCase() === 'ALL'
+    ? players_().filter(p => p.active && p.id !== me.id)
+    : players_().filter(p => p.id === String(playerId || '').toUpperCase());
+  if (!targets.length) throw new Error('Unknown player.');
+  const sent = [], skipped = [];
+  targets.forEach(p => {
+    const mine = open.filter(g => !picks.map[g.id + '|' + p.id]);
+    if (!mine.length) { skipped.push(p.name + ' (all picked)'); return; }
+    if (cache.get('nudge_' + p.id)) { skipped.push(p.name + ' (nudged recently)'); return; }
+    const first = fmtTime_(mine[0].kickoff);
+    const what = mine.length === 1 ? mine[0].away + ' @ ' + mine[0].home : mine.length + ' open picks';
+    const res = sendPush_([p.id], me.name + ' says: make your picks! 🏈',
+      'You have ' + what + ' for ' + label + '. Next lock: ' + first.day + ' ' + first.time + '.');
+    if (res.indexOf('"id":""') >= 0) { skipped.push(p.name + ' (notifications off)'); return; }
+    cache.put('nudge_' + p.id, '1', 600);
+    sent.push(p.name);
+  });
+  if (targets.length === 1 && !sent.length) throw new Error('Not sent: ' + skipped[0] + '.');
+  return { sent: sent, skipped: skipped };
 }
 
 /** Editor: sends a test notification to you. Turn notifications on in the app first. */
