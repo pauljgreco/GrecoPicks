@@ -649,6 +649,11 @@
   ['error','warn'].forEach(k=>{ const o=console[k]; console[k]=function(){ try{ const t=Array.from(arguments).map(a=>a&&a.message?a.message:(typeof a==='object'?JSON.stringify(a):String(a))).join(' '); if(/onesignal|push|subscri|service ?worker/i.test(t)) plog(k+': '+t.slice(0,180)); }catch(e){} return o.apply(console,arguments); }; });
   // Raw check of the phone's push service, without OneSignal: makes a throwaway subscription and removes it.
   async function rawPushTest(){
+    // Can this phone reach OneSignal's servers? (Ad blockers, Pi-hole, or private DNS often block them.)
+    for(const u of ['https://api.onesignal.com/ping','https://onesignal.com/api/v1/ping','https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js']){
+      try{ await fetch(u,{mode:'no-cors',cache:'no-store'}); plog('Reach '+new URL(u).host+': yes'); }
+      catch(e){ plog('Reach '+new URL(u).host+': BLOCKED ('+((e&&e.message)||e)+')'); }
+    }
     for(const scope of ['/GrecoPicks/']){
       try{
         const reg=await navigator.serviceWorker.getRegistration(scope);
