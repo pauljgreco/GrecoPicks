@@ -72,7 +72,7 @@
     try{
       OneSignal.Debug.setLogLevel('trace');
       add('log','OneSignal script loaded, starting…');
-      await OneSignal.init({ appId:APP_ID, serviceWorkerPath:'GrecoPicks/sw.js', serviceWorkerParam:{scope:'/GrecoPicks/'}, notifyButton:{enable:false}, welcomeNotification:{disable:true} });
+      await OneSignal.init({ appId:APP_ID, serviceWorkerPath:'GrecoPicks/sw.js', serviceWorkerParam:{scope:'/GrecoPicks/'}, notifyButton:{enable:false}, welcomeNotification:{disable:true}, autoResubscribe:true });
       OS=OneSignal; add('log','OneSignal started');
       OneSignal.User.PushSubscription.addEventListener('change',e=>{ add('log','SUBSCRIPTION CHANGE '+fmt([e&&e.current])); status(); });
       status(); setInterval(status,1000);

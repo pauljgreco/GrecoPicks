@@ -563,6 +563,7 @@
         serviceWorkerParam:{scope:'/GrecoPicks/'},
         notifyButton:{enable:false},
         welcomeNotification:{disable:true},
+        autoResubscribe:true,   // permission already granted -> OneSignal signs the phone up on its own
       });
       OS=OneSignal; pushReady=true;
       OneSignal.Notifications.addEventListener('permissionChange',()=>{ plog('Permission changed: '+Notification.permission); refreshPushUI(); });
