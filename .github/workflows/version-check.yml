@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Compare versions
         run: |
-          APP=$(grep -oP "APP_VERSION = '\K[^']+" index.html)
-          SCRIPT=$(grep -oP "SCRIPT_VERSION = '\K[^']+" script/Code.gs)
+          APP=$(grep -oP "APP_VERSION = '\K[0-9.]+(?=')" index.html | head -1)
+          SCRIPT=$(grep -oP "SCRIPT_VERSION = '\K[0-9.]+(?=')" script/Code.gs | head -1)
           echo "app $APP · script $SCRIPT"
           if [ "$APP" != "$SCRIPT" ]; then echo "::error::Versions differ (app $APP, script $SCRIPT)"; exit 1; fi

@@ -52,7 +52,7 @@ jobs:
           set -euo pipefail
           npm install -g @google/clasp@2.4.2 >/dev/null
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
-          VERSION=$(grep -oP "SCRIPT_VERSION = '\K[^']+" script/Code.gs)
+          VERSION=$(grep -oP "SCRIPT_VERSION = '\K[0-9.]+(?=')" script/Code.gs | head -1)
           echo "Deploying version $VERSION"
 
           # Pull the live project so the manifest (web app settings) and Index.html stay exactly as they are,
