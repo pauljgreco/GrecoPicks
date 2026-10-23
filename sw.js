@@ -1,8 +1,9 @@
 // Keeps the app's own files on the phone so it opens instantly.
 // Picks and scores always come live from the Google script (never cached here).
 // When a newer version of the app is published, the open page is told to reload once.
-// Push notifications are handled by OneSignal's own worker in push/ (separate scope).
-const CACHE = 'nfl-picks-v4';
+// Push notifications: OneSignal's push code is loaded into this same worker (one worker, one scope).
+try { importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'); } catch (e) { /* offline: app still works */ }
+const CACHE = 'nfl-picks-v5';
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {

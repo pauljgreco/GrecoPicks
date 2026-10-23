@@ -551,24 +551,15 @@
   window.OneSignalDeferred=window.OneSignalDeferred||[];
   OneSignalDeferred.push(async function(OneSignal){
     try{
-      // One-time move: OneSignal used to share sw.js with the app. It now has its own worker in
-      // push/, so remove the old shared registration (the app re-registers a plain sw.js below).
-      let moved=false; try{ moved=localStorage.getItem('nflpicks_swmove')==='1'; }catch(e){}
-      if('serviceWorker' in navigator && !moved){
-        try{
-          const regs=await navigator.serviceWorker.getRegistrations();
-          for(const r of regs){
-            const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
-            if(u.indexOf('/GrecoPicks/sw.js')>=0) await r.unregister();
-          }
-          localStorage.setItem('nflpicks_swmove','1');
-        }catch(e){}
-        try{ await navigator.serviceWorker.register('sw.js'); }catch(e){}
+      // OneSignal now shares sw.js with the app again (sw.js imports OneSignal's push code).
+      // Remove the separate push/ worker from the earlier setup; it kept OneSignal from getting a token.
+      if('serviceWorker' in navigator){
+        try{ for(const r of await navigator.serviceWorker.getRegistrations()){ if(/\/GrecoPicks\/push\/$/.test(r.scope)){ try{ const sb=await r.pushManager.getSubscription(); if(sb) await sb.unsubscribe(); }catch(e){} await r.unregister(); } } }catch(e){}
       }
       await OneSignal.init({
         appId:ONESIGNAL_APP_ID,
-        serviceWorkerPath:'GrecoPicks/push/OneSignalSDKWorker.js',
-        serviceWorkerParam:{scope:'/GrecoPicks/push/'},
+        serviceWorkerPath:'GrecoPicks/sw.js',
+        serviceWorkerParam:{scope:'/GrecoPicks/'},
         notifyButton:{enable:false},
         welcomeNotification:{disable:true},
       });
@@ -639,7 +630,7 @@
   ['error','warn'].forEach(k=>{ const o=console[k]; console[k]=function(){ try{ const t=Array.from(arguments).map(a=>a&&a.message?a.message:(typeof a==='object'?JSON.stringify(a):String(a))).join(' '); if(/onesignal|push|subscri|service ?worker/i.test(t)) plog(k+': '+t.slice(0,180)); }catch(e){} return o.apply(console,arguments); }; });
   // Raw check of the phone's push service, without OneSignal: makes a throwaway subscription and removes it.
   async function rawPushTest(){
-    for(const scope of ['/GrecoPicks/push/','/GrecoPicks/']){
+    for(const scope of ['/GrecoPicks/']){
       try{
         const reg=await navigator.serviceWorker.getRegistration(scope);
         if(!reg || reg.scope.indexOf(scope)<0){ plog('Raw test '+scope+': no worker'); continue; }
@@ -695,8 +686,7 @@
       const regs=await navigator.serviceWorker.getRegistrations();
       for(const r of regs){
         try{ const sub=await r.pushManager.getSubscription(); if(sub) await sub.unsubscribe(); }catch(e){}
-        const u=(r.active||r.waiting||r.installing||{}).scriptURL||'';
-        if(u.indexOf('OneSignal')>=0 || r.scope.indexOf('/push/')>=0) { try{ await r.unregister(); }catch(e){} }
+        try{ await r.unregister(); }catch(e){}
       }
     }catch(e){}
     try{
@@ -718,8 +708,7 @@
       api('testme',{}).then(()=>toast('Sent! It should pop up in a few seconds.')).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;});
     }
     if(b.dataset.push==='local'){
-      navigator.serviceWorker.getRegistration('/GrecoPicks/push/')
-        .then(r=>r||navigator.serviceWorker.getRegistration('/GrecoPicks/'))
+      navigator.serviceWorker.getRegistration('/GrecoPicks/')
         .then(r=>{ if(!r) throw new Error('no notification helper registered'); return r.showNotification('Greco Picks',{body:'Local test from this phone 🏈',icon:'icon-192.png'}); })
         .then(()=>toast('Sent a local test. Did it pop up?'))
         .catch(e=>toast('Local test failed: '+((e&&e.message)||e)));
@@ -848,8 +837,9 @@
     navigator.serviceWorker.addEventListener('message',e=>{ if(e.data==='nflpicks-updated' && !pending) reloadOnce(); });
     const hadController=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(hadController && !pending) reloadOnce(); });
-    // The app's own worker (offline copy + auto-update). OneSignal uses a separate worker in push/.
-    window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+    // One worker (sw.js) does both jobs: offline copy + OneSignal push. OneSignal registers it when it
+    // starts; only register it ourselves if nothing is there yet, so we never replace OneSignal's registration.
+    window.addEventListener('load',()=>{ setTimeout(()=>{ navigator.serviceWorker.getRegistration('/GrecoPicks/').then(r=>{ if(!r) return navigator.serviceWorker.register('sw.js'); }).catch(()=>{}); },4000); });
   }
 </script>
 </body>
