@@ -283,7 +283,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.1';
+  const APP_VERSION = '2.5.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -361,7 +361,8 @@
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
-    m.innerHTML=(pushBanner())+groupBar()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+    const vWarn=(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
+    m.innerHTML=vWarn+(pushBanner())+groupBar()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
   }
 
   // ---------- Groups (one selection shared by Picks, Group and Stats) ----------
@@ -1089,7 +1090,8 @@
   const settings=document.getElementById('settings');
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
-    document.getElementById('ver').textContent='Greco Picks · app '+APP_VERSION+' · script '+((state&&state.version)||'older');
+    const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
+    document.getElementById('ver').innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>The script didn\'t update. Check GitHub → Actions.':'<br>An update is finishing. Check back in a few minutes.'));
     if(state){ renderHide(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
