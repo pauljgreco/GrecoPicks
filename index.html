@@ -239,7 +239,7 @@
     <h3>The app</h3>
     <details class="faq"><summary>How do I put this on my home screen?</summary><div><b>Android:</b> open your link in Chrome, tap ⋮, then <b>Install app</b>.<br><b>iPhone:</b> open your link in Safari, tap the Share button, then <b>Add to Home Screen</b>.</div></details>
     <details class="faq"><summary>Can I change my name?</summary><div>Yes. Tap <b>⚙</b>, change <b>Your name</b>, and tap <b>Save</b>. Everyone sees the new name right away, and your picks and records stay with you.</div></details>
-    <details class="faq"><summary>What's the 👑?</summary><div>The winner of the most recent finished week (most wins that week). Ties share the crown.</div></details>
+    <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
     <div id="adminHelp" hidden>
@@ -336,10 +336,14 @@
   }
 
   function crowned(id){ return !!(state&&state.crown&&state.crown.ids.indexOf(id)>=0); }
+  function pooped(id){ return !!(state&&state.crown&&state.crown.poop&&state.crown.poop.ids.indexOf(id)>=0); }
+  function tag(id){ return (crowned(id)?'👑 ':'')+(pooped(id)?'💩 ':''); }
   function crownLine(){
     const c=state.crown; if(!c) return '';
-    const who=c.ids.map((id,i)=>id===state.me.id?'You':c.names[i]);
-    return `<div class="crown">👑 ${esc(c.label)} winner${who.length>1?'s':''}: <b>${esc(who.join(', '))}</b> (${esc(c.rec)})</div>`;
+    const names=(ids,ns)=>ids.map((id,i)=>id===state.me.id?'You':ns[i]).join(', ');
+    let h=`👑 ${esc(c.label)} winner${c.ids.length>1?'s':''}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
+    if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}: <b>${esc(names(c.poop.ids,c.poop.names))}</b> (${esc(c.poop.rec)})`;
+    return `<div class="crown">${h}</div>`;
   }
 
   // ---------- Group tab: everyone's picks for the week ----------
@@ -348,7 +352,7 @@
     if(!s.games.length) return '<div class="empty">No games loaded yet.</div>';
     const players=s.players||[{id:s.me.id,name:s.me.name}];
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${crowned(p.id)?'👑 ':''}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -481,7 +485,7 @@
 
     // Standings
     html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Streak</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${crowned(s.id)?'👑 ':''}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
     }</tbody></table></div>`;
 
     // Highlights
