@@ -605,15 +605,17 @@
     const testBtn=st==='on'?'<button class="nbtn" data-push="testme" style="margin-top:12px">Send me a test notification</button><br>':'';
     const off=st==='on'?'<button class="nbtn" data-push="off" style="background:none;color:var(--muted);border:1px solid var(--line);margin-top:12px">Turn off notifications on this phone</button>':'';
     const tog=(k,t,sub)=>`<label class="tog"><span>${t}<small>${sub}</small></span><input type="checkbox" data-pref="${k}"${p[k]?' checked':''}></label>`;
-    let diag='';
-    if(state&&state.me&&state.me.isAdmin){
+    let diag='', showDiag=false;
+    try{ showDiag=localStorage.getItem('nflpicks_diag')==='1'; }catch(e){}
+    if(showDiag){
       const sub=OS&&OS.User&&OS.User.PushSubscription;
-      diag=`<button class="nbtn" data-push="local" style="margin-top:12px;background:none;color:var(--accent);border:1px solid var(--accent)">Show a test notification (no internet)</button><p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details (admin): status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
+      diag=`<button class="nbtn" data-push="local" style="margin-top:12px;background:none;color:var(--accent);border:1px solid var(--accent)">Show a test notification (no internet)</button><p style="font-size:12px;margin:10px 0 0;word-break:break-all">Details: status ${esc(st)} · permission ${esc(('Notification' in window)?Notification.permission:'n/a')} · opted in ${esc(sub?String(sub.optedIn):'-')} · subscription ${esc(sub&&sub.id?sub.id.slice(0,8)+'…':'none')} · token ${esc(sub&&sub.token?'yes':'no')} · worker <span id="swinfo">…</span></p>`;
       if('serviceWorker' in navigator) navigator.serviceWorker.getRegistrations().then(rs=>{const el=document.getElementById('swinfo'); if(el) el.textContent=rs.length?rs.map(r=>(r.active&&r.active.scriptURL||'?').replace(location.origin,'')).join(', '):'none';}).catch(()=>{});
     }
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
-    const log=pushLog.length?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0"></pre>';
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+reset+diag+log;
+    const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
+    const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
@@ -716,6 +718,7 @@
     if(b.dataset.push==='dismiss'){ try{localStorage.setItem('nflpicks_pushdismiss','1');}catch(x){} render(); }
   });
   document.addEventListener('change',e=>{
+    if(e.target.id==='diagTog'){ try{ localStorage.setItem('nflpicks_diag',e.target.checked?'1':'0'); }catch(x){} refreshPushUI(); return; }
     const k=e.target.dataset&&e.target.dataset.pref; if(!k) return;
     const on=e.target.checked;
     api('prefs',{type:k,on:on?'1':'0'}).then(p=>{ if(state&&state.me) state.me.prefs=p; save(); }).catch(err=>{ e.target.checked=!on; toast(err.message); });
@@ -743,7 +746,7 @@
       await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
     }catch(e){}
     // Saved settings, keeping who you are
-    try{ localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); }catch(e){}
+    try{ const dg=localStorage.getItem('nflpicks_diag'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
