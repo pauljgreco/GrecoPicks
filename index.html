@@ -143,8 +143,9 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings,#profile,#peopleSheet,#hideSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on{display:flex}
+  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on{display:flex}
+  .spbtn{display:flex;justify-content:space-between;align-items:center;width:100%;font:inherit;font-size:15px;padding:9px 12px;margin:8px 0 4px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
   .rowbtn{display:flex;justify-content:space-between;align-items:center;width:100%;font:inherit;font-size:16px;font-weight:600;padding:4px 0;border:0;background:none;color:var(--ink);cursor:pointer;text-align:left}
   .rowbtn small{color:var(--muted);font-weight:400;font-size:14px}
   .rowbtn .chev{color:var(--muted);font-size:20px}
@@ -260,6 +261,16 @@
   </div>
 </div>
 
+<div id="spSheet" role="dialog" aria-modal="true" aria-label="Choose people">
+  <div class="sheet">
+    <div class="sheet-top"><h2>Stats: people</h2><button class="x" id="spClose" aria-label="Close">✕</button></div>
+    <div class="ptools"><input id="spSearch" type="search" placeholder="Search names or groups" aria-label="Search"></div>
+    <div class="acts" style="display:flex;gap:6px;margin:6px 0"><button class="sbtn" data-spall="1">Select all</button><button class="sbtn" data-spme="1">Just me</button></div>
+    <div id="spList"></div>
+    <button class="nbtn" id="spDone" style="margin-top:12px;width:100%">Done</button>
+  </div>
+</div>
+
 <div id="help" aria-modal="true" aria-label="Help">
   <div class="sheet">
     <div class="sheet-top"><h2>How it works</h2><button class="x" id="helpClose" aria-label="Close">✕</button></div>
@@ -277,7 +288,7 @@
     <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
     <details class="faq"><summary>How are people ranked?</summary><div>On the <b>Stats</b> tab, by <b>win percentage</b> for whatever range you pick, then total wins. Joining partway through the season doesn't hurt you.</div></details>
     <details class="faq"><summary>What's on the Group tab?</summary><div>Everyone's picks for the week in one grid. A <b>✓</b> means that person has picked but you can't see it yet; make your own pick on that game (or wait for kickoff) to see theirs.</div></details>
-    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings, week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap names to include or leave people out. Only games that have kicked off count.</div></details>
+    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings, week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
     <details class="faq"><summary>What are "upsets" and "with group"?</summary><div><b>Upsets</b>: correct picks of the team with the worse record going into the game. <b>With group</b>: how often your pick matched what most of the selected people picked.</div></details>
     <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
     <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
@@ -305,7 +316,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.3';
+  const APP_VERSION = '2.5.4';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -554,7 +565,8 @@
     }
     if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
     const allOn=st.sel.length===st.everyone.length;
-    html+=`<div class="chips"><button class="chip${allOn?' on':''}" data-chip="__all">${curGroup()?'All '+esc(curGroup()):'Everyone'}</button>${st.everyone.map(id=>`<button class="chip${st.sel.indexOf(id)>=0&&!allOn?' on':''}" data-chip="${esc(id)}">${esc(id===me?'You':st.names[id])}</button>`).join('')}</div>`;
+    const pl=allOn?(curGroup()?'All '+curGroup():'Everyone')+' ('+st.everyone.length+')':(st.sel.length===1?(st.sel[0]===me?'Just you':st.names[st.sel[0]]):st.sel.length+' people');
+    html+=`<button class="spbtn" data-spick="1"><span>People: <b>${esc(pl)}</b></span><span style="color:var(--muted)">›</span></button>`;
 
     if(!st.gameCount) return html+'<div class="empty">No finished games in this range yet.</div>';
     const P=st.people;
@@ -1128,20 +1140,38 @@
     if(k==='season'){ sf.from=''; sf.to=''; sf.week=''; if(sf.season===curSeason()) sf.season=''; }
     saveSf(); render(); if(k==='season') loadHistory();
   });
-  document.getElementById('main').addEventListener('click',e=>{
-    const c=e.target.closest('[data-chip]'); if(!c) return;
-    const id=c.dataset.chip, h=hist[sf.season||curSeason()]; if(!h) return;
-    const all=computeStats(h).everyone;
-    if(id==='__all'){ sf.people=null; }
-    else {
-      let cur=sf.people? sf.people.slice() : [];
-      if(!sf.people){ cur=[id]; }                       // from "Everyone", tapping a name starts a custom list
-      else if(cur.indexOf(id)>=0){ cur=cur.filter(x=>x!==id); }
-      else cur.push(id);
-      sf.people=(cur.length===0||cur.length===all.length)?null:cur;
-    }
-    saveSf(); render();
-  });
+  // Stats people picker (its own screen, so it scales to lots of people)
+  function spData(){ const h=hist[sf.season||curSeason()]; return h?computeStats(h):null; }
+  function renderSp(){
+    const st=spData(), el=document.getElementById('spList'); if(!st){ el.innerHTML='<p>Loading…</p>'; return; }
+    const q=(document.getElementById('spSearch').value||'').trim().toLowerCase();
+    const groupsOf=id=>((state.players||[]).find(p=>p.id===id)||{}).groups||[];
+    const list=st.everyone.filter(id=>!q||(st.names[id]||'').toLowerCase().indexOf(q)>=0||groupsOf(id).some(g=>g.toLowerCase().indexOf(q)>=0))
+      .sort((a,b)=>(a===state.me.id?-1:b===state.me.id?1:(st.names[a]||'').localeCompare(st.names[b]||'')));
+    el.innerHTML=list.map(id=>`<label class="tog"><span>${esc(id===state.me.id?'You':st.names[id])}${groupsOf(id).length?`<small>${esc(groupsOf(id).join(', '))}</small>`:''}</span><input type="checkbox" data-sp="${esc(id)}"${st.sel.indexOf(id)>=0?' checked':''}></label>`).join('')||'<p>No one matches.</p>';
+  }
+  function setSp(list){ const st=spData(); if(!st) return; sf.people=(!list||list.length===0||list.length===st.everyone.length)?null:list; saveSf(); render(); renderSp(); }
+  (function(){
+    const sh=document.getElementById('spSheet');
+    document.getElementById('main').addEventListener('click',e=>{ if(e.target.closest('[data-spick]')){ document.getElementById('spSearch').value=''; renderSp(); sh.classList.add('on'); } });
+    const close=()=>sh.classList.remove('on');
+    document.getElementById('spClose').addEventListener('click',close);
+    document.getElementById('spDone').addEventListener('click',close);
+    sh.addEventListener('click',e=>{ if(e.target===sh) close(); });
+    document.getElementById('spSearch').addEventListener('input',renderSp);
+    sh.addEventListener('click',e=>{
+      if(e.target.closest('[data-spall]')) setSp(null);
+      if(e.target.closest('[data-spme]')) setSp([state.me.id]);
+    });
+    document.getElementById('spList').addEventListener('change',e=>{
+      const id=e.target.dataset&&e.target.dataset.sp; if(!id) return;
+      const st=spData(); if(!st) return;
+      let cur=st.sel.slice();
+      if(e.target.checked){ if(cur.indexOf(id)<0) cur.push(id); } else cur=cur.filter(x=>x!==id);
+      if(!cur.length){ e.target.checked=true; toast('Keep at least one person.'); return; }
+      setSp(cur);
+    });
+  })();
   document.getElementById('main').addEventListener('change',e=>{
     if(!e.target.dataset||!e.target.dataset.group) return;
     try{ localStorage.setItem('nflpicks_group',e.target.value); }catch(x){}
