@@ -24,10 +24,10 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.6.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.7.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview' };
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -348,6 +348,7 @@ function submitPick(key, gameId, pick) {
     const picks = readPicks_();
     writePick_(g, me.id, pick, false, picks);
     const fresh = readPicks_();
+    try { allInCheck_(weekKey_(g), fresh); } catch (e) { Logger.log('All-in check: ' + e.message); }
     return { game: gameView_(g, me, fresh, Date.now(), roster) };
   } finally {
     lock.releaseLock();
@@ -373,6 +374,7 @@ function adminSetPick(key, gameId, playerId, pick, wk) {
       if (hit) picks.sh.deleteRow(hit.row);
     } else {
       writePick_(g, playerId, pick, true);
+      try { allInCheck_(weekKey_(g), readPicks_()); } catch (e) { Logger.log('All-in check: ' + e.message); }
     }
     gradeAndRecord_();
   } finally {
@@ -397,7 +399,8 @@ function history_(key, season) {
   gs.forEach(g => { ids[g.id] = true; });
   const pickRows = readPicks_().vals.slice(1)
     .filter(r => ids[String(r[P.GameID])])
-    .map(r => [String(r[P.GameID]), String(r[P.Player]).toUpperCase(), String(r[P.Pick]).toUpperCase(), String(r[P.Result])]);
+    .map(r => [String(r[P.GameID]), String(r[P.Player]).toUpperCase(), String(r[P.Pick]).toUpperCase(), String(r[P.Result]),
+      r[P.PickedAt] instanceof Date ? r[P.PickedAt].toISOString() : '']);
   return {
     me: me.id,
     season: want,
@@ -409,7 +412,7 @@ function history_(key, season) {
       id: g.id, season: g.season, type: g.seasonType, week: g.week, kickoff: g.kickoff.toISOString(),
       away: g.awayAbbr, home: g.homeAbbr, awayName: g.away, homeName: g.home,
       awayScore: g.awayScore, homeScore: g.homeScore, status: g.status, winner: g.winner,
-      awayPre: g.awayRecordPre, homePre: g.homeRecordPre,
+      awayPre: g.awayRecordPre, homePre: g.homeRecordPre, awayLogo: g.awayLogo, homeLogo: g.homeLogo,
     })),
     picks: pickRows,
   };
@@ -618,6 +621,7 @@ function players_() {
       evening: isOn_(r[8]),
       groups: splitList_(r[9]),
       hidden: splitList_(r[10]).map(x => x.toUpperCase()),
+      upsets: isOn_(r[11]),
     }));
   return PLAYERS_;
 }
@@ -807,11 +811,11 @@ function isOn_(v) { return !(v === false || String(v === undefined ? '' : v).tri
 // Notifications (OneSignal)
 // ======================================================================
 
-const PREF_COLS = { remind: 6, newweek: 7, results: 8, evening: 9 };   // column numbers on the Players tab
+const PREF_COLS = { remind: 6, newweek: 7, results: 8, evening: 9, upsets: 12 };   // column numbers on the Players tab
 
 function prefsFor_(id) {
   const p = players_().find(x => x.id === id) || {};
-  return { remind: p.remind !== false, newweek: p.newweek !== false, results: p.results !== false, evening: p.evening !== false };
+  return { remind: p.remind !== false, newweek: p.newweek !== false, results: p.results !== false, evening: p.evening !== false, upsets: p.upsets !== false };
 }
 
 function setPref_(key, type, on) {
@@ -1179,6 +1183,22 @@ function nudge_(key, playerId) {
   return { sent: sent, skipped: skipped };
 }
 
+/** Tells the admin once, the moment every active player has picked every game of a week. */
+function allInCheck_(wk, picks) {
+  if (!String(settings_().OneSignalKey || '').trim()) return;
+  const key = 'A|' + wk;
+  const sent = sentSet_();
+  if (sent.indexOf(key) >= 0) return;
+  const games = readGames_().filter(g => weekKey_(g) === wk);
+  const roster = players_().filter(p => p.active);
+  if (!games.length || roster.length < 2) return;
+  const done = roster.every(p => games.every(g => picks.map[g.id + '|' + p.id]));
+  if (!done) return;
+  const parts = wk.split('|');
+  sendPush_([adminId_()], 'Everyone\'s in ✅', 'All ' + roster.length + ' players have picked every ' + weekLabel_(parts[1], parts[2]) + ' game.');
+  markSent_(sent, key);
+}
+
 /** Editor: sends a test notification to you. Turn notifications on in the app first. */
 function testPush() {
   const admin = (settings_().AdminPlayer || 'P1').toUpperCase();
@@ -1297,6 +1317,46 @@ function notifications_(nowMs) {
       const group = p.id === adminId_() ? '' : (p.groups[0] || '');
       sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p));
     });
+    markSent_(sent, key);
+  });
+
+  // 4) Upset alerts: in groups of 3+ (you included), when exactly one person picked the winner and 2+ didn't.
+  //    One alert per person per game, using the first of their groups where it happened.
+  const groupNames = groupNames_();
+  games.filter(g => g.status === 'final' && g.winner && now - g.kickoff.getTime() < 12 * 3600e3).forEach(g => {
+    const key = 'U|' + g.id;
+    if (sent.indexOf(key) >= 0) return;
+    const hits = {};   // group -> hero
+    groupNames.forEach(grp => {
+      const members = roster.filter(p => inGroup_(p, grp));
+      if (members.length < 3) return;
+      const pickers = members.filter(p => { const x = picks.map[g.id + '|' + p.id]; return x && x.pick !== 'MISSED'; });
+      const right = pickers.filter(p => picks.map[g.id + '|' + p.id].pick === g.winner);
+      if (right.length === 1 && pickers.length - 1 >= 2) hits[grp] = right[0];
+    });
+    if (Object.keys(hits).length) {
+      const team = g.winner === g.awayAbbr ? g.away : g.winner === g.homeAbbr ? g.home : 'the tie';
+      const score = g.awayAbbr + ' ' + g.awayScore + ', ' + g.homeAbbr + ' ' + g.homeScore;
+      roster.filter(p => p.upsets).forEach(p => {
+        const grp = groupsOf_(p).find(x => hits[x]);
+        if (!grp) return;
+        const hero = hits[grp];
+        const body = hero.id === p.id
+          ? 'You were the only one in the ' + grp + ' to pick ' + team + '! (' + score + ')'
+          : 'Only ' + hero.name + ' picked ' + team + ' in the ' + grp + '. (' + score + ')';
+        sendPush_([p.id], 'Upset alert 👀', body);
+      });
+    }
+    markSent_(sent, key);
+  });
+
+  // 5) Wrapped: once the Super Bowl is final, everyone hears their season recap is ready.
+  games.filter(g => g.seasonType === 3 && g.week === 5 && g.status === 'final').forEach(g => {
+    const key = 'W|' + g.season;
+    if (sent.indexOf(key) >= 0) return;
+    if (now - g.kickoff.getTime() < 3 * 86400e3) {
+      sendPush_(roster.map(p => p.id), 'Your ' + g.season + ' Greco Picks Wrapped is ready 🎁', 'Open the app and tap Stats to relive your season.');
+    }
     markSent_(sent, key);
   });
 }

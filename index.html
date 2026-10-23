@@ -32,6 +32,29 @@
   .icon:active{background:rgba(255,255,255,.22)}
   .icon.spin{animation:spin .9s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
+  /* Wrapped */
+  #wrapd{position:fixed;inset:0;z-index:40;display:none;color:#fff;user-select:none;-webkit-user-select:none}
+  #wrapd.on{display:block}
+  #wrapd .slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:70px 26px 50px;box-sizing:border-box;transition:background .4s}
+  #wrapd .bars{position:absolute;top:calc(12px + env(safe-area-inset-top));left:12px;right:12px;display:flex;gap:4px;z-index:2}
+  #wrapd .bars i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.3)}
+  #wrapd .bars i.on{background:#fff}
+  #wrapd .wx{position:absolute;top:calc(24px + env(safe-area-inset-top));right:12px;z-index:3;background:rgba(0,0,0,.25);border:0;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer}
+  #wrapd .kick{font-size:15px;letter-spacing:.08em;text-transform:uppercase;opacity:.85;margin-bottom:14px}
+  #wrapd .big{font-size:64px;font-weight:800;line-height:1.05;margin:4px 0 10px}
+  #wrapd .mid{font-size:30px;font-weight:800;line-height:1.15;margin:6px 0 10px}
+  #wrapd .sub{font-size:18px;opacity:.92;line-height:1.4;max-width:340px}
+  #wrapd .emo{font-size:72px;margin-bottom:6px}
+  #wrapd img.logo{width:110px;height:110px;object-fit:contain;margin-bottom:8px;filter:drop-shadow(0 6px 16px rgba(0,0,0,.35))}
+  #wrapd .sum{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:360px;margin:14px 0}
+  #wrapd .sum div{background:rgba(0,0,0,.22);border-radius:14px;padding:10px;text-align:left}
+  #wrapd .sum small{display:block;opacity:.8;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  #wrapd .sum b{font-size:18px}
+  #wrapd .wbtn{font:inherit;font-weight:700;border:0;border-radius:999px;padding:12px 22px;background:#fff;color:#111;cursor:pointer;margin-top:6px}
+  #wrapd .hint{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom));left:0;right:0;text-align:center;font-size:13px;opacity:.7}
+  #wrapd .pop{animation:pop .45s ease both}
+  @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:none;opacity:1}}
+  .wrapbtn{display:flex;align-items:center;justify-content:space-between;width:100%;font:inherit;font-weight:700;font-size:16px;padding:12px 14px;margin-bottom:10px;border:0;border-radius:14px;color:#fff;background:linear-gradient(120deg,#7c3aed,#db2777 55%,#f59e0b);cursor:pointer}
   /* Pull to refresh: a football that spins as you pull, then spirals while loading */
   html,body{overscroll-behavior-y:contain}
   #ptr{position:fixed;left:50%;top:0;z-index:4;transform:translate(-50%,-70px);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;transition:transform .25s ease}
@@ -287,6 +310,8 @@
   </div>
 </div>
 
+<div id="wrapd" aria-modal="true" role="dialog" aria-label="Wrapped"></div>
+
 <div id="help" aria-modal="true" aria-label="Help">
   <div class="sheet">
     <div class="sheet-top"><h2>How it works</h2><button class="x" id="helpClose" aria-label="Close">✕</button></div>
@@ -315,6 +340,8 @@
     <details class="faq"><summary>What are groups?</summary><div>Paul can put people in groups (like <i>Greco's</i> or <i>Friends</i>). Picks, Group and Stats open on your group; use the <b>Group</b> menu at the top of each tab to switch to another group or <b>Everyone</b>. Each group gets its own 👑 and 💩.</div></details>
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
+    <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. Find it at the top of the <b>Stats</b> tab once you have a few picks graded (it says "so far" until the Super Bowl). Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
+    <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), everyone in that group gets a heads-up: "Only Holly picked the Jets 👀". Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
@@ -333,7 +360,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.6.0';
+  const APP_VERSION = '2.7.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -490,7 +517,7 @@
     const season=sf.season||curSeason();
     if(!season || histLoading || (hist[season] && !force)) return;
     histLoading=true; spin(true);
-    api('history',{season:season})
+    return api('history',{season:season})
       .then(h=>{ hist[season]=h; if(view==='stats') render(); })
       .catch(e=>toast(e.message))
       .finally(()=>{ histLoading=false; spin(false); });
@@ -573,7 +600,7 @@
     const rangeOpts=[['season','Whole season'],['week','Single week…'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
     const opt=(list,val)=>list.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(t)}</option>`).join('');
     const wkOpts=v=>st.weeksAll.map(k=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('');
-    let html=groupBar()+`<div class="filters">
+    let html=groupBar()+wrapButton(h,season)+`<div class="filters">
         <select data-sf="season">${opt(seasonOpts,season)}</select>
         <select data-sf="range">${opt(rangeOpts,sf.range)}</select>
       </div>`;
@@ -629,6 +656,119 @@
     <div class="note">Only games that have kicked off count. Upsets = correct picks of the team with the worse record going in. With group = how often a pick matched most of the selected people.</div>`;
     return html;
   }
+
+  // ---------- Wrapped: a Spotify-Wrapped style recap of your season ----------
+  function wrapButton(h,season){
+    if(season==='all') return '';
+    const n=h.picks.filter(x=>x[1]===state.me.id&&(x[3]==='W'||x[3]==='L')).length;
+    if(n<5) return '';
+    const over=h.games.some(g=>g.type===3&&g.week===5&&g.status==='final');
+    return `<button class="wrapbtn" data-wrapped="${esc(season)}"><span>🎁 Your ${esc(season)} Wrapped${over?'':' (so far)'}</span><span>›</span></button>`;
+  }
+  function buildWrapped(h,season){
+    const me=state.me.id, grp=curGroup();
+    const members=h.players.filter(p=>p.id===me||!grp||(p.groups||[]).indexOf(grp)>=0).map(p=>p.id);
+    const names={}; h.players.forEach(p=>names[p.id]=p.name);
+    const games={}; h.games.forEach(g=>{ games[g.id]=g; });
+    const byGame={}; h.picks.forEach(x=>{ (byGame[x[0]]=byGame[x[0]]||{})[x[1]]={p:x[2],r:x[3],at:x[4]}; });
+    const mine=h.picks.filter(x=>x[1]===me&&(x[3]==='W'||x[3]==='L')).map(x=>({g:games[x[0]],p:x[2],r:x[3],at:x[4]})).filter(x=>x.g)
+      .sort((a,b)=>a.g.kickoff.localeCompare(b.g.kickoff));
+    const W=mine.filter(x=>x.r==='W').length, L=mine.length-W;
+    // rank in group
+    const tot={}; members.forEach(id=>tot[id]={W:0,L:0});
+    h.picks.forEach(x=>{ if(tot[x[1]]&&(x[3]==='W'||x[3]==='L')) tot[x[1]][x[3]]++; });
+    const ranked=members.filter(id=>tot[id].W+tot[id].L>0).sort((a,b)=>{ const pa=tot[a].W/(tot[a].W+tot[a].L), pb=tot[b].W/(tot[b].W+tot[b].L); return pb-pa||tot[b].W-tot[a].W; });
+    const rank=ranked.indexOf(me)+1;
+    // weeks
+    const wk={}; mine.forEach(x=>{ const k=wkKey(x.g); (wk[k]=wk[k]||{W:0,L:0})[x.r]++; });
+    const wks=Object.keys(wk).sort((a,b)=>wkOrder(a)-wkOrder(b));
+    let best=null, worst=null;
+    wks.forEach(k=>{ const w=wk[k], n=w.W+w.L, pc=w.W/n; if(!best||w.W>best.w.W||(w.W===best.w.W&&pc>best.pc)) best={k,w,pc}; if(n>=3&&(!worst||pc<worst.pc||(pc===worst.pc&&w.L>worst.w.L))) worst={k,w,pc}; });
+    // streak
+    let run=0, longest=0, endAt=null, startAt=null, curStart=null;
+    mine.forEach(x=>{ if(x.r==='W'){ if(!run) curStart=x.g; run++; if(run>longest){ longest=run; startAt=curStart; endAt=x.g; } } else run=0; });
+    // teams
+    const teamName=(g,a)=>a===g.away?g.awayName:a===g.home?g.homeName:a;
+    const teamLogo=(g,a)=>a===g.away?g.awayLogo:a===g.home?g.homeLogo:'';
+    const t={}; mine.forEach(x=>{ if(x.p==='TIE') return; const o=t[x.p]||(t[x.p]={n:0,W:0,name:teamName(x.g,x.p),logo:teamLogo(x.g,x.p)}); o.n++; if(x.r==='W') o.W++; });
+    const ride=Object.entries(t).sort((a,b)=>b[1].n-a[1].n||b[1].W-a[1].W)[0];
+    const burn={}; mine.forEach(x=>{ if(x.r!=='L') return; const g=x.g;
+      const culprit=g.winner&&g.winner!=='TIE'&&g.winner!==x.p?g.winner:(x.p!=='TIE'?x.p:null); if(!culprit) return;
+      const o=burn[culprit]||(burn[culprit]={n:0,name:teamName(g,culprit),logo:teamLogo(g,culprit)}); o.n++; });
+    const nemesis=Object.entries(burn).sort((a,b)=>b[1].n-a[1].n)[0];
+    // favorites vs upsets
+    let fav=0, favN=0, ups=0, bestUpset=null;
+    mine.forEach(x=>{ const g=x.g; if(x.p==='TIE') return; const pa=recPct(g.awayPre), ph=recPct(g.homePre); if(pa==null||ph==null||pa===ph) return;
+      favN++; const pickedPct=x.p===g.away?pa:ph, other=x.p===g.away?ph:pa;
+      if(pickedPct>other) fav++; else if(x.r==='W'){ ups++; const gap=other-pickedPct; if(!bestUpset||gap>bestUpset.gap) bestUpset={gap,x}; } });
+    const favShare=favN?fav/favN:0.5;
+    // lone wolf (only one right among 3+ pickers in group)
+    const lone=[]; mine.forEach(x=>{ if(x.r!=='W') return; const gp=byGame[x.g.id]||{}; const pick=members.filter(id=>gp[id]&&gp[id].p!=='MISSED'); if(pick.length<3) return;
+      const right=pick.filter(id=>gp[id].r==='W'); if(right.length===1) lone.push(x); });
+    // pick twin / opposite
+    const agree={}; mine.forEach(x=>{ const gp=byGame[x.g.id]||{}; members.forEach(id=>{ if(id===me||!gp[id]||gp[id].p==='MISSED') return; const a=agree[id]||(agree[id]={s:0,n:0}); a.n++; if(gp[id].p===x.p) a.s++; }); });
+    const ag=Object.entries(agree).filter(([,a])=>a.n>=5).map(([id,a])=>({id,pc:a.s/a.n})).sort((a,b)=>b.pc-a.pc);
+    // crowns / poops per week in group
+    let crowns=0, poops=0;
+    const allWk=Array.from(new Set(h.games.map(wkKey)));
+    allWk.forEach(k=>{ const gIds=h.games.filter(g=>wkKey(g)===k).map(g=>g.id); if(!h.games.filter(g=>wkKey(g)===k).every(g=>g.status==='final')) return;
+      const w={}; members.forEach(id=>w[id]={W:0,n:0}); gIds.forEach(id=>{ const gp=byGame[id]||{}; members.forEach(m=>{ if(gp[m]&&(gp[m].r==='W'||gp[m].r==='L')){ w[m].n++; if(gp[m].r==='W') w[m].W++; } }); });
+      const played=members.filter(m=>w[m].n>0); if(played.length<2) return;
+      const top=Math.max(...played.map(m=>w[m].W)), low=Math.min(...played.map(m=>w[m].W));
+      if(w[me].n&&w[me].W===top&&top>0) crowns++; if(w[me].n&&w[me].W===low&&low<top) poops++; });
+    // timing
+    const leads=mine.filter(x=>x.at).map(x=>(new Date(x.g.kickoff)-new Date(x.at))/3600e3).filter(v=>v>=0).sort((a,b)=>a-b);
+    const medLead=leads.length?leads[Math.floor(leads.length/2)]:null;
+    const persona=favShare>=0.75?{e:'🍽️',t:'The Chalk Eater',d:'You took the favorite '+Math.round(favShare*100)+'% of the time. Safe, steady, delicious.'}
+      :favShare<=0.55?{e:'🎯',t:'The Upset Hunter',d:'Only '+Math.round(favShare*100)+'% favorites. You came for chaos.'}
+      :{e:'🧠',t:'The Strategist',d:'A '+Math.round(favShare*100)+'/'+Math.round(100-favShare*100)+' mix of favorites and underdogs. Calculated.'};
+    const timing=medLead==null?null:medLead<2?{e:'⏰',t:'Down to the wire',d:'Half your picks came in under '+(medLead<1?Math.max(1,Math.round(medLead*60))+' minutes':'2 hours')+' before kickoff.'}
+      :medLead>48?{e:'🐦',t:'Early bird',d:'You usually picked about '+Math.round(medLead/24)+' days ahead.'}
+      :{e:'🗓️',t:'Right on schedule',d:'You usually picked about '+Math.round(medLead)+' hours before kickoff.'};
+    const over=h.games.some(g=>g.type===3&&g.week===5&&g.status==='final');
+    const lastWk=wks.length?wkName(wks[wks.length-1]):'';
+    const gl=grp?'the '+grp:'everyone';
+    const slides=[];
+    const bgs=['linear-gradient(160deg,#7c3aed,#db2777)','linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#db2777,#7c3aed)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#84cc16,#15803d)','linear-gradient(160deg,#f43f5e,#9f1239)','linear-gradient(160deg,#6366f1,#0ea5e9)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#eab308,#f97316)','linear-gradient(160deg,#14b8a6,#6366f1)'];
+    const add=html=>slides.push(html);
+    add(`<div class="emo pop">🎁</div><div class="kick">Greco Picks</div><div class="mid pop">${esc(state.me.name)}, here's your ${esc(season)} season${over?'':' so far'}</div><div class="sub">${over?'Every pick. Every week. Let\'s go.':'Through '+esc(lastWk)+'. More to come.'}</div>`);
+    add(`<div class="kick">Your record</div><div class="big pop">${W}-${L}</div><div class="sub">That's ${fmtPct(mine.length?W/mine.length:0)}${rank&&ranked.length>1?`, <b>#${rank} of ${ranked.length}</b> in ${esc(gl)}`:''}.${rank===1&&ranked.length>1?' 👑':''}</div>`);
+    if(best) add(`<div class="kick">Your best week</div><div class="emo pop">🔥</div><div class="mid">${esc(wkName(best.k))}: ${best.w.W}-${best.w.L}</div><div class="sub">${best.pc===1?'Perfect. Not a single miss.':'You were locked in.'}</div>`);
+    if(worst&&(!best||worst.k!==best.k)) add(`<div class="kick">And then there was…</div><div class="emo pop">🫠</div><div class="mid">${esc(wkName(worst.k))}: ${worst.w.W}-${worst.w.L}</div><div class="sub">We don't talk about ${esc(wkName(worst.k))}.</div>`);
+    if(longest>=3) add(`<div class="kick">Longest win streak</div><div class="big pop">${longest}</div><div class="sub">correct picks in a row${startAt&&endAt?`, from ${esc(startAt.away+' @ '+startAt.home)} to ${esc(endAt.away+' @ '+endAt.home)}`:''}.</div>`);
+    if(ride) add(`<div class="kick">Your ride or die</div>${ride[1].logo?`<img class="logo pop" src="${esc(ride[1].logo)}" alt="">`:'<div class="emo pop">🏈</div>'}<div class="mid">${esc(ride[1].name)}</div><div class="sub">You picked them ${ride[1].n} time${ride[1].n>1?'s':''} and went ${ride[1].W}-${ride[1].n-ride[1].W} with them.</div>`);
+    if(nemesis&&nemesis[1].n>=2) add(`<div class="kick">Your nemesis</div>${nemesis[1].logo?`<img class="logo pop" src="${esc(nemesis[1].logo)}" alt="">`:'<div class="emo pop">😤</div>'}<div class="mid">${esc(nemesis[1].name)}</div><div class="sub">They burned you ${nemesis[1].n} times.</div>`);
+    add(`<div class="kick">Upsets called</div><div class="big pop">${ups}</div><div class="sub">${ups?'times you picked the team with the worse record, and they won.':'Not one. The favorites never let you down… right?'}${bestUpset?`<br><br>Biggest: <b>${esc(teamName(bestUpset.x.g,bestUpset.x.p))}</b> (${esc(bestUpset.x.p===bestUpset.x.g.away?bestUpset.x.g.awayPre:bestUpset.x.g.homePre)}) in ${esc(wkName(wkKey(bestUpset.x.g)))}.`:''}</div>`);
+    if(lone.length) add(`<div class="kick">Lone wolf</div><div class="emo pop">🐺</div><div class="mid">${lone.length} time${lone.length>1?'s':''}</div><div class="sub">you were the <b>only one</b> in ${esc(gl)} to get it right.<br><br>${lone.slice(0,3).map(x=>esc(teamName(x.g,x.p))+' · '+esc(wkName(wkKey(x.g)))).join('<br>')}</div>`);
+    if(ag.length) add(`<div class="kick">Your pick twin</div><div class="emo pop">👯</div><div class="mid">${esc(names[ag[0].id]||'')}</div><div class="sub">You picked the same team ${Math.round(ag[0].pc*100)}% of the time.${ag.length>1?`<br><br>Your opposite: <b>${esc(names[ag[ag.length-1].id]||'')}</b> (${Math.round(ag[ag.length-1].pc*100)}%).`:''}</div>`);
+    if(crowns||poops) add(`<div class="kick">Weekly hardware</div><div class="mid pop">👑 × ${crowns}${poops?'<br>💩 × '+poops:''}</div><div class="sub">${crowns?'Week'+(crowns>1?'s':'')+' you finished on top':'No crowns this time'}${poops?(crowns?', and ':' and ')+poops+' you\'d rather forget':''} in ${esc(gl)}.</div>`);
+    if(timing) add(`<div class="kick">Your pick timing</div><div class="emo pop">${timing.e}</div><div class="mid">${esc(timing.t)}</div><div class="sub">${esc(timing.d)}</div>`);
+    add(`<div class="kick">Your picking style</div><div class="emo pop">${persona.e}</div><div class="mid">${esc(persona.t)}</div><div class="sub">${esc(persona.d)}</div>`);
+    const summary=[['Record',W+'-'+L],['Rank',rank&&ranked.length>1?'#'+rank+' of '+ranked.length:'—'],['Best week',best?wkName(best.k)+' '+best.w.W+'-'+best.w.L:'—'],['Streak',longest+' straight'],['Ride or die',ride?ride[1].name:'—'],['Upsets',String(ups)],['Pick twin',ag.length?names[ag[0].id]:'—'],['Style',persona.t]];
+    add(`<div class="kick">${esc(season)} Wrapped · ${esc(state.me.name)}</div><div class="sum pop">${summary.map(([a,b])=>`<div><small>${esc(a)}</small><b>${esc(b)}</b></div>`).join('')}</div><button class="wbtn" data-wshare="1">Share</button>`);
+    const shareText=`My ${season} Greco Picks Wrapped 🏈\n`+summary.map(([a,b])=>a+': '+b).join('\n');
+    return {slides:slides.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText};
+  }
+  let WR=null;
+  function showWrapped(season){
+    const h=hist[season]; if(!h) return;
+    WR=Object.assign(buildWrapped(h,season),{i:0});
+    drawWrapped(); document.getElementById('wrapd').classList.add('on');
+  }
+  function drawWrapped(){
+    const el=document.getElementById('wrapd'), sl=WR.slides[WR.i];
+    el.innerHTML=`<div class="bars">${WR.slides.map((_,j)=>`<i class="${j<=WR.i?'on':''}"></i>`).join('')}</div><button class="wx" data-wclose="1" aria-label="Close">✕</button>
+      <div class="slide" style="background:${sl.bg}">${sl.html}</div>${WR.i===0?'<div class="hint">Tap to continue</div>':''}`;
+  }
+  document.getElementById('wrapd').addEventListener('click',e=>{
+    if(!WR) return;
+    if(e.target.closest('[data-wclose]')){ document.getElementById('wrapd').classList.remove('on'); return; }
+    if(e.target.closest('[data-wshare]')){ if(navigator.share) navigator.share({title:'Greco Picks Wrapped',text:WR.shareText}).catch(()=>{}); else copyText(WR.shareText,'Copied your Wrapped.'); return; }
+    const back=e.clientX<window.innerWidth*0.3;
+    if(back){ if(WR.i>0){ WR.i--; drawWrapped(); } }
+    else if(WR.i<WR.slides.length-1){ WR.i++; drawWrapped(); }
+  });
+  document.getElementById('main').addEventListener('click',e=>{ const b=e.target.closest('[data-wrapped]'); if(b) showWrapped(b.dataset.wrapped); });
 
   function card(g){
     const s=state, my=g.mine&&g.mine.pick, locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
@@ -764,7 +904,7 @@
   }
   function refreshPushUI(){
     const box=document.getElementById('nbox'); if(!box) return;
-    const st=pushStatus(), p=Object.assign({remind:true,newweek:true,results:true,evening:true},(state&&state.me&&state.me.prefs)||{});
+    const st=pushStatus(), p=Object.assign({remind:true,newweek:true,results:true,evening:true,upsets:true},(state&&state.me&&state.me.prefs)||{});
     let top;
     if(st==='ios') top='<p>On iPhone, notifications only work from the home-screen app. In Safari, tap Share → <b>Add to Home Screen</b>, then open Greco Picks from there and come back here.</p>';
     else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
@@ -786,7 +926,7 @@
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
     const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
     const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+testBtn+off:'')+reset+diagTog+diag+log;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','When only one person in your group (3+ people) picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
@@ -940,6 +1080,14 @@
       ball.style.transform=`rotate(${dist*4}deg)`;
       place(dist);
     },{passive:true});
+    window.footballRefresh=()=>{
+      if(busy) return; busy=true; y0=null; ball.style.transform=''; el.className='go'; label.textContent='Refreshing…'; place(70);
+      const jobs=[load(state&&state.selected,false)]; if(view==='stats') jobs.push(loadHistory(true));
+      Promise.all(jobs).catch(()=>{}).then(()=>{
+        el.className='done'; label.textContent='✓ Up to date'; place(70);
+        setTimeout(()=>{ hide(); busy=false; dist=0; },700);
+      });
+    };
     window.addEventListener('touchend',()=>{
       if(y0===null||busy) return; y0=null;
       if(dist<=70){ hide(); dist=0; return; }
@@ -1263,7 +1411,7 @@
     sf.people=null; saveSf(); render();
   });
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
-  document.getElementById('reload').addEventListener('click',()=>{ load(state&&state.selected,false); if(view==='stats') loadHistory(true); });
+  document.getElementById('reload').addEventListener('click',()=>{ if(window.footballRefresh) window.footballRefresh(); else { load(state&&state.selected,false); if(view==='stats') loadHistory(true); } });
   const help=document.getElementById('help');
   document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
   const settings=document.getElementById('settings');
