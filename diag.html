@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greco Picks – notification check</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0b1220;color:#e5e7eb;font:15px/1.4 system-ui,sans-serif;padding:16px}
+  h1{font-size:20px;margin:0 0 6px}
+  p{color:#9ca3af;margin:0 0 12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+  button{font:inherit;padding:10px 14px;border-radius:10px;border:1px solid #6d8cff;background:#1b2440;color:#c7d2fe}
+  #st{font-size:13px;margin:0 0 10px;word-break:break-all}
+  #log{font:11px/1.35 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;background:#111827;border-radius:10px;padding:10px;margin:0}
+  .e{color:#fca5a5}.w{color:#fcd34d}
+</style>
+<script>
+  // Capture everything before OneSignal loads.
+  const LOG=[]; const T0=Date.now();
+  function add(kind,msg){
+    LOG.push([kind,((Date.now()-T0)/1000).toFixed(1)+'s '+msg]);
+    if(LOG.length>400) LOG.shift();
+    const el=document.getElementById('log');
+    if(el){ el.innerHTML=LOG.map(([k,m])=>'<span class="'+(k==='error'?'e':k==='warn'?'w':'')+'">'+m.replace(/[&<]/g,c=>c==='&'?'&amp;':'&lt;')+'</span>').join('\n'); }
+  }
+  const fmt=a=>Array.from(a).map(x=>{ try{ return x&&x.stack?x.message:(typeof x==='object'?JSON.stringify(x):String(x)); }catch(e){ return String(x); } }).join(' ').slice(0,400);
+  ['log','info','warn','error','debug'].forEach(k=>{ const o=console[k]; console[k]=function(){ add(k,k.toUpperCase()+' '+fmt(arguments)); return o.apply(console,arguments); }; });
+  window.addEventListener('error',e=>add('error','PAGE ERROR '+e.message));
+  window.addEventListener('unhandledrejection',e=>add('error','UNHANDLED '+((e.reason&&e.reason.message)||e.reason)));
+  const of=window.fetch;
+  window.fetch=function(input,init){
+    const url=String((input&&input.url)||input||''); const m=((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+    const p=of.apply(this,arguments);
+    p.then(r=>{ if(r.ok) add('log','NET '+m+' '+url+' → '+r.status); else r.clone().text().then(t=>add('error','NET '+m+' '+url+' → '+r.status+' '+t.slice(0,300))); })
+     .catch(e=>add('error','NET '+m+' '+url+' → FAILED '+((e&&e.message)||e)));
+    return p;
+  };
+  const ox=XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open=function(m,u){ this.addEventListener('loadend',()=>add(this.status>=400||this.status===0?'error':'log','XHR '+m+' '+u+' → '+this.status)); return ox.apply(this,arguments); };
+</script>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+</head>
+<body>
+<h1>Notification check</h1>
+<p>Tap <b>Run check</b>, wait about 20 seconds, then screenshot everything (scroll down for the full log).</p>
+<div class="row">
+  <button id="run">Run check</button>
+  <button id="copy">Copy log</button>
+  <button onclick="location.href='./'">Back to app</button>
+</div>
+<div id="st">Loading…</div>
+<pre id="log"></pre>
+<script>
+  const APP_ID='e0fe6864-f2ca-4b41-8c87-00586a7634e4';
+  let OS=null;
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  function status(){
+    const s=OS&&OS.User&&OS.User.PushSubscription;
+    document.getElementById('st').textContent='permission '+(('Notification' in window)?Notification.permission:'n/a')+
+      ' · opted in '+(s?s.optedIn:'-')+' · subscription '+(s&&s.id?s.id:'none')+' · token '+(s&&s.token?'yes':'no')+
+      ' · user '+((OS&&OS.User&&OS.User.onesignalId)||'none')+' · '+(navigator.userAgent.match(/Chrome\/[\d.]+|Version\/[\d.]+ Mobile/)||[''])[0];
+  }
+  async function env(){
+    try{ const regs=await navigator.serviceWorker.getRegistrations(); add('log','Workers: '+(regs.map(r=>r.scope+' → '+((r.active&&r.active.scriptURL)||'(not active)')).join(' | ')||'none')); }catch(e){ add('error','Workers: '+e.message); }
+    try{ if(indexedDB.databases){ const d=await indexedDB.databases(); add('log','Databases: '+(d.map(x=>x.name+' v'+x.version).join(', ')||'none')); } }catch(e){ add('error','Databases: '+e.message); }
+    try{ const r=await navigator.serviceWorker.getRegistration('/GrecoPicks/'); const s=r&&await r.pushManager.getSubscription(); add('log','Browser push subscription: '+(s?new URL(s.endpoint).host:'none')); }catch(e){ add('error','Browser push subscription: '+e.message); }
+    try{ const t=await new Promise((res,rej)=>{ const q=indexedDB.open('ONE_SIGNAL_SDK_DB'); q.onsuccess=()=>{ q.result.close(); res('opens OK'); }; q.onerror=()=>rej(q.error); q.onblocked=()=>res('BLOCKED'); setTimeout(()=>res('TIMED OUT (stuck)'),4000); }); add(t==='opens OK'?'log':'error','OneSignal database: '+t); }catch(e){ add('error','OneSignal database: '+e.message); }
+  }
+  window.OneSignalDeferred=window.OneSignalDeferred||[];
+  OneSignalDeferred.push(async function(OneSignal){
+    try{
+      OneSignal.Debug.setLogLevel('trace');
+      add('log','OneSignal script loaded, starting…');
+      await OneSignal.init({ appId:APP_ID, serviceWorkerPath:'GrecoPicks/sw.js', serviceWorkerParam:{scope:'/GrecoPicks/'}, notifyButton:{enable:false}, welcomeNotification:{disable:true} });
+      OS=OneSignal; add('log','OneSignal started');
+      OneSignal.User.PushSubscription.addEventListener('change',e=>{ add('log','SUBSCRIPTION CHANGE '+fmt([e&&e.current])); status(); });
+      status(); setInterval(status,1000);
+    }catch(e){ add('error','OneSignal init failed: '+((e&&e.message)||e)); }
+  });
+  setTimeout(()=>{ if(!OS) add('error','OneSignal did not start within 15s'); },15000);
+  document.getElementById('run').addEventListener('click',async()=>{
+    add('log','--- Run check ---'); await env();
+    if(!OS){ add('error','OneSignal not started yet'); return; }
+    try{
+      if(Notification.permission!=='granted'){ add('log','Requesting permission…'); await OS.Notifications.requestPermission(); }
+      add('log','optIn()…'); await OS.User.PushSubscription.optIn(); add('log','optIn() returned');
+      for(let i=0;i<20 && !OS.User.PushSubscription.token;i++) await wait(500);
+      add(OS.User.PushSubscription.token?'log':'error','Result: token '+(OS.User.PushSubscription.token?'YES':'no')+', subscription '+(OS.User.PushSubscription.id||'none'));
+    }catch(e){ add('error','Run failed: '+((e&&e.message)||e)); }
+    status();
+  });
+  document.getElementById('copy').addEventListener('click',()=>{ const t=LOG.map(x=>x[1]).join('\n'); (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>add('log','(copied)')).catch(()=>add('warn','(copy not allowed here)')); });
+  env();
+</script>
+</body>
+</html>
