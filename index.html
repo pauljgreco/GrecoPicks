@@ -143,8 +143,18 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings,#profile{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on,#profile.on{display:flex}
+  #help,#settings,#profile,#peopleSheet,#hideSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on{display:flex}
+  .rowbtn{display:flex;justify-content:space-between;align-items:center;width:100%;font:inherit;font-size:16px;font-weight:600;padding:4px 0;border:0;background:none;color:var(--ink);cursor:pointer;text-align:left}
+  .rowbtn small{color:var(--muted);font-weight:400;font-size:14px}
+  .rowbtn .chev{color:var(--muted);font-size:20px}
+  .ptools{display:flex;gap:8px;margin:10px 0 4px}
+  .ptools input,.ptools select{font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .ptools input{flex:1;min-width:0}
+  .phead{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
+  .phead b{display:inline;font-size:15px}
+  .phead small{color:var(--muted)}
+  .pdetail{margin-top:8px}
   .pname{cursor:pointer}
   .pchips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
   .pchips span{background:var(--sel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:14px}
@@ -204,17 +214,10 @@
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
     <h3>Hide people</h3>
-    <div class="nbox">
-      <p>Hide anyone from <b>your</b> screens (Picks, Group, Stats). Only you are affected; they still play as normal.</p>
-      <div id="hideList"><p>Loading…</p></div>
-    </div>
+    <div class="nbox"><button class="rowbtn" id="openHide"><span>Hide people<br><small id="hideCount">Only affects your screens</small></span><span class="chev">›</span></button></div>
     <div id="peopleWrap" hidden>
       <h3>People (only you see this)</h3>
-      <div class="nbox">
-        <p>Add someone, then send them their link. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link. <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</p>
-        <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="New person's name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
-        <div id="people" style="margin-top:10px"><p>Loading…</p></div>
-      </div>
+      <div class="nbox"><button class="rowbtn" id="openPeople"><span>Manage people<br><small id="pplCount">Add, links, groups, retire</small></span><span class="chev">›</span></button></div>
     </div>
     <h3>Report a problem</h3>
     <div class="nbox rep">
@@ -235,6 +238,25 @@
   <div class="sheet">
     <div class="sheet-top"><h2 id="pTitle">Profile</h2><button class="x" id="pClose" aria-label="Close">✕</button></div>
     <div id="pBody"></div>
+  </div>
+</div>
+
+<div id="peopleSheet" role="dialog" aria-modal="true" aria-label="People">
+  <div class="sheet">
+    <div class="sheet-top"><h2>People</h2><button class="x" id="peopleClose" aria-label="Close">✕</button></div>
+    <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
+    <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
+    <div id="people"><p>Loading…</p></div>
+    <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
+  </div>
+</div>
+
+<div id="hideSheet" role="dialog" aria-modal="true" aria-label="Hide people">
+  <div class="sheet">
+    <div class="sheet-top"><h2>Hide people</h2><button class="x" id="hideClose" aria-label="Close">✕</button></div>
+    <p style="color:var(--muted);margin:0 0 6px">Hide anyone from <b>your</b> screens (Picks, Group, Stats). Only you are affected; they still play as normal.</p>
+    <div class="ptools"><input id="hSearch" type="search" placeholder="Search names or groups" aria-label="Search"></div>
+    <div id="hideList"><p>Loading…</p></div>
   </div>
 </div>
 
@@ -271,11 +293,11 @@
 
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
-      <details class="faq"><summary>Add someone</summary><div>Tap <b>⚙</b>, scroll to <b>People</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
-      <details class="faq"><summary>Groups</summary><div>In <b>⚙ → People</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
-      <details class="faq"><summary>Someone stopped playing</summary><div>In <b>⚙ → People</b>, tap <b>Retire</b> (twice to confirm). They disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Bring back</b> undoes it.</div></details>
+      <details class="faq"><summary>Add someone</summary><div>Tap <b>⚙ → Manage people</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
+      <details class="faq"><summary>Groups</summary><div>In <b>⚙ → Manage people</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
+      <details class="faq"><summary>Someone stopped playing</summary><div>In <b>⚙ → Manage people</b>, tap <b>Retire</b> (twice to confirm). They disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Bring back</b> undoes it.</div></details>
       <details class="faq"><summary>Fix or add a pick after kickoff</summary><div>Open <b>Admin override</b> on that game's card, pick the team (or <b>Missed</b>, which counts as a loss) for that person, and tap <b>Save</b>. It's marked "override."</div></details>
-      <details class="faq"><summary>Someone's link got shared</summary><div>In <b>⚙ → People</b>, tap <b>New link</b> next to them (tap twice to confirm) and send them the new one. The old link stops working; their picks stay.</div></details>
+      <details class="faq"><summary>Someone's link got shared</summary><div>In <b>⚙ → Manage people</b>, tap <b>New link</b> next to them (tap twice to confirm) and send them the new one. The old link stops working; their picks stay.</div></details>
       <details class="faq"><summary>Changing the script</summary><div>After saving Code.gs, use <b>Deploy → Manage deployments → pencil → New version → Deploy</b>. Never <b>New deployment</b>; that changes the address the app uses.</div></details>
     </div>
   </div>
@@ -283,7 +305,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.2';
+  const APP_VERSION = '2.5.3';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -941,13 +963,15 @@
   // ---------- Hide people (just for you) ----------
   function renderHide(){
     const el=document.getElementById('hideList'); if(!el||!state) return;
-    const hid=hiddenSet(), others=(state.players||[]).filter(p=>p.id!==state.me.id);
+    const hid=hiddenSet(), q=(document.getElementById('hSearch').value||'').trim().toLowerCase();
+    const others=(state.players||[]).filter(p=>p.id!==state.me.id).filter(p=>!q||p.name.toLowerCase().indexOf(q)>=0||(p.groups||[]).some(g=>g.toLowerCase().indexOf(q)>=0))
+      .sort((a,b)=>(hid.has(b.id)-hid.has(a.id))||a.name.localeCompare(b.name));
     el.innerHTML=others.length?others.map(p=>`<label class="tog"><span>${esc(p.name)}${(p.groups||[]).length?`<small>${esc(p.groups.join(', '))}</small>`:''}</span><input type="checkbox" data-hide="${esc(p.id)}"${hid.has(p.id)?' checked':''}></label>`).join(''):'<p>No one else yet.</p>';
   }
   document.getElementById('hideList').addEventListener('change',e=>{
     const id=e.target.dataset&&e.target.dataset.hide; if(!id) return;
     const on=e.target.checked;
-    api('hide',{pl:id,on:on?'1':'0'}).then(d=>{ state.me.hidden=d.hidden; save(); render(); toast(on?'Hidden on your screens.':'Showing again.'); })
+    api('hide',{pl:id,on:on?'1':'0'}).then(d=>{ state.me.hidden=d.hidden; save(); render(); updateCounts(); toast(on?'Hidden on your screens.':'Showing again.'); })
       .catch(err=>{ e.target.checked=!on; toast(err.message); });
   });
 
@@ -964,22 +988,47 @@
     else fallbackCopy(t,done);
   }
   function fallbackCopy(t,done){ const a=document.createElement('textarea'); a.value=t; a.style.position='fixed'; a.style.opacity='0'; document.body.appendChild(a); a.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('Couldn\'t copy. Long-press the link instead.'); } a.remove(); }
+  let openPerson='';
   function renderPeople(){
     const el=document.getElementById('people'); if(!el) return;
     if(!people){ el.innerHTML='<p>Loading…</p>'; return; }
-    el.innerHTML=people.people.map(p=>`<div class="person">
-        <b>${esc(p.name)}${p.id===state.me.id?' (you)':''}${p.active?'':' <small>(retired)</small>'}</b>
-        <small style="word-break:break-all">${p.link?esc(p.link):'No link yet'}</small>
-        ${p.id===people.adminId?'<small style="display:block">In every group</small>':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
-        <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
-      </div>`).join('')||'<p>No one yet.</p>';
-    if(people.groups&&people.groups.length) el.insertAdjacentHTML('afterbegin',`<p style="font-size:13px">Groups in use: ${people.groups.map(esc).join(', ')}</p>`);
+    // filter menu
+    const fs=document.getElementById('pFilter'), fv=fs.value||'__all';
+    const gs=people.groups||[];
+    fs.innerHTML=[['__all','Everyone'],['__active','Playing'],['__retired','Retired'],['__none','No group']].concat(gs.map(g=>[g,g])).map(([v,t])=>`<option value="${esc(v)}"${v===fv?' selected':''}>${esc(t)}</option>`).join('');
+    const q=(document.getElementById('pSearch').value||'').trim().toLowerCase();
+    const list=people.people.filter(p=>{
+      if(fv==='__active'&&!p.active) return false;
+      if(fv==='__retired'&&p.active) return false;
+      if(fv==='__none'&&((p.groups||[]).length||p.id===people.adminId)) return false;
+      if(gs.indexOf(fv)>=0&&p.id!==people.adminId&&(p.groups||[]).indexOf(fv)<0) return false;
+      return !q||p.name.toLowerCase().indexOf(q)>=0||(p.groups||[]).some(g=>g.toLowerCase().indexOf(q)>=0);
+    }).sort((a,b)=>(b.active-a.active)||(a.id===people.adminId?-1:b.id===people.adminId?1:a.name.localeCompare(b.name)));
+    el.innerHTML=list.map(p=>{
+      const tags=p.id===people.adminId?'Every group':((p.groups||[]).join(', ')||'No group');
+      const open=openPerson===p.id;
+      return `<div class="person">
+        <div class="phead" data-pexp="${esc(p.id)}"><span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
+        ${open?`<div class="pdetail">
+          <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
+          ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
+          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
+        </div>`:''}
+      </div>`;
+    }).join('')||'<p>No one matches.</p>';
+    updateCounts();
+  }
+  function updateCounts(){
+    if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; document.getElementById('pplCount').textContent=act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }
+    if(state){ const n=((state.me&&state.me.hidden)||[]).length; document.getElementById('hideCount').textContent=n?n+' hidden on your screens':'Only affects your screens'; }
   }
   function loadPeople(){
     if(!state||!state.me.isAdmin) return;
     api('people',{}).then(d=>{ people=d; renderPeople(); }).catch(e=>{ document.getElementById('people').innerHTML='<p>'+esc(e.message)+'</p>'; });
   }
   document.getElementById('people').addEventListener('click',e=>{
+    const h=e.target.closest('[data-pexp]');
+    if(h){ openPerson=openPerson===h.dataset.pexp?'':h.dataset.pexp; armedLink=''; armedRetire=''; renderPeople(); return; }
     const b=e.target.closest('[data-pp]'); if(!b||!people) return;
     const p=people.people.find(x=>x.id===b.dataset.id); if(!p) return;
     if(b.dataset.pp==='share') shareLink(p.name,p.link);
@@ -1017,11 +1066,26 @@
     api('addperson',{name:name}).then(d=>{
       people=d; renderPeople(); inp.value='';
       const np=d.people.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      if(np){ openPerson=np.id; renderPeople(); }
       toast(name+' added. Send them their link.');
       if(np&&np.link) setTimeout(()=>shareLink(np.name,np.link),300);
       load(state&&state.selected,false);
     }).catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
   });
+
+  // ---------- People / Hide sheets ----------
+  (function(){
+    const ps=document.getElementById('peopleSheet'), hs=document.getElementById('hideSheet');
+    document.getElementById('openPeople').addEventListener('click',()=>{ openPerson=''; renderPeople(); loadPeople(); ps.classList.add('on'); });
+    document.getElementById('peopleClose').addEventListener('click',()=>ps.classList.remove('on'));
+    ps.addEventListener('click',e=>{ if(e.target===ps) ps.classList.remove('on'); });
+    document.getElementById('openHide').addEventListener('click',()=>{ document.getElementById('hSearch').value=''; renderHide(); hs.classList.add('on'); });
+    document.getElementById('hideClose').addEventListener('click',()=>hs.classList.remove('on'));
+    hs.addEventListener('click',e=>{ if(e.target===hs) hs.classList.remove('on'); });
+    document.getElementById('pSearch').addEventListener('input',renderPeople);
+    document.getElementById('pFilter').addEventListener('change',renderPeople);
+    document.getElementById('hSearch').addEventListener('input',renderHide);
+  })();
 
   // ---------- Report a problem ----------
   document.getElementById('repSend').addEventListener('click',()=>{
@@ -1092,7 +1156,7 @@
     refreshPushUI();
     const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
     document.getElementById('ver').innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>The script didn\'t update. Check GitHub → Actions.':'<br>An update is finishing. Check back in a few minutes.'));
-    if(state){ renderHide(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
