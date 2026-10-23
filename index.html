@@ -211,6 +211,7 @@
       <p>App acting weird, stuck on an old version, or notifications won't turn on? This clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
       <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
     </div>
+    <p id="ver" style="text-align:center;color:var(--muted);font-size:13px;margin:18px 0 4px"></p>
   </div>
 </div>
 
@@ -255,6 +256,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
+  const APP_VERSION = '2.4.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -914,6 +916,7 @@
       'Installed app: '+(standalone?'yes':'no'),
       'Notifications: '+pushStatus()+(pushReady?' ('+subInfo()+')':''),
       'Notification steps:\n'+pushLog.join('\n'),
+      'Version: app '+APP_VERSION+' · script '+((state&&state.version)||'older'),
       'Screen size: '+window.innerWidth+'x'+window.innerHeight,
       'Device: '+navigator.userAgent,
       'Time: '+new Date().toString(),
@@ -965,6 +968,7 @@
   const settings=document.getElementById('settings');
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
+    document.getElementById('ver').textContent='Greco Picks · app '+APP_VERSION+' · script '+((state&&state.version)||'older');
     if(state){ document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
