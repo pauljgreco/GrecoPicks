@@ -331,7 +331,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.6';
+  const APP_VERSION = '2.5.7';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -398,6 +398,7 @@
 
   function render(){
     const s=state; if(!s) return;
+    updateVer();
     document.getElementById('hi').textContent='Hi, '+s.me.name;
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
@@ -949,17 +950,25 @@
     });
   })();
 
+  function updateVer(){
+    const el=document.getElementById('ver'); if(!el) return;
+    const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
+    el.innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>Tap Check for updates. If it stays, check GitHub → Actions.':'<br>Tap Check for updates.'));
+  }
+
   // ---------- Check for updates (keeps everything; just fetches the newest app) ----------
   function cmpVer(a,b){ const x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(let i=0;i<3;i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); } return 0; }
   document.getElementById('appUpdate').addEventListener('click',async()=>{
     const btn=document.getElementById('appUpdate'); btn.disabled=true; btn.textContent='Checking…';
     try{
+      // The app's offline copy would answer with the old page, so remove it first; the fetch then has to go to the internet.
+      try{ if(window.caches){ for(const k of await caches.keys()){ const c=await caches.open(k); for(const r of await c.keys()){ const u=new URL(r.url); if(/\/(index\.html)?$/.test(u.pathname)) await c.delete(r); } } } }catch(e){}
       const txt=await fetch('index.html?v='+Date.now(),{cache:'no-store'}).then(r=>r.text());
       const m=/APP_VERSION = '([\d.]+)'/.exec(txt), latest=m?m[1]:'';
       if(latest && cmpVer(latest,APP_VERSION)<=0){
         await load(state&&state.selected,false);
         const sv=(state&&state.version)||'';
-        toast(sv&&sv!==APP_VERSION?'App is up to date ('+APP_VERSION+'). The script is '+sv+'; it may still be updating.':'You\'re up to date ('+APP_VERSION+').');
+        toast(sv&&cmpVer(sv,APP_VERSION)>0?'Script is on '+sv+' but the new app isn\'t out yet. Try again in a few minutes.':(sv&&sv!==APP_VERSION?'App is '+APP_VERSION+', script is '+sv+'. The script may still be updating.':'You\'re up to date ('+APP_VERSION+').'));
         btn.disabled=false; btn.textContent='Check for updates'; return;
       }
       btn.textContent='Updating to '+(latest||'the newest version')+'…';
@@ -1254,8 +1263,7 @@
   const settings=document.getElementById('settings');
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
-    const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
-    document.getElementById('ver').innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>The script didn\'t update. Check GitHub → Actions.':'<br>An update is finishing. Check back in a few minutes.'));
+    updateVer();
     if(state){ updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
