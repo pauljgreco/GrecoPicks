@@ -637,7 +637,7 @@
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
   const pushLog=[];
-  function plog(m){ pushLog.push(new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})+' '+m); if(pushLog.length>12) pushLog.shift(); const el=document.getElementById('plog'); if(el) el.textContent=pushLog.join('\n'); }
+  function plog(m){ pushLog.push(new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'})+' '+m); if(pushLog.length>30) pushLog.shift(); const el=document.getElementById('plog'); if(el) el.textContent=pushLog.join('\n'); }
   function subInfo(){ const s=OS&&OS.User&&OS.User.PushSubscription; return 'perm '+(('Notification' in window)?Notification.permission:'n/a')+', opted in '+(s?s.optedIn:'-')+', token '+(s&&s.token?'yes':'no'); }
   const wait=ms=>new Promise(r=>setTimeout(r,ms));
   async function waitForToken(ms){
@@ -645,8 +645,25 @@
     while(Date.now()<end){ const s=OS.User.PushSubscription; if(s.optedIn&&s.token) return true; await wait(500); }
     return false;
   }
+  // Log every call the OneSignal code makes to its servers (status, and the reply when it fails).
+  (function(){
+    const f=window.fetch; if(!f) return;
+    window.fetch=function(input,init){
+      const url=String((input&&input.url)||input||'');
+      const p=f.apply(this,arguments);
+      if(/onesignal\.com/.test(url) && !/\/ping$|OneSignalSDK\.page\.js/.test(url)){
+        const m=((init&&init.method)||(input&&input.method)||'GET').toUpperCase();
+        const path=url.replace(/^https?:\/\/[^/]+/,'').replace(/[0-9a-f]{8}-[0-9a-f-]{27}/g,'…').slice(0,70);
+        p.then(r=>{
+          if(r.ok) plog('OneSignal '+m+' '+path+': '+r.status);
+          else r.clone().text().then(t=>plog('OneSignal '+m+' '+path+': '+r.status+' '+t.slice(0,200))).catch(()=>plog('OneSignal '+m+' '+path+': '+r.status));
+        }).catch(e=>plog('OneSignal '+m+' '+path+': FAILED '+((e&&e.message)||e)));
+      }
+      return p;
+    };
+  })();
   // Catch OneSignal's own warnings/errors so they show in the log.
-  ['error','warn'].forEach(k=>{ const o=console[k]; console[k]=function(){ try{ const t=Array.from(arguments).map(a=>a&&a.message?a.message:(typeof a==='object'?JSON.stringify(a):String(a))).join(' '); if(/onesignal|push|subscri|service ?worker/i.test(t)) plog(k+': '+t.slice(0,180)); }catch(e){} return o.apply(console,arguments); }; });
+  ['error','warn'].forEach(k=>{ const o=console[k]; console[k]=function(){ try{ const t=Array.from(arguments).map(a=>a&&a.message?a.message:(typeof a==='object'?JSON.stringify(a):String(a))).join(' '); plog(k+': '+t.slice(0,220)); }catch(e){} return o.apply(console,arguments); }; });
   // Raw check of the phone's push service, without OneSignal: makes a throwaway subscription and removes it.
   async function rawPushTest(){
     // Can this phone reach OneSignal's servers? (Ad blockers, Pi-hole, or private DNS often block them.)
