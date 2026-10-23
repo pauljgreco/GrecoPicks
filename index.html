@@ -12,11 +12,31 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
+<script>try{var t=localStorage.getItem('nflpicks_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <script src="config.js"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
   :root{--bg:#f3f4f7;--card:#fff;--ink:#14171c;--muted:#687083;--line:#e2e5eb;--accent:#0b5cff;--sel:#e7efff;--win:#15803d;--loss:#c62828;--me:#fff7d6;--bar:#0b1f3a}
-  @media (prefers-color-scheme:dark){:root{--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a}}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a;color-scheme:dark}}
+  :root[data-theme="dark"]{--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a;color-scheme:dark}
+  :root[data-theme="light"]{color-scheme:light}
+  .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .seg button{flex:1;font:inherit;font-size:15px;padding:9px 0;border:0;background:none;color:var(--ink);cursor:pointer}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  /* reactions + tiebreaker */
+  .rx{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .rx button{font:inherit;font-size:15px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+  .rx button.on{background:var(--sel);border-color:var(--accent)}
+  .rx button b{font-size:13px;margin-left:3px}
+  .rxwho{font-size:12px;color:var(--muted);margin-top:4px}
+  .tb{margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px;font-size:14px}
+  .tb .namerow{margin-top:6px}
+  .tb input{width:90px;flex:none}
+  .recapbtn{display:flex;align-items:center;justify-content:space-between;width:100%;font:inherit;font-weight:600;font-size:15px;padding:10px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer}
+  .recapbtn .x3{color:var(--muted);padding:0 4px}
+  /* confetti */
+  .cf{position:fixed;top:-40px;z-index:60;pointer-events:none;will-change:transform;animation:cffall linear forwards}
+  @keyframes cffall{to{transform:translate(var(--dx),110vh) rotate(var(--rot))}}
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent;padding-bottom:env(safe-area-inset-bottom)}
@@ -248,6 +268,9 @@
       <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
       <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
     </div>
+    <h3>Appearance</h3>
+    <div class="nbox"><div class="seg" id="themeSeg"><button data-theme-set="auto">Auto</button><button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button></div>
+      <p style="margin:8px 0 0;font-size:13px">Auto follows your phone's setting.</p></div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
     <h3>Hide people</h3>
@@ -340,6 +363,10 @@
     <details class="faq"><summary>What are groups?</summary><div>Paul can put people in groups (like <i>Greco's</i> or <i>Friends</i>). Picks, Group and Stats open on your group; use the <b>Group</b> menu at the top of each tab to switch to another group or <b>Everyone</b>. Each group gets its own 👑 and 💩.</div></details>
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
+    <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
+    <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
+    <details class="faq"><summary>Weekly recap?</summary><div>When a week is final, a <b>🗞️ recap</b> button appears at the top of Picks: your record, your best call, the one that got away, the group's biggest upset, and who took the 👑 and 💩. Tap ✕ to hide it.</div></details>
+    <details class="faq"><summary>Light or dark mode?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. Find it at the top of the <b>Stats</b> tab once you have a few picks graded (it says "so far" until the Super Bowl). Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), everyone in that group gets a heads-up: "Only Holly picked the Jets 👀". Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
@@ -360,7 +387,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.7.0';
+  const APP_VERSION = '2.8.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -388,7 +415,7 @@
   function load(wk, busy){
     spin(true); if(busy) document.body.classList.add('busy');
     return api('state', {wk: wk||''})
-      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); } })
+      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -397,6 +424,7 @@
   function pick(gid,p){
     const i=state.games.findIndex(x=>x.id===gid); if(i<0) return;
     const before=state.games[i];
+    try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}
     state.games[i]=Object.assign({},before,{mine:{pick:p,result:'',override:false},saving:true});
     render(); pending++;
     api('pick',{g:gid,p:p})
@@ -440,7 +468,7 @@
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
     const vWarn=(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
-    m.innerHTML=vWarn+(pushBanner())+groupBar()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+    m.innerHTML=vWarn+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
   }
 
   // ---------- Groups (one selection shared by Picks, Group and Stats) ----------
@@ -657,6 +685,119 @@
     return html;
   }
 
+  // ---------- Tiebreaker (last game of the week) ----------
+  function tbBox(g){
+    const t=state.tiebreak; if(!t||t.gameId!==g.id) return '';
+    if(!t.locked) return `<div class="tb"><b>Tiebreaker</b> · guess the total points in this game. If people tie for the week's 👑, closest guess wins.
+      <div class="namerow"><input id="tbIn" type="number" inputmode="numeric" min="0" max="200" value="${t.mine==null?'':esc(t.mine)}" placeholder="e.g. 45"><button class="nbtn" data-tbsave="1">${t.mine==null?'Save':'Update'}</button></div>
+      <small style="color:var(--muted)">${t.mine==null?'No guess yet.':'Your guess: '+esc(t.mine)+'.'} ${esc(t.count)} ${t.count===1?'person has':'people have'} guessed. Everyone's guesses show at kickoff.</small></div>`;
+    const shown=new Set(shownPlayers().map(p=>p.id));
+    const list=(t.all||[]).filter(x=>shown.has(x.id)).sort((a,b)=>t.total!=null?Math.abs(a.guess-t.total)-Math.abs(b.guess-t.total):a.guess-b.guess);
+    return `<div class="tb"><b>Tiebreaker</b>${t.total!=null?` · total was <b>${esc(t.total)}</b>`:' · total points'}<br>${list.length?list.map(x=>`${esc(x.id===state.me.id?'You':x.name)} ${esc(x.guess)}${t.total!=null?` <small style="color:var(--muted)">(${Math.abs(x.guess-t.total)} off)</small>`:''}`).join(' · '):'No guesses.'}</div>`;
+  }
+  document.getElementById('main').addEventListener('click',e=>{
+    const b=e.target.closest('[data-tbsave]'); if(!b||!state.tiebreak) return;
+    const v=document.getElementById('tbIn').value; if(v===''){ toast('Type a number first.'); return; }
+    b.disabled=true;
+    api('tiebreak',{wk:state.tiebreak.week,guess:v}).then(t=>{ state.tiebreak=t; save(); render(); toast('Tiebreaker saved: '+t.mine); })
+      .catch(err=>{ toast(err.message); b.disabled=false; });
+  });
+
+  // ---------- Reactions (after kickoff) ----------
+  const RX=['😂','🔥','💀','🤡','😤','👀'];
+  function rxRow(g){
+    const r=g.react||{}, me=state.me.id, names={}; (state.players||[]).forEach(p=>names[p.id]=p.id===me?'You':p.name);
+    const hid=hiddenSet();
+    const btns=RX.map(e=>{ const ids=(r[e]||[]).filter(id=>!hid.has(id)); return `<button class="${ids.indexOf(me)>=0?'on':''}" data-rx="${esc(e)}" data-g="${esc(g.id)}">${e}${ids.length?`<b>${ids.length}</b>`:''}</button>`; }).join('');
+    const who=RX.filter(e=>(r[e]||[]).filter(id=>!hid.has(id)).length).map(e=>e+' '+(r[e]||[]).filter(id=>!hid.has(id)).map(id=>esc(names[id]||id)).join(', ')).join(' · ');
+    return `<div class="rx">${btns}</div>${who?`<div class="rxwho">${who}</div>`:''}`;
+  }
+  document.getElementById('main').addEventListener('click',e=>{
+    const b=e.target.closest('[data-rx]'); if(!b) return;
+    const gid=b.dataset.g, em=b.dataset.rx, g=state.games.find(x=>x.id===gid); if(!g) return;
+    try{ if(navigator.vibrate) navigator.vibrate(8); }catch(x){}
+    const before=JSON.parse(JSON.stringify(g.react||{})), r=g.react=g.react||{}, me=state.me.id;
+    r[em]=r[em]||[]; if(r[em].indexOf(me)>=0) r[em]=r[em].filter(x=>x!==me); else r[em].push(me);
+    render();
+    api('react',{g:gid,e:em}).then(d=>{ const gg=state.games.find(x=>x.id===d.gameId); if(gg){ gg.react=d.react; save(); render(); } })
+      .catch(err=>{ g.react=before; render(); toast(err.message); });
+  });
+
+  // ---------- Confetti ----------
+  function confetti(chars,n){
+    try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+    for(let i=0;i<n;i++){
+      const el=document.createElement('div'); el.className='cf';
+      const c=chars[i%chars.length];
+      if(c.charAt(0)==='#'){ el.style.width=(6+Math.random()*6)+'px'; el.style.height=(10+Math.random()*8)+'px'; el.style.background=c; el.style.borderRadius='2px'; }
+      else { el.textContent=c; el.style.fontSize=(18+Math.random()*18)+'px'; }
+      el.style.left=(Math.random()*100)+'vw';
+      el.style.setProperty('--dx',(Math.random()*120-60)+'px'); el.style.setProperty('--rot',(Math.random()*900-450)+'deg');
+      el.style.animationDuration=(2.2+Math.random()*1.8)+'s'; el.style.animationDelay=(Math.random()*0.8)+'s';
+      document.body.appendChild(el); setTimeout(()=>el.remove(),5000);
+    }
+  }
+  function party(){
+    if(!state||!state.last) return;
+    let seen={}; try{ seen=JSON.parse(localStorage.getItem('nflpicks_party')||'{}'); }catch(e){}
+    const mark=k=>{ seen[k]=1; try{ localStorage.setItem('nflpicks_party',JSON.stringify(seen)); }catch(e){} };
+    const L=state.last;
+    if(L.perfect && !seen['p|'+L.key]){ mark('p|'+L.key); confetti(['🎉','🎊','✨','#f43f5e','#f59e0b','#22c55e','#3b82f6','#a855f7'],90); toast('Perfect '+L.label+'! '+L.rec+' 🎉'); return; }
+    const all=state.crowns||{};
+    const g=Object.keys(all).find(k=>all[k]&&all[k].ids.indexOf(state.me.id)>=0&&all[k].key===L.key);
+    if(g!==undefined && !seen['c|'+L.key]){ mark('c|'+L.key); confetti(['👑'],60); toast('You won the 👑 for '+L.label+(g?' in the '+g:'')+'!'); }
+  }
+
+  // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
+  function recapButton(){
+    const L=state.last; if(!L) return '';
+    let off=''; try{ off=localStorage.getItem('nflpicks_recapoff')||''; }catch(e){}
+    if(off===L.key) return '';
+    return `<button class="recapbtn" data-recap="${esc(L.key)}"><span>🗞️ Your ${esc(L.label)} recap · ${esc(L.rec)}</span><span><span class="x3" data-recapx="${esc(L.key)}" aria-label="Hide">✕</span> ›</span></button>`;
+  }
+  function buildRecap(h,wk){
+    const me=state.me.id, grp=curGroup();
+    const members=h.players.filter(p=>p.id===me||!grp||(p.groups||[]).indexOf(grp)>=0).map(p=>p.id);
+    const names={}; h.players.forEach(p=>names[p.id]=p.id===me?'You':p.name);
+    const gs=h.games.filter(g=>wkKey(g)===wk); const by={};
+    h.picks.forEach(x=>{ (by[x[0]]=by[x[0]]||{})[x[1]]={p:x[2],r:x[3]}; });
+    const teamName=(g,a)=>a===g.away?g.awayName:a===g.home?g.homeName:(a==='TIE'?'the tie':a);
+    const label=wkName(wk).replace(/^Wk /,'Week ');
+    const rec={}; members.forEach(id=>rec[id]={W:0,L:0}); gs.forEach(g=>{ const gp=by[g.id]||{}; members.forEach(id=>{ const x=gp[id]; if(x&&(x.r==='W'||x.r==='L')) rec[id][x.r]++; }); });
+    const my=rec[me]||{W:0,L:0};
+    const ranked=members.filter(id=>rec[id].W+rec[id].L>0).sort((a,b)=>rec[b].W-rec[a].W||rec[a].L-rec[b].L);
+    const rank=ranked.findIndex(id=>id===me)+1, rankTie=ranked.filter(id=>rec[id].W===my.W).length>1;
+    let bestCall=null, worstMiss=null, upset=null;
+    gs.forEach(g=>{ const gp=by[g.id]||{}; const pick=members.filter(id=>gp[id]&&gp[id].p!=='MISSED'&&(gp[id].r==='W'||gp[id].r==='L')); if(!pick.length) return;
+      const right=pick.filter(id=>gp[id].r==='W');
+      const share=right.length/pick.length;
+      const x=gp[me];
+      if(x&&x.r==='W'&&pick.length>1&&(!bestCall||share<bestCall.share)) bestCall={g,share,right:right.length,n:pick.length,team:teamName(g,x.p)};
+      if(x&&x.r==='L'&&pick.length>1&&(!worstMiss||share>worstMiss.share)) worstMiss={g,share,right:right.length,n:pick.length,team:teamName(g,x.p)};
+      if(pick.length>=3&&g.winner&&(!upset||share<upset.share)) upset={g,share,right,n:pick.length,team:teamName(g,g.winner)};
+    });
+    const c=curCrown(); const won=c&&c.key===wk&&c.ids.indexOf(me)>=0, pooped=c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(me)>=0;
+    const gl=grp?'the '+grp:'everyone';
+    const bgs=['linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#6366f1,#0ea5e9)'];
+    const sl=[];
+    sl.push(`<div class="emo pop">🗞️</div><div class="kick">Greco Picks</div><div class="mid pop">Your ${esc(label)} recap</div><div class="sub">Tap to continue</div>`);
+    sl.push(`<div class="kick">You went</div><div class="big pop">${my.W}-${my.L}</div><div class="sub">${rank&&ranked.length>1?(rankTie?'Tied for ':'')+'#'+rank+' of '+ranked.length+' in '+esc(gl)+' this week.':''}${won?'<br><br>👑 You took the crown'+(c.tb?' on the tiebreaker (guessed '+esc(c.tb.guess)+', total '+esc(c.tb.total)+')':'')+'!':''}${pooped?'<br><br>💩 Bottom of the week. It happens.':''}</div>`);
+    if(bestCall) sl.push(`<div class="kick">Your best call</div><div class="emo pop">🎯</div><div class="mid">${esc(bestCall.team)}</div><div class="sub">${bestCall.right===1?'You were the <b>only one</b> who got it.':'Only '+bestCall.right+' of '+bestCall.n+' got it, and you did.'}<br>${esc(bestCall.g.away+' '+bestCall.g.awayScore+', '+bestCall.g.home+' '+bestCall.g.homeScore)}</div>`);
+    if(worstMiss) sl.push(`<div class="kick">The one that got away</div><div class="emo pop">🤦</div><div class="mid">${esc(worstMiss.team)}</div><div class="sub">${worstMiss.right} of ${worstMiss.n} got it right. You… did not.<br>${esc(worstMiss.g.away+' '+worstMiss.g.awayScore+', '+worstMiss.g.home+' '+worstMiss.g.homeScore)}</div>`);
+    if(upset&&upset.share<0.5) sl.push(`<div class="kick">Group's biggest upset</div><div class="emo pop">👀</div><div class="mid">${esc(upset.team)}</div><div class="sub">${upset.right.length?'Only '+upset.right.map(id=>esc(names[id])).join(', ')+' saw it coming.':'Nobody in '+esc(gl)+' saw it coming.'}</div>`);
+    if(c&&c.key===wk) sl.push(`<div class="kick">${esc(label)} hardware</div><div class="mid pop">👑 ${esc(c.ids.map(id=>names[id]||id).join(', '))}${c.poop?'<br>💩 '+esc(c.poop.ids.map(id=>names[id]||id).join(', ')):''}</div><div class="sub">${esc(c.rec)} took the crown in ${esc(gl)}.</div>`);
+    return {slides:sl.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText:`My ${label} in Greco Picks: ${my.W}-${my.L}`+(won?' 👑':'')};
+  }
+  function showRecap(wk){
+    const season=wk.split('|')[0];
+    const go=()=>{ const h=hist[season]; if(!h){ toast('Couldn\'t load the recap.'); return; } WR=Object.assign(buildRecap(h,wk),{i:0}); drawWrapped(); document.getElementById('wrapd').classList.add('on'); };
+    if(hist[season]) go(); else { const p=loadHistory(); if(p&&p.then) p.then(go); else setTimeout(go,1500); }
+  }
+  document.getElementById('main').addEventListener('click',e=>{
+    const x=e.target.closest('[data-recapx]'); if(x){ e.stopPropagation(); try{ localStorage.setItem('nflpicks_recapoff',x.dataset.recapx); }catch(er){} render(); return; }
+    const b=e.target.closest('[data-recap]'); if(b) showRecap(b.dataset.recap);
+  });
+
   // ---------- Wrapped: a Spotify-Wrapped style recap of your season ----------
   function wrapButton(h,season){
     if(season==='all') return '';
@@ -831,6 +972,8 @@
       ${tie}
       <div class="you">${you}</div>
       ${grp?`<div class="grp">${grp}</div>`:''}
+      ${tbBox(g)}
+      ${locked?rxRow(g):''}
       ${admin}
     </div>`;
   }
@@ -1143,10 +1286,20 @@
       await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
     }catch(e){}
     // Saved settings, keeping who you are
-    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); }catch(e){}
+    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'), th=localStorage.getItem('nflpicks_theme'), pt=localStorage.getItem('nflpicks_party'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); if(th) localStorage.setItem('nflpicks_theme',th); if(pt) localStorage.setItem('nflpicks_party',pt); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
+
+  // ---------- Appearance ----------
+  function themeUI(){ let t='auto'; try{ t=localStorage.getItem('nflpicks_theme')||'auto'; }catch(e){} document.querySelectorAll('[data-theme-set]').forEach(b=>b.classList.toggle('on',b.dataset.themeSet===t)); }
+  document.getElementById('themeSeg').addEventListener('click',e=>{
+    const b=e.target.closest('[data-theme-set]'); if(!b) return; const t=b.dataset.themeSet;
+    try{ if(t==='auto') localStorage.removeItem('nflpicks_theme'); else localStorage.setItem('nflpicks_theme',t); }catch(x){}
+    if(t==='auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t);
+    themeUI();
+  });
+  themeUI();
 
   // ---------- Your name ----------
   document.getElementById('nameSave').addEventListener('click',()=>{

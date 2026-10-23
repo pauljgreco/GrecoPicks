@@ -24,9 +24,11 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.7.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.8.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
-const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview' };
+const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
+  TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
+const REACTIONS = ['😂', '🔥', '💀', '🤡', '😤', '👀'];
 const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
@@ -124,6 +126,7 @@ function refreshGames() {
     });
     gradeAndRecord_();
     try { notifications_(); } catch (e) { Logger.log('Notifications skipped: ' + e.message); }
+    try { archiveOldSeasons_(); } catch (e) { Logger.log('Archive skipped: ' + e.message); }
   } finally {
     lock.releaseLock();
   }
@@ -238,6 +241,8 @@ function api_(p) {
     else if (p.api === 'hide') data = setHidden_(p.k, p.pl, p.on);
     else if (p.api === 'active') data = setActive_(p.k, p.pl, p.on);
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
+    else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
+    else if (p.api === 'react') data = react_(p.k, p.g, p.e);
     else throw new Error('Unknown request.');
     out = { ok: true, data: data };
   } catch (err) {
@@ -264,10 +269,9 @@ function getState(key, wk) {
 
   const picks = readPicks_();
   const now = Date.now();
-  const list = games
-    .filter(g => weekKey_(g) === sel)
-    .sort((a, b) => a.kickoff - b.kickoff || a.id.localeCompare(b.id))
-    .map(g => gameView_(g, me, picks, now, roster));
+  const reactions = readReactions_();
+  const weekGames = games.filter(g => weekKey_(g) === sel).sort((a, b) => a.kickoff - b.kickoff || a.id.localeCompare(b.id));
+  const list = weekGames.map(g => gameView_(g, me, picks, now, roster, reactions));
 
   const parts = sel ? sel.split('|') : ['', '', ''];
   const board = leaderboard_(picks.vals, parts, roster);
@@ -289,6 +293,8 @@ function getState(key, wk) {
     board: board,
     crown: crown_(games, picks.vals, roster),
     crowns: crowns_(games, picks.vals, roster),
+    tiebreak: tiebreakView_(weekGames, sel, me, roster, now),
+    last: lastWeekFor_(games, picks.vals, me, roster),
     version: SCRIPT_VERSION,
   };
 }
@@ -297,7 +303,7 @@ function getState(key, wk) {
  * One game as seen by one player. Other players' picks are only sent once you've
  * picked that game (or it has kicked off). Picks can be changed until kickoff.
  */
-function gameView_(g, me, picks, now, roster) {
+function gameView_(g, me, picks, now, roster, reactions) {
   const mine = picks.map[g.id + '|' + me.id];
   const locked = now >= g.kickoff.getTime();
   const others = roster.filter(p => p.id !== me.id).map(p => ({ p: p, pk: picks.map[g.id + '|' + p.id] }));
@@ -325,6 +331,7 @@ function gameView_(g, me, picks, now, roster) {
     if (!pk) return;
     out.all[p.id] = (reveal || p.id === me.id) ? { p: pk.pick, r: pk.result, o: pk.override } : { h: 1 };
   });
+  if (locked) out.react = ((reactions || readReactions_())[g.id]) || {};
   if (me.isAdmin && locked) {
     out.admin = roster.map(p => ({ id: p.id, name: p.name, pick: (picks.map[g.id + '|' + p.id] || {}).pick || '' }));
   }
@@ -390,14 +397,14 @@ function adminSetPick(key, gameId, playerId, pick, wk) {
 function history_(key, season) {
   const me = playerForKey_(key);
   if (!me) throw new Error('This link is no longer valid.');
-  const games = readGames_();
+  const games = readGames_().concat(readArchivedGames_());
   const seasons = Array.from(new Set(games.map(g => g.season))).sort((a, b) => b - a);
   const want = season === 'all' ? 'all' : (Number(season) || seasons[0] || 0);
   const now = Date.now();
   const gs = games.filter(g => (want === 'all' || g.season === want) && now >= g.kickoff.getTime());
   const ids = {};
   gs.forEach(g => { ids[g.id] = true; });
-  const pickRows = readPicks_().vals.slice(1)
+  const pickRows = readPicks_().vals.slice(1).concat(archivedPickRows_())
     .filter(r => ids[String(r[P.GameID])])
     .map(r => [String(r[P.GameID]), String(r[P.Player]).toUpperCase(), String(r[P.Pick]).toUpperCase(), String(r[P.Result]),
       r[P.PickedAt] instanceof Date ? r[P.PickedAt].toISOString() : '']);
@@ -754,6 +761,7 @@ function gradeAndRecord_() {
 }
 
 function rebuildRecords_(pickVals) {
+  pickVals = pickVals.concat(archivedPickRows_());   // archived seasons stay on the Records tab
   const players = players_();
   const ids = players.map(p => p.id);
   const weeks = {};
@@ -1135,15 +1143,245 @@ function crown_(games, pickVals, roster) {
   const w = board.map(b => ({ id: b.id, name: b.name, rec: b.week, wins: Number(b.week.split('-')[0]) }));
   const top = Math.max.apply(null, w.map(x => x.wins).concat([0]));
   if (!top) return null;
-  const winners = w.filter(x => x.wins === top);
+  let winners = w.filter(x => x.wins === top);
+  let tb = null;
+  if (winners.length > 1) {
+    // Monday-night tiebreaker: closest guess at the week's last game's total points takes the crown.
+    const wkGames = byWeek[done[0]].slice().sort((a, b) => b.kickoff - a.kickoff || b.id.localeCompare(a.id));
+    const last = wkGames[0];
+    const total = Number(last.awayScore || 0) + Number(last.homeScore || 0);
+    const guesses = readTiebreaks_();
+    const diff = x => { const v = guesses[done[0] + '|' + x.id]; return v === undefined ? Infinity : Math.abs(v - total); };
+    const best = Math.min.apply(null, winners.map(diff));
+    if (best !== Infinity) {
+      const kept = winners.filter(x => diff(x) === best);
+      if (kept.length < winners.length) tb = { total: total, game: last.awayAbbr + ' @ ' + last.homeAbbr, guess: guesses[done[0] + '|' + kept[0].id] };
+      winners = kept;
+    }
+  }
   // 💩 fewest wins that week, among people who made at least one pick. None if everyone tied.
   const played = w.filter(x => x.rec !== '0-0');
   const low = Math.min.apply(null, played.map(x => x.wins));
   const losers = played.length > 1 && low < top ? played.filter(x => x.wins === low) : [];
   return {
-    label: weekLabel_(parts[1], parts[2]), ids: winners.map(x => x.id), names: winners.map(x => x.name), rec: winners[0].rec,
+    label: weekLabel_(parts[1], parts[2]), key: done[0], ids: winners.map(x => x.id), names: winners.map(x => x.name), rec: winners[0].rec, tb: tb,
     poop: losers.length ? { ids: losers.map(x => x.id), names: losers.map(x => x.name), rec: losers[0].rec } : null,
   };
+}
+
+// ======================================================================
+// Tiebreaker, reactions, last week, milestones, archive
+// ======================================================================
+
+let TB_ = null;
+function readTiebreaks_() {
+  if (TB_) return TB_;
+  const sh = ensureSheet_(TABS.TIEBREAK, ['Week', 'Player', 'Guess', 'At']);
+  sh.getRange('A:A').setNumberFormat('@');
+  const o = {};
+  sh.getDataRange().getValues().slice(1).forEach(r => { if (r[0] !== '') o[String(r[0]) + '|' + String(r[1]).toUpperCase()] = Number(r[2]); });
+  TB_ = o;
+  return o;
+}
+
+function tieGame_(weekGames) {
+  return weekGames.slice().sort((a, b) => b.kickoff - a.kickoff || b.id.localeCompare(a.id))[0] || null;
+}
+
+/** The selected week's tiebreaker: your guess, and everyone's once that game kicks off. */
+function tiebreakView_(weekGames, wk, me, roster, now) {
+  const g = tieGame_(weekGames);
+  if (!g) return null;
+  const tb = readTiebreaks_();
+  const locked = now >= g.kickoff.getTime();
+  const mine = tb[wk + '|' + me.id];
+  return {
+    gameId: g.id, week: wk, locked: locked,
+    mine: mine === undefined ? null : mine,
+    total: g.status === 'final' ? Number(g.awayScore || 0) + Number(g.homeScore || 0) : null,
+    count: roster.filter(p => tb[wk + '|' + p.id] !== undefined).length,
+    all: locked ? roster.filter(p => tb[wk + '|' + p.id] !== undefined).map(p => ({ id: p.id, name: p.name, guess: tb[wk + '|' + p.id] })) : [],
+  };
+}
+
+function setTiebreak_(key, wk, guess) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  const n = Math.round(Number(guess));
+  if (!isFinite(n) || n < 0 || n > 200) throw new Error('Enter total points from 0 to 200.');
+  const weekGames = readGames_().filter(g => weekKey_(g) === String(wk));
+  const g = tieGame_(weekGames);
+  if (!g) throw new Error('Week not found.');
+  if (Date.now() >= g.kickoff.getTime()) throw new Error('The tiebreaker game has kicked off; guesses are locked.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = ensureSheet_(TABS.TIEBREAK, ['Week', 'Player', 'Guess', 'At']);
+    sh.getRange('A:A').setNumberFormat('@');
+    const vals = sh.getDataRange().getValues();
+    let row = 0;
+    for (let i = 1; i < vals.length; i++) if (String(vals[i][0]) === String(wk) && String(vals[i][1]).toUpperCase() === me.id) { row = i + 1; break; }
+    if (row) sh.getRange(row, 3, 1, 2).setValues([[n, new Date()]]);
+    else sh.appendRow([String(wk), me.id, n, new Date()]);
+    TB_ = null;
+  } finally {
+    lock.releaseLock();
+  }
+  return tiebreakView_(weekGames, String(wk), me, players_().filter(p => p.active), Date.now());
+}
+
+let REACT_ = null;
+function readReactions_() {
+  if (REACT_) return REACT_;
+  const sh = ensureSheet_(TABS.REACT, ['GameID', 'Player', 'Emoji', 'At']);
+  sh.getRange('A:A').setNumberFormat('@');
+  const o = {};
+  sh.getDataRange().getValues().slice(1).forEach(r => {
+    if (r[0] === '') return;
+    const g = o[String(r[0])] || (o[String(r[0])] = {});
+    (g[String(r[2])] = g[String(r[2])] || []).push(String(r[1]).toUpperCase());
+  });
+  REACT_ = o;
+  return o;
+}
+
+/** Toggle your emoji reaction on a game (after kickoff). */
+function react_(key, gameId, emoji) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  emoji = String(emoji || '');
+  if (REACTIONS.indexOf(emoji) < 0) throw new Error('Unknown reaction.');
+  const g = readGames_().find(x => x.id === String(gameId));
+  if (!g) throw new Error('Game not found.');
+  if (Date.now() < g.kickoff.getTime()) throw new Error('Reactions open at kickoff.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = ensureSheet_(TABS.REACT, ['GameID', 'Player', 'Emoji', 'At']);
+    sh.getRange('A:A').setNumberFormat('@');
+    const vals = sh.getDataRange().getValues();
+    let row = 0;
+    for (let i = 1; i < vals.length; i++) {
+      if (String(vals[i][0]) === g.id && String(vals[i][1]).toUpperCase() === me.id && String(vals[i][2]) === emoji) { row = i + 1; break; }
+    }
+    if (row) sh.deleteRow(row); else sh.appendRow([g.id, me.id, emoji, new Date()]);
+    REACT_ = null;
+  } finally {
+    lock.releaseLock();
+  }
+  return { gameId: g.id, react: readReactions_()[g.id] || {} };
+}
+
+/** Your record in the most recent fully final week (for confetti and the weekly recap). */
+function lastWeekFor_(games, pickVals, me, roster) {
+  const byWeek = {};
+  games.forEach(g => { (byWeek[weekKey_(g)] = byWeek[weekKey_(g)] || []).push(g); });
+  const done = Object.keys(byWeek).filter(k => byWeek[k].every(g => g.status === 'final'))
+    .sort((a, b) => { const x = a.split('|').map(Number), y = b.split('|').map(Number); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; });
+  if (!done.length) return null;
+  const parts = done[0].split('|');
+  const b = leaderboard_(pickVals, parts, roster).find(x => x.id === me.id);
+  const rec = b ? b.week : '0-0';
+  const [w, l] = rec.split('-').map(Number);
+  const n = byWeek[done[0]].length;
+  return { key: done[0], label: weekLabel_(parts[1], parts[2]), rec: rec, games: n, perfect: l === 0 && w === n && n > 0 };
+}
+
+const ARCH_HEAD = { games: GAME_HEADERS, picks: PICK_HEADERS };
+function readArchivedGames_() {
+  const sh = ss_().getSheetByName(TABS.GAMES_ARCH);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getDataRange().getValues().slice(1).filter(r => r[G.GameID] !== '').map(r => ({
+    id: String(r[G.GameID]), season: Number(r[G.Season]), seasonType: Number(r[G.SeasonType]), week: Number(r[G.Week]),
+    kickoff: r[G.Kickoff] instanceof Date ? r[G.Kickoff] : new Date(r[G.Kickoff]),
+    away: String(r[G.Away]), awayAbbr: String(r[G.AwayAbbr]), awayLogo: String(r[G.AwayLogo]), awayScore: r[G.AwayScore],
+    home: String(r[G.Home]), homeAbbr: String(r[G.HomeAbbr]), homeLogo: String(r[G.HomeLogo]), homeScore: r[G.HomeScore],
+    status: String(r[G.Status]), detail: String(r[G.Detail]), winner: String(r[G.Winner]),
+    awayRecord: rec2_(r[G.AwayRecord]), homeRecord: rec2_(r[G.HomeRecord]),
+    awayRecordPre: rec2_(r[G.AwayRecordPre]), homeRecordPre: rec2_(r[G.HomeRecordPre]),
+  }));
+}
+function archivedPickRows_() {
+  const sh = ss_().getSheetByName(TABS.PICKS_ARCH);
+  if (!sh || sh.getLastRow() < 2) return [];
+  return sh.getDataRange().getValues().slice(1).filter(r => r[P.GameID] !== '');
+}
+
+/**
+ * Each summer (June–August), moves finished older seasons from Games/Picks to the archive tabs so the app stays fast.
+ * Stats, Wrapped and the Records tab still include them.
+ */
+function archiveOldSeasons_() {
+  const now = new Date();
+  const month = Number(Utilities.formatDate(now, TZ, 'M')), year = Number(Utilities.formatDate(now, TZ, 'yyyy'));
+  if (month < 6 || month > 8) return;
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('ARCHIVED_YEAR') === String(year)) return;
+  const gsh = sheet_(TABS.GAMES), psh = sheet_(TABS.PICKS);
+  const gv = gsh.getDataRange().getValues(), pv = psh.getDataRange().getValues();
+  const old = new Set();
+  gv.slice(1).forEach(r => { if (r[G.GameID] !== '' && Number(r[G.Season]) < year && String(r[G.Status]) === 'final') old.add(String(r[G.GameID])); });
+  if (old.size) {
+    const ga = ensureSheet_(TABS.GAMES_ARCH, GAME_HEADERS), pa = ensureSheet_(TABS.PICKS_ARCH, PICK_HEADERS);
+    ga.getRange('A:A').setNumberFormat('@'); pa.getRange('A:A').setNumberFormat('@');
+    const moveG = gv.slice(1).filter(r => old.has(String(r[G.GameID]))).map(r => { const x = r.slice(0, GAME_HEADERS.length); while (x.length < GAME_HEADERS.length) x.push(''); return x; });
+    const keepG = gv.slice(1).filter(r => !old.has(String(r[G.GameID])));
+    const moveP = pv.slice(1).filter(r => old.has(String(r[P.GameID]))).map(r => r.slice(0, PICK_HEADERS.length));
+    const keepP = pv.slice(1).filter(r => !old.has(String(r[P.GameID])));
+    if (moveG.length) ga.getRange(ga.getLastRow() + 1, 1, moveG.length, GAME_HEADERS.length).setValues(moveG);
+    if (moveP.length) pa.getRange(pa.getLastRow() + 1, 1, moveP.length, PICK_HEADERS.length).setValues(moveP);
+    // rewrite the live tabs with only what's left
+    gsh.getRange(2, 1, Math.max(gv.length - 1, 1), gv[0].length).clearContent();
+    if (keepG.length) gsh.getRange(2, 1, keepG.length, gv[0].length).setValues(keepG);
+    psh.getRange(2, 1, Math.max(pv.length - 1, 1), pv[0].length).clearContent();
+    if (keepP.length) psh.getRange(2, 1, keepP.length, pv[0].length).setValues(keepP);
+    Logger.log('Archived ' + moveG.length + ' games and ' + moveP.length + ' picks.');
+  }
+  props.setProperty('ARCHIVED_YEAR', String(year));
+}
+
+/** Milestones: 100th correct pick, first perfect week, 10/25/50 upsets in a season. Each sent once, ever. */
+function milestones_(games, picks, roster, now) {
+  const props = PropertiesService.getScriptProperties();
+  let got = [];
+  try { got = JSON.parse(props.getProperty('MILESTONES') || '[]'); } catch (e) { got = []; }
+  const first = props.getProperty('MILESTONES_INIT') === null;   // first run: remember what's already earned, send nothing
+  const gmap = {}; games.concat(readArchivedGames_()).forEach(g => { gmap[g.id] = g; });
+  const rows = picks.vals.slice(1).concat(archivedPickRows_());
+  const curSeason = Math.max.apply(null, games.map(g => g.season).concat([0]));
+  const pct = r => { const m = String(r || '').split('-').map(Number); if (m.length < 2 || m.some(isNaN)) return null; const n = m[0] + m[1] + (m[2] || 0); return n ? (m[0] + (m[2] || 0) / 2) / n : null; };
+  const stats = {};
+  roster.forEach(p => { stats[p.id] = { W: 0, ups: 0, weeks: {} }; });
+  rows.forEach(r => {
+    const id = String(r[P.Player]).toUpperCase(), res = String(r[P.Result]), g = gmap[String(r[P.GameID])];
+    const st = stats[id]; if (!st || !g || (res !== 'W' && res !== 'L')) return;
+    const wk = weekKey_(g); const w = st.weeks[wk] || (st.weeks[wk] = { W: 0, n: 0 }); w.n++;
+    if (res === 'W') {
+      st.W++; w.W++;
+      const pick = String(r[P.Pick]).toUpperCase();
+      if (g.season === curSeason && pick !== 'TIE') {
+        const a = pct(g.awayRecordPre), h = pct(g.homeRecordPre);
+        if (a !== null && h !== null && a !== h && ((pick === g.awayAbbr && a < h) || (pick === g.homeAbbr && h < a))) st.ups++;
+      }
+    }
+  });
+  const weekSize = {}; games.concat(readArchivedGames_()).forEach(g => { weekSize[weekKey_(g)] = (weekSize[weekKey_(g)] || 0) + 1; });
+  const sends = [];
+  roster.forEach(p => {
+    const st = stats[p.id];
+    [50, 100, 250, 500, 1000].forEach(n => { if (st.W >= n) sends.push([p, 'M|' + p.id + '|W|' + n, n + ' correct picks! 🎯', 'You just hit ' + n + ' correct picks all-time in Greco Picks.']); });
+    if (Object.keys(st.weeks).some(k => st.weeks[k].W === weekSize[k] && st.weeks[k].n === weekSize[k] && weekSize[k] >= 4))
+      sends.push([p, 'M|' + p.id + '|perfect', 'Your first perfect week! 🎉', 'Every single pick right. Legendary.']);
+    [10, 25, 50].forEach(n => { if (st.ups >= n) sends.push([p, 'M|' + p.id + '|U|' + curSeason + '|' + n, n + ' upsets called 🎯', 'You\'ve called ' + n + ' upsets this season.']); });
+  });
+  let changed = false;
+  sends.forEach(([p, key, title, body]) => {
+    if (got.indexOf(key) >= 0) return;
+    got.push(key); changed = true;
+    if (!first && p.results) sendPush_([p.id], title, body);
+  });
+  if (changed) props.setProperty('MILESTONES', JSON.stringify(got));
+  if (first) props.setProperty('MILESTONES_INIT', '1');
 }
 
 /**
@@ -1315,7 +1553,7 @@ function notifications_(nowMs) {
       const b = board.find(x => x.id === p.id);
       if (!b || b.week === '0-0') return;
       const group = p.id === adminId_() ? '' : (p.groups[0] || '');
-      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p));
+      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p) + ' Your recap is in the app.');
     });
     markSent_(sent, key);
   });
@@ -1349,6 +1587,9 @@ function notifications_(nowMs) {
     }
     markSent_(sent, key);
   });
+
+  // 6) Milestones
+  try { milestones_(games, picks, roster, now); } catch (e) { Logger.log('Milestones: ' + e.message); }
 
   // 5) Wrapped: once the Super Bowl is final, everyone hears their season recap is ready.
   games.filter(g => g.seasonType === 3 && g.week === 5 && g.status === 'final').forEach(g => {
