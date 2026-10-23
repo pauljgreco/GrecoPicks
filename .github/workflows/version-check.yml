@@ -1,0 +1,17 @@
+# Fails if the app (index.html) and script (script/Code.gs) versions don't match.
+name: Version check
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare versions
+        run: |
+          APP=$(grep -oP "APP_VERSION = '\K[^']+" index.html)
+          SCRIPT=$(grep -oP "SCRIPT_VERSION = '\K[^']+" script/Code.gs)
+          echo "app $APP · script $SCRIPT"
+          if [ "$APP" != "$SCRIPT" ]; then echo "::error::Versions differ (app $APP, script $SCRIPT)"; exit 1; fi
