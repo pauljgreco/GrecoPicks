@@ -228,7 +228,9 @@
     </div>
     <h3>Fix the app</h3>
     <div class="nbox">
-      <p>App acting weird, stuck on an old version, or notifications won't turn on? This clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
+      <p>Stuck on an old version? Tap <b>Check for updates</b>. Still acting weird, or notifications won't turn on? <b>Reset</b> clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
+      <button class="nbtn" id="appUpdate">Check for updates</button>
+      <p style="margin:6px 0 12px;font-size:13px">Gets the newest version right now instead of waiting. Nothing is cleared.</p>
       <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
     </div>
     <p id="ver" style="text-align:center;color:var(--muted);font-size:13px;margin:18px 0 4px"></p>
@@ -316,7 +318,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.4';
+  const APP_VERSION = '2.5.5';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -898,6 +900,27 @@
     const k=e.target.dataset&&e.target.dataset.pref; if(!k) return;
     const on=e.target.checked;
     api('prefs',{type:k,on:on?'1':'0'}).then(p=>{ if(state&&state.me) state.me.prefs=p; save(); }).catch(err=>{ e.target.checked=!on; toast(err.message); });
+  });
+
+  // ---------- Check for updates (keeps everything; just fetches the newest app) ----------
+  function cmpVer(a,b){ const x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(let i=0;i<3;i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); } return 0; }
+  document.getElementById('appUpdate').addEventListener('click',async()=>{
+    const btn=document.getElementById('appUpdate'); btn.disabled=true; btn.textContent='Checking…';
+    try{
+      const txt=await fetch('index.html?v='+Date.now(),{cache:'no-store'}).then(r=>r.text());
+      const m=/APP_VERSION = '([\d.]+)'/.exec(txt), latest=m?m[1]:'';
+      if(latest && cmpVer(latest,APP_VERSION)<=0){
+        await load(state&&state.selected,false);
+        const sv=(state&&state.version)||'';
+        toast(sv&&sv!==APP_VERSION?'App is up to date ('+APP_VERSION+'). The script is '+sv+'; it may still be updating.':'You\'re up to date ('+APP_VERSION+').');
+        btn.disabled=false; btn.textContent='Check for updates'; return;
+      }
+      btn.textContent='Updating to '+(latest||'the newest version')+'…';
+      try{ if(window.caches){ for(const k of await caches.keys()) await caches.delete(k); } }catch(e){}
+      try{ const r=await navigator.serviceWorker.getRegistration('/GrecoPicks/'); if(r) await r.update(); }catch(e){}
+      try{ sessionStorage.setItem('nflpicks_reloaded',String(Date.now())); }catch(e){}
+      location.replace(location.pathname+(KEY?'?k='+KEY+'&':'?')+'v='+Date.now());
+    }catch(e){ toast('Couldn\'t check right now. Try again in a minute.'); btn.disabled=false; btn.textContent='Check for updates'; }
   });
 
   // ---------- Reset the app on this phone (works in any browser) ----------
