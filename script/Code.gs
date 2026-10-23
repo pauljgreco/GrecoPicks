@@ -24,10 +24,10 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.4.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.5.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview' };
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -234,6 +234,9 @@ function api_(p) {
     else if (p.api === 'people') data = people_(p.k);
     else if (p.api === 'addperson') data = addPerson_(p.k, p.name);
     else if (p.api === 'newlink') data = newLink_(p.k, p.pl);
+    else if (p.api === 'groups') data = setGroups_(p.k, p.pl, p.groups);
+    else if (p.api === 'hide') data = setHidden_(p.k, p.pl, p.on);
+    else if (p.api === 'active') data = setActive_(p.k, p.pl, p.on);
     else throw new Error('Unknown request.');
     out = { ok: true, data: data };
   } catch (err) {
@@ -270,15 +273,21 @@ function getState(key, wk) {
   const mine = board.find(b => b.id === me.id) || { week: '0-0', season: '0-0' };
 
   const others = roster.filter(p => p.id !== me.id).sort((a, b) => a.name.localeCompare(b.name));
+  const meP = players_().find(p => p.id === me.id) || { groups: [], hidden: [] };
+  const groups = groupNames_();
   return {
-    me: { id: me.id, name: me.name, isAdmin: me.isAdmin, pushId: 'gp_' + me.id, prefs: prefsFor_(me.id) },
+    me: { id: me.id, name: me.name, isAdmin: me.isAdmin, pushId: 'gp_' + me.id, prefs: prefsFor_(me.id),
+      groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden },
+    groups: groups,
+    adminId: adminId_(),
     my: { week: mine.week, season: mine.season },
-    players: [{ id: me.id, name: me.name }].concat(others.map(p => ({ id: p.id, name: p.name }))),
+    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, groups: groupsOf_(p) })),
     weeks: weeks,
     selected: sel,
     games: list,
     board: board,
     crown: crown_(games, picks.vals, roster),
+    crowns: crowns_(games, picks.vals, roster),
     version: SCRIPT_VERSION,
   };
 }
@@ -392,7 +401,9 @@ function history_(key, season) {
     me: me.id,
     season: want,
     seasons: seasons,
-    players: players_().map(p => ({ id: p.id, name: p.name, active: p.active })),
+    players: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: groupsOf_(p) })),
+    groups: groupNames_(),
+    hidden: (players_().find(p => p.id === me.id) || { hidden: [] }).hidden,
     games: gs.map(g => ({
       id: g.id, season: g.season, type: g.seasonType, week: g.week, kickoff: g.kickoff.toISOString(),
       away: g.awayAbbr, home: g.homeAbbr, awayName: g.away, homeName: g.home,
@@ -604,6 +615,8 @@ function players_() {
       newweek: isOn_(r[6]),
       results: isOn_(r[7]),
       evening: isOn_(r[8]),
+      groups: splitList_(r[9]),
+      hidden: splitList_(r[10]).map(x => x.toUpperCase()),
     }));
   return PLAYERS_;
 }
@@ -956,7 +969,9 @@ function people_(key) {
   const base = appBase_();
   return {
     base: base,
-    people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, link: base && p.key ? base + '?k=' + p.key : '' })),
+    groups: groupNames_(),
+    adminId: adminId_(),
+    people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '' })),
   };
 }
 
@@ -1006,6 +1021,100 @@ function newLink_(key, playerId) {
   }
   const out = people_(playerId === me.id ? k : key);
   if (playerId === me.id) out.myNewKey = k;   // the app switches itself over to your new link
+  return out;
+}
+
+// ======================================================================
+// Groups and hiding
+// ======================================================================
+
+function splitList_(v) {
+  return String(v === undefined || v === null ? '' : v).split(',').map(x => x.trim()).filter(Boolean);
+}
+
+function adminId_() { return (settings_().AdminPlayer || 'P1').toUpperCase(); }
+
+/** Every group name in use, in the order they first appear on the Players tab. */
+function groupNames_() {
+  const out = [];
+  players_().forEach(p => p.groups.forEach(g => { if (out.map(x => x.toLowerCase()).indexOf(g.toLowerCase()) < 0) out.push(g); }));
+  return out;
+}
+
+/** Groups a player belongs to. The admin is in all of them. */
+function groupsOf_(p) { return p.id === adminId_() ? groupNames_() : p.groups; }
+
+function inGroup_(p, group) {
+  if (!group) return true;
+  return groupsOf_(p).some(g => g.toLowerCase() === group.toLowerCase());
+}
+
+/** Admin: set someone's groups (comma separated; blank = no group). */
+function setGroups_(key, playerId, groups) {
+  requireAdmin_(key);
+  playerId = String(playerId || '').toUpperCase();
+  const list = [];
+  splitList_(groups).forEach(g => {
+    g = g.replace(/\s+/g, ' ').slice(0, 20);
+    if (/[<>]/.test(g)) throw new Error('Group names can\'t use < or >.');
+    if (list.map(x => x.toLowerCase()).indexOf(g.toLowerCase()) < 0) list.push(g);
+  });
+  // Reuse the existing spelling of a group if it differs only by capitals.
+  const known = groupNames_();
+  const fixed = list.map(g => known.find(k => k.toLowerCase() === g.toLowerCase()) || g);
+  const sh = playersSheet_();
+  const vals = sh.getDataRange().getValues();
+  let found = false;
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() === playerId) { sh.getRange(i + 1, 10).setValue(fixed.join(', ')); found = true; break; }
+  }
+  if (!found) throw new Error('Unknown player.');
+  PLAYERS_ = null;
+  return people_(key);
+}
+
+/**
+ * Admin: retire someone who stopped playing (or bring them back). Retired people disappear from
+ * everyone's Picks/Group/leaderboard and their link stops working; their past picks stay in Stats.
+ */
+function setActive_(key, playerId, on) {
+  const me = requireAdmin_(key);
+  playerId = String(playerId || '').toUpperCase();
+  if (playerId === me.id) throw new Error('You can\'t retire yourself.');
+  const sh = playersSheet_();
+  const vals = sh.getDataRange().getValues();
+  let found = false;
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() === playerId) { sh.getRange(i + 1, 5).setValue(String(on) === '1' || on === true); found = true; break; }
+  }
+  if (!found) throw new Error('Unknown player.');
+  PLAYERS_ = null;
+  return people_(key);
+}
+
+/** Anyone: hide or show someone on your own screens. */
+function setHidden_(key, playerId, hide) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  playerId = String(playerId || '').toUpperCase();
+  if (playerId === me.id) throw new Error('You can\'t hide yourself.');
+  const sh = playersSheet_();
+  const vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() !== me.id) continue;
+    const cur = splitList_(vals[i][10]).map(x => x.toUpperCase()).filter(x => x !== playerId);
+    if (String(hide) === '1' || hide === true) cur.push(playerId);
+    sh.getRange(i + 1, 11).setValue(cur.join(','));
+    break;
+  }
+  PLAYERS_ = null;
+  return { hidden: (players_().find(p => p.id === me.id) || { hidden: [] }).hidden };
+}
+
+/** 👑/💩 for everyone ('') and for each group. */
+function crowns_(games, pickVals, roster) {
+  const out = { '': crown_(games, pickVals, roster) };
+  groupNames_().forEach(g => { out[g] = crown_(games, pickVals, roster.filter(p => inGroup_(p, g))); });
   return out;
 }
 
@@ -1130,14 +1239,25 @@ function notifications_(nowMs) {
     if (now - last > 3 * 86400e3) { markSent_(sent, key); return; }   // too old, skip quietly
     const [season, type, week] = wk.split('|');
     const board = leaderboard_(picks.vals, [season, type, week], roster);
-    const leader = board.find(b => b.rank === 1);
-    const tied = board.filter(b => b.rank === 1).length > 1;
-    const leadText = leader ? (tied ? 'Tied for the season lead at ' + leader.season + '.' : leader.name + ' leads the season at ' + leader.season + '.') : '';
+    // Season lead within each person's own (first) group; the admin and people with no group get everyone.
+    const leadFor = {};
+    const leadLine = (group, p) => {
+      if (!(group in leadFor)) {
+        const gb = group ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => inGroup_(x, group))) : board;
+        const top = gb.filter(b => b.rank === 1);
+        leadFor[group] = { top: top, label: group ? 'the ' + group : 'the season' };
+      }
+      const L = leadFor[group];
+      if (!L.top.length) return '';
+      if (L.top.length > 1) return 'Tied for the lead in ' + L.label + ' at ' + L.top[0].season + '.';
+      if (L.top[0].id === p.id) return 'You lead ' + L.label + ' at ' + L.top[0].season + '!';
+      return L.top[0].name + ' leads ' + L.label + ' at ' + L.top[0].season + '.';
+    };
     roster.filter(p => p.results).forEach(p => {
       const b = board.find(x => x.id === p.id);
       if (!b || b.week === '0-0') return;
-      const lead = leader && leader.id === p.id && !tied ? 'You lead the season at ' + b.season + '!' : leadText;
-      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + lead);
+      const group = p.id === adminId_() ? '' : (p.groups[0] || '');
+      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p));
     });
     markSent_(sent, key);
   });

@@ -127,6 +127,10 @@
   .rep textarea{width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
   .rep p{margin:0 0 8px;font-size:14px;color:var(--muted)}
   .icon.gear{font-size:22px;padding:4px}
+  .gbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:14px;color:var(--muted)}
+  .gbar select{flex:1;font:inherit;font-size:15px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .person .grp{display:flex;gap:6px;margin-top:6px}
+  .person .grp input{flex:1;min-width:0;font:inherit;font-size:15px;padding:6px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
   .tab .badge{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:9px;background:#ef4444;color:#fff;font-size:12px;line-height:18px;vertical-align:1px}
   .crown{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:10px;font-size:15px}
   .split{color:var(--muted);font-size:13px;margin-top:4px}
@@ -139,8 +143,15 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on{display:flex}
+  #help,#settings,#profile{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on{display:flex}
+  .pname{cursor:pointer}
+  .pchips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
+  .pchips span{background:var(--sel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:14px}
+  .pstats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .pstats div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+  .pstats b{display:block;font-size:20px}
+  .pstats small{color:var(--muted)}
   .icon.q{font-size:17px;font-weight:700;width:32px;height:32px;padding:0;border:2px solid rgba(255,255,255,.7);border-radius:50%}
   #help{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
   #help.on{display:flex}
@@ -163,7 +174,7 @@
 <header>
   <div class="wrap">
     <div class="top">
-      <h1 id="hi">Greco Picks</h1>
+      <h1 id="hi" style="cursor:pointer">Greco Picks</h1>
       <div class="right">
         <select id="week" aria-label="Week"></select>
         <button class="icon" id="reload" aria-label="Refresh">↻</button>
@@ -192,10 +203,15 @@
     </div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
+    <h3>Hide people</h3>
+    <div class="nbox">
+      <p>Hide anyone from <b>your</b> screens (Picks, Group, Stats). Only you are affected; they still play as normal.</p>
+      <div id="hideList"><p>Loading…</p></div>
+    </div>
     <div id="peopleWrap" hidden>
       <h3>People (only you see this)</h3>
       <div class="nbox">
-        <p>Add someone, then send them their link. "New link" makes a fresh link for someone (their old one stops working; their picks stay).</p>
+        <p>Add someone, then send them their link. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link. <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</p>
         <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="New person's name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
         <div id="people" style="margin-top:10px"><p>Loading…</p></div>
       </div>
@@ -212,6 +228,13 @@
       <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
     </div>
     <p id="ver" style="text-align:center;color:var(--muted);font-size:13px;margin:18px 0 4px"></p>
+  </div>
+</div>
+
+<div id="profile" role="dialog" aria-modal="true" aria-label="Profile">
+  <div class="sheet">
+    <div class="sheet-top"><h2 id="pTitle">Profile</h2><button class="x" id="pClose" aria-label="Close">✕</button></div>
+    <div id="pBody"></div>
   </div>
 </div>
 
@@ -240,13 +263,17 @@
     <h3>The app</h3>
     <details class="faq"><summary>How do I put this on my home screen?</summary><div><b>Android:</b> open your link in Chrome, tap ⋮, then <b>Install app</b>.<br><b>iPhone:</b> open your link in Safari, tap the Share button, then <b>Add to Home Screen</b>.</div></details>
     <details class="faq"><summary>Can I change my name?</summary><div>Yes. Tap <b>⚙</b>, change <b>Your name</b>, and tap <b>Save</b>. Everyone sees the new name right away, and your picks and records stay with you.</div></details>
+    <details class="faq"><summary>What are groups?</summary><div>Paul can put people in groups (like <i>Greco's</i> or <i>Friends</i>). Picks, Group and Stats open on your group; use the <b>Group</b> menu at the top of each tab to switch to another group or <b>Everyone</b>. Each group gets its own 👑 and 💩.</div></details>
+    <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
+    <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>⚙ → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
       <details class="faq"><summary>Add someone</summary><div>Tap <b>⚙</b>, scroll to <b>People</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
-      <details class="faq"><summary>Remove someone</summary><div>On the <b>Players</b> tab, set their <b>Active</b> cell to <b>FALSE</b>. Their link stops working; their past picks stay.</div></details>
+      <details class="faq"><summary>Groups</summary><div>In <b>⚙ → People</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
+      <details class="faq"><summary>Someone stopped playing</summary><div>In <b>⚙ → People</b>, tap <b>Retire</b> (twice to confirm). They disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Bring back</b> undoes it.</div></details>
       <details class="faq"><summary>Fix or add a pick after kickoff</summary><div>Open <b>Admin override</b> on that game's card, pick the team (or <b>Missed</b>, which counts as a loss) for that person, and tap <b>Save</b>. It's marked "override."</div></details>
       <details class="faq"><summary>Someone's link got shared</summary><div>In <b>⚙ → People</b>, tap <b>New link</b> next to them (tap twice to confirm) and send them the new one. The old link stops working; their picks stay.</div></details>
       <details class="faq"><summary>Changing the script</summary><div>After saving Code.gs, use <b>Deploy → Manage deployments → pencil → New version → Deploy</b>. Never <b>New deployment</b>; that changes the address the app uses.</div></details>
@@ -256,7 +283,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.4.1';
+  const APP_VERSION = '2.5.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -334,16 +361,39 @@
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
-    m.innerHTML=(pushBanner())+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+    m.innerHTML=(pushBanner())+groupBar()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
   }
 
-  function crowned(id){ return !!(state&&state.crown&&state.crown.ids.indexOf(id)>=0); }
-  function pooped(id){ return !!(state&&state.crown&&state.crown.poop&&state.crown.poop.ids.indexOf(id)>=0); }
+  // ---------- Groups (one selection shared by Picks, Group and Stats) ----------
+  function groupList(){ return (state&&state.groups)||[]; }
+  function curGroup(){
+    const gs=groupList(); if(!gs.length) return '';
+    let g=null; try{ g=localStorage.getItem('nflpicks_group'); }catch(e){}
+    if(g===null) g=(state.me&&state.me.defaultGroup)||'';
+    return g===''||gs.indexOf(g)>=0 ? g : ((state.me&&state.me.defaultGroup)||'');
+  }
+  function hiddenSet(){ return new Set(((state&&state.me&&state.me.hidden)||[]).map(x=>String(x).toUpperCase())); }
+  function inGrp(p,g){ return !g || (p.groups||[]).indexOf(g)>=0; }
+  // People shown right now: in the selected group, not hidden by you (you always show).
+  function shownPlayers(){
+    const g=curGroup(), hid=hiddenSet();
+    return (state.players||[{id:state.me.id,name:state.me.name}]).filter(p=>p.id===state.me.id || (inGrp(p,g) && !hid.has(p.id)));
+  }
+  function groupBar(){
+    const gs=groupList(); if(!gs.length) return '';
+    const mine=(state.me.groups||[]).filter(g=>gs.indexOf(g)>=0), rest=gs.filter(g=>mine.indexOf(g)<0), cur=curGroup();
+    const o=(v,t)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`;
+    return `<div class="gbar"><span>Group</span><select data-group="1">${mine.map(g=>o(g,g)).join('')}${rest.map(g=>o(g,g)).join('')}${o('','Everyone')}</select></div>`;
+  }
+  function curCrown(){ const g=curGroup(); return state&&state.crowns ? (state.crowns[g]||null) : (g?null:(state&&state.crown)); }
+  function crowned(id){ const c=curCrown(); return !!(c&&c.ids.indexOf(id)>=0); }
+  function pooped(id){ const c=curCrown(); return !!(c&&c.poop&&c.poop.ids.indexOf(id)>=0); }
   function tag(id){ return (crowned(id)?'👑 ':'')+(pooped(id)?'💩 ':''); }
   function crownLine(){
-    const c=state.crown; if(!c) return '';
+    const c=curCrown(); if(!c) return '';
     const names=(ids,ns)=>ids.map((id,i)=>id===state.me.id?'You':ns[i]).join(', ');
-    let h=`👑 ${esc(c.label)} winner${c.ids.length>1?'s':''}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
+    const gl=curGroup()?' · '+esc(curGroup()):'';
+    let h=`👑 ${esc(c.label)}${gl} winner${c.ids.length>1?'s':''}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
     if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}: <b>${esc(names(c.poop.ids,c.poop.names))}</b> (${esc(c.poop.rec)})`;
     return `<div class="crown">${h}</div>`;
   }
@@ -351,10 +401,10 @@
   // ---------- Group tab: everyone's picks for the week ----------
   function groupView(){
     const s=state;
-    if(!s.games.length) return '<div class="empty">No games loaded yet.</div>';
-    const players=s.players||[{id:s.me.id,name:s.me.name}];
+    if(!s.games.length) return groupBar()+'<div class="empty">No games loaded yet.</div>';
+    const players=shownPlayers();
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="${p.id===s.me.id?'me':''}"><b>${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -372,7 +422,7 @@
       }).join('');
       return `<tr><td class="g"><b>${esc(g.away.abbr)} @ ${esc(g.home.abbr)}</b><span>${sub}</span></td>${cells}</tr>`;
     }).join('');
-    return `<div class="gridwrap"><table class="grid"><thead><tr><th class="g">Game</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
+    return groupBar()+`<div class="gridwrap"><table class="grid"><thead><tr><th class="g">Game</th>${head}</tr></thead><tbody>${rows}</tbody></table></div>
       <div class="note">Records shown are for the week picked at the top. ✓ means picked but hidden until you make your pick on that game (or it kicks off).</div>`;
   }
 
@@ -418,7 +468,8 @@
     const gmap={}; games.forEach(g=>{gmap[g.id]=g;});
     const names={}; h.players.forEach(p=>{names[p.id]=p.name;});
     const withPicks=new Set(h.picks.map(x=>x[1]));
-    const everyone=h.players.filter(p=>p.active||withPicks.has(p.id)).map(p=>p.id);
+    const sg=curGroup(), hid=hiddenSet();
+    const everyone=h.players.filter(p=>(p.active||withPicks.has(p.id)) && (p.id===state.me.id || (inGrp(p,sg) && !hid.has(p.id)))).map(p=>p.id);
     const sel=(sf.people||everyone).filter(id=>everyone.indexOf(id)>=0);
     const per={};
     sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0};});
@@ -470,7 +521,7 @@
     const rangeOpts=[['season','Whole season'],['week','Single week…'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
     const opt=(list,val)=>list.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(t)}</option>`).join('');
     const wkOpts=v=>st.weeksAll.map(k=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('');
-    let html=`<div class="filters">
+    let html=groupBar()+`<div class="filters">
         <select data-sf="season">${opt(seasonOpts,season)}</select>
         <select data-sf="range">${opt(rangeOpts,sf.range)}</select>
       </div>`;
@@ -480,14 +531,14 @@
     }
     if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
     const allOn=st.sel.length===st.everyone.length;
-    html+=`<div class="chips"><button class="chip${allOn?' on':''}" data-chip="__all">Everyone</button>${st.everyone.map(id=>`<button class="chip${st.sel.indexOf(id)>=0&&!allOn?' on':''}" data-chip="${esc(id)}">${esc(id===me?'You':st.names[id])}</button>`).join('')}</div>`;
+    html+=`<div class="chips"><button class="chip${allOn?' on':''}" data-chip="__all">${curGroup()?'All '+esc(curGroup()):'Everyone'}</button>${st.everyone.map(id=>`<button class="chip${st.sel.indexOf(id)>=0&&!allOn?' on':''}" data-chip="${esc(id)}">${esc(id===me?'You':st.names[id])}</button>`).join('')}</div>`;
 
     if(!st.gameCount) return html+'<div class="empty">No finished games in this range yet.</div>';
     const P=st.people;
 
     // Standings
     html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Streak</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
     }</tbody></table></div>`;
 
     // Highlights
@@ -549,23 +600,25 @@
     const you=g.mine?`You: <b>${esc(pickLabel(g,g.mine.pick))}</b>${res(g.mine.result)}${ov(g.mine)}`:(locked?'You: no pick':'You: not picked yet');
 
     let grp='';
-    if(g.othersTotal){
-      if(!g.mine && !g.locked){
-        grp=`${g.othersPicked} of ${g.othersTotal} others picked · make your pick to see theirs`;
+    const shown=shownPlayers().filter(p=>p.id!==s.me.id), all=g.all||{};
+    if(shown.length){
+      const picked=shown.filter(p=>all[p.id]);
+      if(!g.mine && !locked){
+        grp=`${picked.length} of ${shown.length} others picked · make your pick to see theirs`;
       } else {
         const by={};
-        (g.others||[]).forEach(o=>{(by[o.pick]=by[o.pick]||[]).push(o);});
-        const parts=Object.keys(by).map(p=>`<b>${esc(pickLabel(g,p))}:</b> ${by[p].map(o=>esc(o.name)+res(o.result)+ov(o)).join(', ')}`);
-        const left=g.othersTotal-g.othersPicked;
-        if(left) parts.push(g.locked?`${left} no pick`:`${left} still to pick`);
+        picked.forEach(p=>{ const x=all[p.id]; if(x.h) return; (by[x.p]=by[x.p]||[]).push({name:p.name,result:x.r,override:x.o}); });
+        const parts=Object.keys(by).map(k=>`<b>${esc(pickLabel(g,k))}:</b> ${by[k].map(o=>esc(o.name)+res(o.result)+ov(o)).join(', ')}`);
+        const left=shown.length-picked.length;
+        if(left) parts.push(locked?`${left} no pick`:`${left} still to pick`);
         grp=parts.join('<br>');
       }
     }
-    if(locked && g.all){
+    if(locked){
       const cnt={}; let n=0;
-      Object.values(g.all).forEach(x=>{ if(x&&x.p&&x.p!=='MISSED'){ cnt[x.p]=(cnt[x.p]||0)+1; n++; } });
+      [{id:s.me.id}].concat(shown).forEach(p=>{ const x=all[p.id]; if(x&&x.p&&x.p!=='MISSED'){ cnt[x.p]=(cnt[x.p]||0)+1; n++; } });
       const order=[g.away.abbr,g.home.abbr,'TIE'].filter(k=>cnt[k]);
-      if(n>1 && order.length) grp=(grp?grp+'<br>':'')+`<span class="split">Group split: ${order.map(k=>`${esc(k==='TIE'?'Tie':k)} ${cnt[k]}`).join(' · ')} (of ${n})</span>`;
+      if(n>1 && order.length) grp=(grp?grp+'<br>':'')+`<span class="split">${curGroup()?esc(curGroup())+' split':'Group split'}: ${order.map(k=>`${esc(k==='TIE'?'Tie':k)} ${cnt[k]}`).join(' · ')} (of ${n})</span>`;
     }
 
     let admin='';
@@ -834,7 +887,7 @@
       await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
     }catch(e){}
     // Saved settings, keeping who you are
-    try{ const dg=localStorage.getItem('nflpicks_diag'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); }catch(e){}
+    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
@@ -850,8 +903,47 @@
       .catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
   });
 
+  // ---------- Profile (tap a name) ----------
+  function openProfile(id){
+    if(!state) return;
+    const p=(state.players||[]).find(x=>x.id===id); if(!p) return;
+    const b=(state.board||[]).find(x=>x.id===id)||{week:'0-0',season:'0-0',rank:''};
+    const all=state.crowns||{}, badges=[];
+    Object.keys(all).forEach(g=>{ const c=all[g]; if(!c) return; const gl=g||'Everyone';
+      if(c.ids.indexOf(id)>=0) badges.push('👑 '+c.label+' · '+gl);
+      if(c.poop&&c.poop.ids.indexOf(id)>=0) badges.push('💩 '+c.label+' · '+gl); });
+    const me=id===state.me.id, wk=(state.weeks.find(w=>w.key===state.selected)||{}).label||'This week';
+    const groups=p.groups||[];
+    document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
+    document.getElementById('pBody').innerHTML=`
+      <h3>Groups</h3>
+      <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
+      <h3>Record</h3>
+      <div class="pstats"><div><b>${esc(b.week)}</b><small>${esc(wk.split(' · ')[0])}</small></div><div><b>${esc(b.season)}</b><small>Season</small></div><div><b>${b.rank?'#'+esc(b.rank):'—'}</b><small>Overall rank</small></div></div>
+      ${badges.length?`<h3>Right now</h3><p>${badges.map(esc).join('<br>')}</p>`:''}
+      ${me?'<p style="color:var(--muted);font-size:14px">Change your name in ⚙. Groups are set by Paul.</p>':(state.me.isAdmin?'<p style="color:var(--muted);font-size:14px">Change their groups in ⚙ → People.</p>':'')}`;
+    document.getElementById('profile').classList.add('on');
+  }
+  document.getElementById('main').addEventListener('click',e=>{ const t=e.target.closest('[data-prof]'); if(t) openProfile(t.dataset.prof); });
+  document.getElementById('hi').addEventListener('click',()=>state&&openProfile(state.me.id));
+  document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
+  document.getElementById('profile').addEventListener('click',e=>{ if(e.target.id==='profile') e.target.classList.remove('on'); });
+
+  // ---------- Hide people (just for you) ----------
+  function renderHide(){
+    const el=document.getElementById('hideList'); if(!el||!state) return;
+    const hid=hiddenSet(), others=(state.players||[]).filter(p=>p.id!==state.me.id);
+    el.innerHTML=others.length?others.map(p=>`<label class="tog"><span>${esc(p.name)}${(p.groups||[]).length?`<small>${esc(p.groups.join(', '))}</small>`:''}</span><input type="checkbox" data-hide="${esc(p.id)}"${hid.has(p.id)?' checked':''}></label>`).join(''):'<p>No one else yet.</p>';
+  }
+  document.getElementById('hideList').addEventListener('change',e=>{
+    const id=e.target.dataset&&e.target.dataset.hide; if(!id) return;
+    const on=e.target.checked;
+    api('hide',{pl:id,on:on?'1':'0'}).then(d=>{ state.me.hidden=d.hidden; save(); render(); toast(on?'Hidden on your screens.':'Showing again.'); })
+      .catch(err=>{ e.target.checked=!on; toast(err.message); });
+  });
+
   // ---------- People (admin) ----------
-  let people=null, armedLink='';
+  let people=null, armedLink='', armedRetire='';
   function shareLink(name,link){
     const text='Here\'s your Greco Picks link, '+name+'. Open it on your phone, then add it to your home screen: '+link;
     if(navigator.share) navigator.share({title:'Greco Picks',text:text}).catch(()=>{});
@@ -867,10 +959,12 @@
     const el=document.getElementById('people'); if(!el) return;
     if(!people){ el.innerHTML='<p>Loading…</p>'; return; }
     el.innerHTML=people.people.map(p=>`<div class="person">
-        <b>${esc(p.name)}${p.id===state.me.id?' (you)':''}${p.active?'':' <small>(inactive)</small>'}</b>
+        <b>${esc(p.name)}${p.id===state.me.id?' (you)':''}${p.active?'':' <small>(retired)</small>'}</b>
         <small style="word-break:break-all">${p.link?esc(p.link):'No link yet'}</small>
-        ${p.link?`<div class="acts"><button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button></div>`:''}
+        ${p.id===people.adminId?'<small style="display:block">In every group</small>':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
+        <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
       </div>`).join('')||'<p>No one yet.</p>';
+    if(people.groups&&people.groups.length) el.insertAdjacentHTML('afterbegin',`<p style="font-size:13px">Groups in use: ${people.groups.map(esc).join(', ')}</p>`);
   }
   function loadPeople(){
     if(!state||!state.me.isAdmin) return;
@@ -881,6 +975,20 @@
     const p=people.people.find(x=>x.id===b.dataset.id); if(!p) return;
     if(b.dataset.pp==='share') shareLink(p.name,p.link);
     if(b.dataset.pp==='copy') copyText(p.link,'Link copied.');
+    if(b.dataset.pp==='groups'){
+      const v=(document.querySelector(`[data-gin="${p.id}"]`)||{}).value||'';
+      b.disabled=true;
+      api('groups',{pl:p.id,groups:v}).then(d=>{ people=d; renderPeople(); toast('Groups saved for '+p.name+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); b.disabled=false; });
+    }
+    if(b.dataset.pp==='retire'){
+      if(armedRetire!==p.id){ armedRetire=p.id; renderPeople(); setTimeout(()=>{ if(armedRetire===p.id){ armedRetire=''; renderPeople(); } },4000); return; }
+      armedRetire=''; b.disabled=true;
+      api('active',{pl:p.id,on:'0'}).then(d=>{ people=d; renderPeople(); toast(p.name+' retired. Their picks stay in Stats.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
+    }
+    if(b.dataset.pp==='return'){
+      b.disabled=true;
+      api('active',{pl:p.id,on:'1'}).then(d=>{ people=d; renderPeople(); toast(p.name+' is back. Their old link works again.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
+    }
     if(b.dataset.pp==='new'){
       if(armedLink!==p.id){ armedLink=p.id; renderPeople(); setTimeout(()=>{ if(armedLink===p.id){ armedLink=''; renderPeople(); } },4000); return; }
       armedLink=''; b.disabled=true; b.textContent='Making…';
@@ -961,6 +1069,11 @@
     }
     saveSf(); render();
   });
+  document.getElementById('main').addEventListener('change',e=>{
+    if(!e.target.dataset||!e.target.dataset.group) return;
+    try{ localStorage.setItem('nflpicks_group',e.target.value); }catch(x){}
+    sf.people=null; saveSf(); render();
+  });
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
   document.getElementById('reload').addEventListener('click',()=>{ load(state&&state.selected,false); if(view==='stats') loadHistory(true); });
   const help=document.getElementById('help');
@@ -969,7 +1082,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     document.getElementById('ver').textContent='Greco Picks · app '+APP_VERSION+' · script '+((state&&state.version)||'older');
-    if(state){ document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ renderHide(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
