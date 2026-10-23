@@ -241,9 +241,9 @@
     </div>
     <h3>Fix the app</h3>
     <div class="nbox">
-      <p>Stuck on an old version? Tap <b>Check for updates</b>. Still acting weird, or notifications won't turn on? <b>Reset</b> clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
-      <button class="nbtn" id="appUpdate">Check for updates</button>
-      <p style="margin:6px 0 12px;font-size:13px">Gets the newest version right now instead of waiting. Nothing is cleared.</p>
+      <p>Stuck on an old version? Tap <b>Force update</b>. Still acting weird, or notifications won't turn on? <b>Reset</b> clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
+      <button class="nbtn" id="appUpdate">Force update</button>
+      <p style="margin:6px 0 12px;font-size:13px">Throws away the saved copy of the app and loads the newest one from the internet right now. You stay signed in and nothing else is cleared.</p>
       <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
     </div>
     <p id="ver" style="text-align:center;color:var(--muted);font-size:13px;margin:18px 0 4px"></p>
@@ -331,7 +331,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.7';
+  const APP_VERSION = '2.5.8';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -953,31 +953,23 @@
   function updateVer(){
     const el=document.getElementById('ver'); if(!el) return;
     const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
-    el.innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>Tap Check for updates. If it stays, check GitHub → Actions.':'<br>Tap Check for updates.'));
+    el.innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>Tap Force update. If it stays, check GitHub → Actions.':'<br>Tap Force update.'));
   }
 
-  // ---------- Check for updates (keeps everything; just fetches the newest app) ----------
-  function cmpVer(a,b){ const x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(let i=0;i<3;i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)-(y[i]||0); } return 0; }
+  // ---------- Force update: drop the saved app files and reload fresh (keeps sign-in and settings) ----------
   document.getElementById('appUpdate').addEventListener('click',async()=>{
-    const btn=document.getElementById('appUpdate'); btn.disabled=true; btn.textContent='Checking…';
-    try{
-      // The app's offline copy would answer with the old page, so remove it first; the fetch then has to go to the internet.
-      try{ if(window.caches){ for(const k of await caches.keys()){ const c=await caches.open(k); for(const r of await c.keys()){ const u=new URL(r.url); if(/\/(index\.html)?$/.test(u.pathname)) await c.delete(r); } } } }catch(e){}
-      const txt=await fetch('index.html?v='+Date.now(),{cache:'no-store'}).then(r=>r.text());
-      const m=/APP_VERSION = '([\d.]+)'/.exec(txt), latest=m?m[1]:'';
-      if(latest && cmpVer(latest,APP_VERSION)<=0){
-        await load(state&&state.selected,false);
-        const sv=(state&&state.version)||'';
-        toast(sv&&cmpVer(sv,APP_VERSION)>0?'Script is on '+sv+' but the new app isn\'t out yet. Try again in a few minutes.':(sv&&sv!==APP_VERSION?'App is '+APP_VERSION+', script is '+sv+'. The script may still be updating.':'You\'re up to date ('+APP_VERSION+').'));
-        btn.disabled=false; btn.textContent='Check for updates'; return;
-      }
-      btn.textContent='Updating to '+(latest||'the newest version')+'…';
-      try{ if(window.caches){ for(const k of await caches.keys()) await caches.delete(k); } }catch(e){}
-      try{ const r=await navigator.serviceWorker.getRegistration('/GrecoPicks/'); if(r) await r.update(); }catch(e){}
-      try{ sessionStorage.setItem('nflpicks_reloaded',String(Date.now())); }catch(e){}
-      location.replace(location.pathname+(KEY?'?k='+KEY+'&':'?')+'v='+Date.now());
-    }catch(e){ toast('Couldn\'t check right now. Try again in a minute.'); btn.disabled=false; btn.textContent='Check for updates'; }
+    const btn=document.getElementById('appUpdate'); btn.disabled=true; btn.textContent='Updating…';
+    try{ sessionStorage.setItem('nflpicks_forced',APP_VERSION); sessionStorage.setItem('nflpicks_reloaded',String(Date.now())); }catch(e){}
+    try{ if(window.caches){ for(const k of await caches.keys()) await caches.delete(k); } }catch(e){}
+    try{ const r=await navigator.serviceWorker.getRegistration('/GrecoPicks/'); if(r) await r.update(); }catch(e){}
+    location.replace(location.pathname+(KEY?'?k='+KEY+'&':'?')+'v='+Date.now());
   });
+  // After a force update, say what happened.
+  (function(){
+    let was=null; try{ was=sessionStorage.getItem('nflpicks_forced'); sessionStorage.removeItem('nflpicks_forced'); }catch(e){}
+    if(was===null) return;
+    setTimeout(()=>toast(was===APP_VERSION?'Up to date: '+APP_VERSION+'. (If you expected newer, it may still be publishing; try again in a few minutes.)':'Updated: '+was+' → '+APP_VERSION),600);
+  })();
 
   // ---------- Reset the app on this phone (works in any browser) ----------
   let resetArmed=0;
