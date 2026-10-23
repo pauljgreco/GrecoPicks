@@ -72,7 +72,7 @@
   .lb td:nth-child(2){font-weight:600}
   .lb tr.me td{background:var(--me)}
   .note{font-size:13px;color:var(--muted);margin-top:10px;text-align:center}
-  #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%;z-index:10}
+  #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 14px;border-radius:10px;font-size:15px;display:none;max-width:90%;z-index:50}
   .empty{text-align:center;color:var(--muted);padding:40px 16px;line-height:1.5}
   body.busy main{opacity:.6;pointer-events:none}
   /* Group grid */
@@ -747,7 +747,8 @@
     if(b.dataset.push==='reset') resetPush();
     if(b.dataset.push==='testme'){
       b.disabled=true;
-      api('testme',{}).then(()=>toast('Sent! It should pop up in a few seconds.')).catch(e=>toast(e.message)).finally(()=>{b.disabled=false;});
+      plog('Test notification requested…');
+      api('testme',{}).then(()=>{ plog('Test sent by OneSignal'); toast('Sent! It should pop up in a few seconds.'); }).catch(e=>{ plog('Test failed: '+e.message); toast(e.message); }).finally(()=>{b.disabled=false;});
     }
     if(b.dataset.push==='local'){
       navigator.serviceWorker.getRegistration('/GrecoPicks/')
