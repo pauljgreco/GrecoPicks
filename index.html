@@ -556,6 +556,7 @@
       if('serviceWorker' in navigator){
         try{ for(const r of await navigator.serviceWorker.getRegistrations()){ if(/\/GrecoPicks\/push\/$/.test(r.scope)){ try{ const sb=await r.pushManager.getSubscription(); if(sb) await sb.unsubscribe(); }catch(e){} await r.unregister(); } } }catch(e){}
       }
+      try{ OneSignal.Debug.setLogLevel('warn'); }catch(e){}   // OneSignal's own warnings/errors go to the step log
       await OneSignal.init({
         appId:ONESIGNAL_APP_ID,
         serviceWorkerPath:'GrecoPicks/sw.js',
@@ -564,9 +565,13 @@
         welcomeNotification:{disable:true},
       });
       OS=OneSignal; pushReady=true;
-      OneSignal.Notifications.addEventListener('permissionChange',()=>{ linkUser(); refreshPushUI(); });
-      OneSignal.User.PushSubscription.addEventListener('change',()=>refreshPushUI());
-      plog('Ready: '+subInfo());
+      OneSignal.Notifications.addEventListener('permissionChange',()=>{ plog('Permission changed: '+Notification.permission); refreshPushUI(); });
+      OneSignal.User.PushSubscription.addEventListener('change',ev=>{
+        const c=(ev&&ev.current)||{};
+        plog('OneSignal update: id '+(c.id?String(c.id).slice(0,8):'none')+', token '+(c.token?'yes':'no')+', opted in '+c.optedIn);
+        linkUser(); refreshPushUI();
+      });
+      plog('Ready: '+subInfo()+', user '+((OneSignal.User.onesignalId||'none')+'').slice(0,8));
       linkUser(); refreshPushUI();
       let wasReset=false; try{ wasReset=sessionStorage.getItem('nflpicks_pushreset')==='1'; sessionStorage.removeItem('nflpicks_pushreset'); }catch(e){}
       if(wasReset){
@@ -576,7 +581,19 @@
       }
     }catch(e){ pushReady=false; pushErr=(e&&e.message)||String(e); refreshPushUI(); }
   });
-  function linkUser(){ try{ if(OS&&state&&state.me&&state.me.pushId) OS.login(state.me.pushId); }catch(e){} }
+  // Link this phone to your name only once it has a delivery token. Signing in first (to an old or deleted
+  // OneSignal user) can stall OneSignal before it ever creates the phone's subscription.
+  let linkedAs='';
+  function linkUser(){
+    try{
+      if(!OS||!state||!state.me||!state.me.pushId) return;
+      const sub=OS.User.PushSubscription;
+      if(!(sub&&sub.token)) return;
+      if(linkedAs===state.me.pushId) return;
+      linkedAs=state.me.pushId;
+      Promise.resolve(OS.login(state.me.pushId)).then(()=>plog('Linked to '+state.me.pushId)).catch(e=>{ linkedAs=''; plog('Link error: '+((e&&e.message)||e)); });
+    }catch(e){ plog('Link error: '+((e&&e.message)||e)); }
+  }
   function pushStatus(){
     if(isIOS && !standalone) return 'ios';
     if(!('Notification' in window)) return 'unsupported';
