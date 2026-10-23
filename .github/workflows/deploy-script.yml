@@ -1,0 +1,73 @@
+# Deploys script/Code.gs to the Google Apps Script project and updates the EXISTING web app
+# deployment (same /exec address, so nobody's links change). Runs when script/Code.gs changes,
+# or by hand from the Actions tab.
+#
+# Needs three repository secrets (Settings → Secrets and variables → Actions):
+#   CLASPRC_JSON   – contents of ~/.clasprc.json after `npx @google/clasp@2.4.2 login --no-localhost`
+#   SCRIPT_ID      – Apps Script → Project Settings → Script ID
+#   DEPLOYMENT_ID  – Apps Script → Deploy → Manage deployments → Deployment ID
+name: Deploy Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths: ['script/Code.gs']
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-script
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check setup
+        id: check
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ] || [ -z "$SCRIPT_ID" ] || [ -z "$DEPLOYMENT_ID" ]; then
+            echo "Secrets not set up yet; skipping deploy."
+            echo "ready=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'yes'
+        with:
+          node-version: 20
+
+      - name: Deploy
+        if: steps.check.outputs.ready == 'yes'
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+          DEPLOYMENT_ID: ${{ secrets.DEPLOYMENT_ID }}
+        run: |
+          set -euo pipefail
+          npm install -g @google/clasp@2.4.2 >/dev/null
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          VERSION=$(grep -oP "SCRIPT_VERSION = '\K[^']+" script/Code.gs)
+          echo "Deploying version $VERSION"
+
+          # Pull the live project so the manifest (web app settings) and Index.html stay exactly as they are,
+          # then swap in the new Code.gs only.
+          mkdir work && cd work
+          printf '{"scriptId":"%s","rootDir":"."}' "$SCRIPT_ID" > .clasp.json
+          clasp pull
+          ls -la
+          rm -f Code.js Code.gs
+          cp ../script/Code.gs Code.js
+          clasp push --force
+          clasp deploy --deploymentId "$DEPLOYMENT_ID" --description "$VERSION"
+          echo "Live: version $VERSION"
+
+      - name: Clean up credentials
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"
