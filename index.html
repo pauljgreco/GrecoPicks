@@ -283,7 +283,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.5.0';
+  const APP_VERSION = '2.5.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -921,10 +921,18 @@
       <h3>Record</h3>
       <div class="pstats"><div><b>${esc(b.week)}</b><small>${esc(wk.split(' · ')[0])}</small></div><div><b>${esc(b.season)}</b><small>Season</small></div><div><b>${b.rank?'#'+esc(b.rank):'—'}</b><small>Overall rank</small></div></div>
       ${badges.length?`<h3>Right now</h3><p>${badges.map(esc).join('<br>')}</p>`:''}
-      ${me?'<p style="color:var(--muted);font-size:14px">Change your name in ⚙. Groups are set by Paul.</p>':(state.me.isAdmin?'<p style="color:var(--muted);font-size:14px">Change their groups in ⚙ → People.</p>':'')}`;
+      ${state.me.isAdmin&&id!==state.adminId&&!me?`<h3>Edit groups (only you can)</h3><div class="namerow"><input id="pTags" value="${esc(groups.join(', '))}" placeholder="e.g. Greco's, Friends" maxlength="80"><button class="nbtn" id="pTagSave" data-id="${esc(id)}">Save</button></div><p style="color:var(--muted);font-size:13px;margin-top:6px">Separate with commas.${(state.groups||[]).length?' In use: '+state.groups.map(esc).join(', '):''}</p>`:''}
+      ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}Change your name in ⚙.${state.me.isAdmin?'':' Groups are set by Paul.'}</p>`:''}`;
     document.getElementById('profile').classList.add('on');
   }
   document.getElementById('main').addEventListener('click',e=>{ const t=e.target.closest('[data-prof]'); if(t) openProfile(t.dataset.prof); });
+  document.getElementById('pBody').addEventListener('click',e=>{
+    const b=e.target.closest('#pTagSave'); if(!b) return;
+    const id=b.dataset.id, v=document.getElementById('pTags').value;
+    b.disabled=true;
+    api('groups',{pl:id,groups:v}).then(d=>{ people=d; toast('Groups saved.'); return load(state&&state.selected,false); })
+      .then(()=>openProfile(id)).catch(err=>{ toast(err.message); b.disabled=false; });
+  });
   document.getElementById('hi').addEventListener('click',()=>state&&openProfile(state.me.id));
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
   document.getElementById('profile').addEventListener('click',e=>{ if(e.target.id==='profile') e.target.classList.remove('on'); });
