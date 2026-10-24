@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
-<script>try{var t=localStorage.getItem('nflpicks_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<script>try{var t=localStorage.getItem('nflpicks_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t);var v=JSON.parse(localStorage.getItem('nflpicks_tvars')||'null');if(v){var r=document.documentElement.style;r.setProperty('--bar',v.bar);r.setProperty('--accent',v.accent);r.setProperty('--on-accent',v.on);r.setProperty('--sel','color-mix(in srgb, '+v.accent+' 18%, var(--card))');document.querySelector('meta[name=theme-color]').setAttribute('content',v.bar);}}catch(e){}</script>
 <script src="config.js"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
@@ -20,9 +20,16 @@
   @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a;color-scheme:dark}}
   :root[data-theme="dark"]{--bg:#0e1014;--card:#191c23;--ink:#eef0f4;--muted:#9aa3b3;--line:#2a2f3a;--accent:#6b97ff;--sel:#1d2944;--win:#4ade80;--loss:#f87171;--me:#2a2614;--bar:#0b1f3a;color-scheme:dark}
   :root[data-theme="light"]{color-scheme:light}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-bottom:10px}
+  .tsw{font:inherit;font-size:12px;line-height:1.2;padding:0;border:2px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);color:var(--ink);cursor:pointer;text-align:left}
+  .tsw.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+  .tsw i{display:flex;height:30px}
+  .tsw i b{flex:2}.tsw i em{flex:1}
+  .tsw span{display:block;padding:5px 7px}
+  .tset{font-size:13px;font-weight:700;color:var(--muted);margin:8px 0 6px;text-transform:uppercase;letter-spacing:.04em}
   .seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .seg button{flex:1;font:inherit;font-size:15px;padding:9px 0;border:0;background:none;color:var(--ink);cursor:pointer}
-  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+  .seg button.on{background:var(--accent);color:var(--on-accent,#fff);font-weight:600}
   /* reactions + tiebreaker */
   .rx{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
   .rx button{font:inherit;font-size:15px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
@@ -119,7 +126,7 @@
   .admrow{display:flex;align-items:center;gap:8px;margin-top:8px}
   .admrow span{flex:0 0 80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .admrow select{flex:1;font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
-  .admrow button{font:inherit;padding:7px 12px;border-radius:9px;border:0;background:var(--accent);color:#fff}
+  .admrow button{font:inherit;padding:7px 12px;border-radius:9px;border:0;background:var(--accent);color:var(--on-accent,#fff)}
   table.lb{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-variant-numeric:tabular-nums}
   .lb th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;text-align:right;padding:10px 8px;border-bottom:1px solid var(--line)}
   .lb td{padding:12px 8px;border-bottom:1px solid var(--line);text-align:right}
@@ -153,7 +160,7 @@
   .filters select{font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1;min-width:0}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
-  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent,#fff)}
   .sec{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:18px 2px 8px;font-weight:600}
   .hl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
   .hl div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
@@ -172,14 +179,14 @@
   /* Notifications */
   .nbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
   .nbox p{margin:0 0 10px;font-size:15px;color:var(--muted);line-height:1.4}
-  .nbtn{font:inherit;font-weight:600;padding:9px 14px;border-radius:10px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+  .nbtn{font:inherit;font-weight:600;padding:9px 14px;border-radius:10px;border:0;background:var(--accent);color:var(--on-accent,#fff);cursor:pointer}
   .tog{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
   .tog small{display:block;color:var(--muted);font-size:13px}
   .tog input{width:22px;height:22px;accent-color:var(--accent)}
   .banner{display:flex;align-items:center;gap:10px;background:var(--sel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:15px}
   .banner span{flex:1}
   .banner button{font:inherit;border:0;background:none;cursor:pointer}
-  .banner .go{color:#fff;background:var(--accent);border-radius:9px;padding:6px 12px;font-weight:600}
+  .banner .go{color:var(--on-accent,#fff);background:var(--accent);border-radius:9px;padding:6px 12px;font-weight:600}
   .banner .x2{color:var(--muted);font-size:18px;padding:2px 4px}
   .rep textarea{width:100%;min-height:96px;font:inherit;font-size:16px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);resize:vertical}
   .rep p{margin:0 0 8px;font-size:14px;color:var(--muted)}
@@ -270,7 +277,9 @@
     </div>
     <h3>Appearance</h3>
     <div class="nbox"><div class="seg" id="themeSeg"><button data-theme-set="auto">Auto</button><button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button></div>
-      <p style="margin:8px 0 0;font-size:13px">Auto follows your phone's setting.</p></div>
+      <p style="margin:8px 0 12px;font-size:13px">Auto follows your phone's setting.</p>
+      <label style="display:block;font-size:14px;color:var(--muted);margin-bottom:6px">Team colors</label>
+      <div id="teamThemes"></div></div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
     <h3>Hide people</h3>
@@ -366,7 +375,7 @@
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
     <details class="faq"><summary>Weekly recap?</summary><div>When a week is final, a <b>🗞️ recap</b> button appears at the top of Picks: your record, your best call, the one that got away, the group's biggest upset, and who took the 👑 and 💩. Tap ✕ to hide it.</div></details>
-    <details class="faq"><summary>Light or dark mode?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark.</div></details>
+    <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Kelly Green, Black, Silver, '60s throwback, Frankford Yellow Jackets). It's just for your phone.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. Find it at the top of the <b>Stats</b> tab once you have a few picks graded (it says "so far" until the Super Bowl). Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), everyone in that group gets a heads-up: "Only Holly picked the Jets 👀". Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
@@ -387,7 +396,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.8.0';
+  const APP_VERSION = '2.9.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1286,10 +1295,31 @@
       await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
     }catch(e){}
     // Saved settings, keeping who you are
-    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'), th=localStorage.getItem('nflpicks_theme'), pt=localStorage.getItem('nflpicks_party'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); if(th) localStorage.setItem('nflpicks_theme',th); if(pt) localStorage.setItem('nflpicks_party',pt); }catch(e){}
+    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'), th=localStorage.getItem('nflpicks_theme'), pt=localStorage.getItem('nflpicks_party'), tt=localStorage.getItem('nflpicks_tteam'), tv=localStorage.getItem('nflpicks_tvars'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); if(th) localStorage.setItem('nflpicks_theme',th); if(pt) localStorage.setItem('nflpicks_party',pt); if(tt) localStorage.setItem('nflpicks_tteam',tt); if(tv) localStorage.setItem('nflpicks_tvars',tv); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
+
+  // ---------- Team color themes ----------
+  const THEMES=[{"id": "eagles-midnight", "name": "Eagles · Midnight Green", "set": "Eagles", "bar": "#004C54", "accent": "#00838F", "on": "#fff"}, {"id": "eagles-kelly", "name": "Eagles · Kelly Green", "set": "Eagles", "bar": "#0C5A2E", "accent": "#2E9E48", "on": "#fff"}, {"id": "eagles-black", "name": "Eagles · Black", "set": "Eagles", "bar": "#101010", "accent": "#7E878C", "on": "#fff"}, {"id": "eagles-silver", "name": "Eagles · Silver", "set": "Eagles", "bar": "#5B6469", "accent": "#004C54", "on": "#fff"}, {"id": "frankford", "name": "Frankford Yellow Jackets", "set": "Eagles", "bar": "#1F3F7A", "accent": "#F2B33D", "on": "#1a1a1a"}, {"id": "eagles-throwback", "name": "Eagles · '60s Throwback", "set": "Eagles", "bar": "#1E5631", "accent": "#B9BFC2", "on": "#0b1f14"}, {"id": "ARI", "name": "Cardinals", "set": "NFL", "bar": "#97233F", "accent": "#C9314F", "on": "#fff"}, {"id": "ATL", "name": "Falcons", "set": "NFL", "bar": "#A71930", "accent": "#D12A3F", "on": "#fff"}, {"id": "BAL", "name": "Ravens", "set": "NFL", "bar": "#241773", "accent": "#9E7C0C", "on": "#fff"}, {"id": "BUF", "name": "Bills", "set": "NFL", "bar": "#00338D", "accent": "#C60C30", "on": "#fff"}, {"id": "CAR", "name": "Panthers", "set": "NFL", "bar": "#101820", "accent": "#0085CA", "on": "#fff"}, {"id": "CHI", "name": "Bears", "set": "NFL", "bar": "#0B162A", "accent": "#C83803", "on": "#fff"}, {"id": "CIN", "name": "Bengals", "set": "NFL", "bar": "#1A1A1A", "accent": "#FB4F14", "on": "#fff"}, {"id": "CLE", "name": "Browns", "set": "NFL", "bar": "#311D00", "accent": "#FF3C00", "on": "#fff"}, {"id": "DAL", "name": "Cowboys", "set": "NFL", "bar": "#041E42", "accent": "#3B6FB6", "on": "#fff"}, {"id": "DEN", "name": "Broncos", "set": "NFL", "bar": "#002244", "accent": "#FB4F14", "on": "#fff"}, {"id": "DET", "name": "Lions", "set": "NFL", "bar": "#0B3D66", "accent": "#0076B6", "on": "#fff"}, {"id": "GB", "name": "Packers", "set": "NFL", "bar": "#203731", "accent": "#FFB612", "on": "#1a1a1a"}, {"id": "HOU", "name": "Texans", "set": "NFL", "bar": "#03202F", "accent": "#A71930", "on": "#fff"}, {"id": "IND", "name": "Colts", "set": "NFL", "bar": "#002C5F", "accent": "#2E6DB4", "on": "#fff"}, {"id": "JAX", "name": "Jaguars", "set": "NFL", "bar": "#004C5A", "accent": "#D7A22A", "on": "#1a1a1a"}, {"id": "KC", "name": "Chiefs", "set": "NFL", "bar": "#B5122A", "accent": "#FFB81C", "on": "#1a1a1a"}, {"id": "LV", "name": "Raiders", "set": "NFL", "bar": "#000000", "accent": "#A5ACAF", "on": "#111"}, {"id": "LAC", "name": "Chargers", "set": "NFL", "bar": "#0A2342", "accent": "#0080C6", "on": "#fff"}, {"id": "LAR", "name": "Rams", "set": "NFL", "bar": "#003594", "accent": "#FFA300", "on": "#1a1a1a"}, {"id": "MIA", "name": "Dolphins", "set": "NFL", "bar": "#005C63", "accent": "#FC4C02", "on": "#fff"}, {"id": "MIN", "name": "Vikings", "set": "NFL", "bar": "#4F2683", "accent": "#FFC62F", "on": "#1a1a1a"}, {"id": "NE", "name": "Patriots", "set": "NFL", "bar": "#002244", "accent": "#C60C30", "on": "#fff"}, {"id": "NO", "name": "Saints", "set": "NFL", "bar": "#101820", "accent": "#D3BC8D", "on": "#1a1a1a"}, {"id": "NYG", "name": "Giants", "set": "NFL", "bar": "#0B2265", "accent": "#A71930", "on": "#fff"}, {"id": "NYJ", "name": "Jets", "set": "NFL", "bar": "#125740", "accent": "#2E8B6A", "on": "#fff"}, {"id": "PIT", "name": "Steelers", "set": "NFL", "bar": "#101820", "accent": "#FFB612", "on": "#1a1a1a"}, {"id": "SF", "name": "49ers", "set": "NFL", "bar": "#8B0000", "accent": "#B3995D", "on": "#1a1a1a"}, {"id": "SEA", "name": "Seahawks", "set": "NFL", "bar": "#002244", "accent": "#69BE28", "on": "#0b1a0b"}, {"id": "TB", "name": "Buccaneers", "set": "NFL", "bar": "#34302B", "accent": "#D50A0A", "on": "#fff"}, {"id": "TEN", "name": "Titans", "set": "NFL", "bar": "#0C2340", "accent": "#4B92DB", "on": "#fff"}, {"id": "WAS", "name": "Commanders", "set": "NFL", "bar": "#5A1414", "accent": "#FFB612", "on": "#1a1a1a"}];
+  function applyTeam(id){
+    const t=THEMES.find(x=>x.id===id), r=document.documentElement.style, meta=document.querySelector('meta[name=theme-color]');
+    if(!t){ ['--bar','--accent','--on-accent','--sel'].forEach(k=>r.removeProperty(k)); try{ localStorage.removeItem('nflpicks_tteam'); localStorage.removeItem('nflpicks_tvars'); }catch(e){} if(meta) meta.setAttribute('content','#0b1f3a'); }
+    else {
+      r.setProperty('--bar',t.bar); r.setProperty('--accent',t.accent); r.setProperty('--on-accent',t.on); r.setProperty('--sel','color-mix(in srgb, '+t.accent+' 18%, var(--card))');
+      try{ localStorage.setItem('nflpicks_tteam',t.id); localStorage.setItem('nflpicks_tvars',JSON.stringify({bar:t.bar,accent:t.accent,on:t.on})); }catch(e){}
+      if(meta) meta.setAttribute('content',t.bar);
+    }
+    teamUI();
+  }
+  function teamUI(){
+    const el=document.getElementById('teamThemes'); if(!el) return;
+    let cur=''; try{ cur=localStorage.getItem('nflpicks_tteam')||''; }catch(e){}
+    const sw=t=>`<button class="tsw${(t?t.id:'')===cur?' on':''}" data-team="${t?esc(t.id):''}"><i><b style="background:${t?t.bar:'#0b1f3a'}"></b><em style="background:${t?t.accent:'#0b5cff'}"></em></i><span>${esc(t?t.name.replace('Eagles · ',''):'Greco Picks')}</span></button>`;
+    el.innerHTML=`<div class="tgrid">${sw(null)}</div><div class="tset">🦅 Eagles</div><div class="tgrid">${THEMES.filter(t=>t.set==='Eagles').map(sw).join('')}</div><div class="tset">All teams</div><div class="tgrid">${THEMES.filter(t=>t.set==='NFL').map(sw).join('')}</div>`;
+  }
+  document.getElementById('teamThemes').addEventListener('click',e=>{ const b=e.target.closest('[data-team]'); if(!b) return; applyTeam(b.dataset.team); try{ if(navigator.vibrate) navigator.vibrate(8); }catch(x){} });
+  teamUI();
 
   // ---------- Appearance ----------
   function themeUI(){ let t='auto'; try{ t=localStorage.getItem('nflpicks_theme')||'auto'; }catch(e){} document.querySelectorAll('[data-theme-set]').forEach(b=>b.classList.toggle('on',b.dataset.themeSet===t)); }

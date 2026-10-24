@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.8.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.9.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
