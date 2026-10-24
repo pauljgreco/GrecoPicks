@@ -3,7 +3,7 @@
 // When a newer version of the app is published, the open page is told to reload once.
 // Push notifications: OneSignal's push code is loaded into this same worker (one worker, one scope).
 try { importScripts('https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'); } catch (e) { /* offline: app still works */ }
-const CACHE = 'nfl-picks-v5';
+const CACHE = 'nfl-picks-v6';
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
