@@ -402,7 +402,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.9.7';
+  const APP_VERSION = '2.9.8';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -487,6 +487,7 @@
   }
 
   // ---------- Groups (one selection shared by Picks, Group and Stats) ----------
+  function gname(g){ return /group$/i.test(g)?g:g+' group'; }
   function groupList(){ return (state&&state.groups)||[]; }
   function curGroup(){
     const gs=groupList(); if(!gs.length) return '';
@@ -514,9 +515,9 @@
   function crownLine(){
     const c=curCrown(); if(!c) return '';
     const names=(ids,ns)=>ids.map((id,i)=>id===state.me.id?'You':ns[i]).join(', ');
-    const gl=curGroup()?' · '+esc(curGroup()):'';
-    let h=`👑 ${esc(c.label)}${gl} winner${c.ids.length>1?'s':''}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
-    if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}: <b>${esc(names(c.poop.ids,c.poop.names))}</b> (${esc(c.poop.rec)})`;
+    const gl=curGroup()?' ('+esc(gname(curGroup()))+')':'';
+    let h=`👑 ${esc(c.label)} winner${c.ids.length>1?'s':''}${gl}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
+    if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}${gl}: <b>${esc(names(c.poop.ids,c.poop.names))}</b> (${esc(c.poop.rec)})`;
     return `<div class="crown">${h}</div>`;
   }
 
@@ -653,7 +654,7 @@
     }
     if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
     const allOn=st.sel.length===st.everyone.length;
-    const pl=allOn?(curGroup()?'All '+curGroup():'Everyone')+' ('+st.everyone.length+')':(st.sel.length===1?(st.sel[0]===me?'Just you':st.names[st.sel[0]]):st.sel.length+' people');
+    const pl=allOn?(curGroup()?gname(curGroup()):'Everyone')+' ('+st.everyone.length+')':(st.sel.length===1?(st.sel[0]===me?'Just you':st.names[st.sel[0]]):st.sel.length+' people');
     html+=`<button class="spbtn" data-spick="1"><span>People: <b>${esc(pl)}</b></span><span style="color:var(--muted)">›</span></button>`;
 
     if(!st.gameCount) return html+'<div class="empty">No finished games in this range yet.</div>';
@@ -760,7 +761,7 @@
     if(L.perfect && !seen['p|'+L.key]){ mark('p|'+L.key); confetti(['🎉','🎊','✨','#f43f5e','#f59e0b','#22c55e','#3b82f6','#a855f7'],90); toast('Perfect '+L.label+'! '+L.rec+' 🎉'); return; }
     const all=state.crowns||{};
     const g=Object.keys(all).find(k=>all[k]&&all[k].ids.indexOf(state.me.id)>=0&&all[k].key===L.key);
-    if(g!==undefined && !seen['c|'+L.key]){ mark('c|'+L.key); confetti(['👑'],60); toast('You won the 👑 for '+L.label+(g?' in the '+g:'')+'!'); }
+    if(g!==undefined && !seen['c|'+L.key]){ mark('c|'+L.key); confetti(['👑'],60); toast('You won the 👑 for '+L.label+(g?' in the '+gname(g):'')+'!'); }
   }
 
   // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
@@ -792,7 +793,7 @@
       if(pick.length>=3&&g.winner&&(!upset||share<upset.share)) upset={g,share,right,n:pick.length,team:teamName(g,g.winner)};
     });
     const c=curCrown(); const won=c&&c.key===wk&&c.ids.indexOf(me)>=0, pooped=c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(me)>=0;
-    const gl=grp?'the '+grp:'everyone';
+    const gl=grp?'the '+gname(grp):'everyone';
     const bgs=['linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#6366f1,#0ea5e9)'];
     const sl=[];
     sl.push(`<div class="emo pop">🗞️</div><div class="kick">Greco Picks</div><div class="mid pop">Your ${esc(label)} recap</div><div class="sub">Tap to continue</div>`);
@@ -883,7 +884,7 @@
       :{e:'🗓️',t:'Right on schedule',d:'You usually picked about '+Math.round(medLead)+' hours before kickoff.'};
     const over=h.games.some(g=>g.type===3&&g.week===5&&g.status==='final');
     const lastWk=wks.length?wkName(wks[wks.length-1]):'';
-    const gl=grp?'the '+grp:'everyone';
+    const gl=grp?'the '+gname(grp):'everyone';
     const slides=[];
     const bgs=['linear-gradient(160deg,#7c3aed,#db2777)','linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#db2777,#7c3aed)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#84cc16,#15803d)','linear-gradient(160deg,#f43f5e,#9f1239)','linear-gradient(160deg,#6366f1,#0ea5e9)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#eab308,#f97316)','linear-gradient(160deg,#14b8a6,#6366f1)'];
     const add=html=>slides.push(html);
@@ -967,7 +968,7 @@
       const cnt={}; let n=0;
       [{id:s.me.id}].concat(shown).forEach(p=>{ const x=all[p.id]; if(x&&x.p&&x.p!=='MISSED'){ cnt[x.p]=(cnt[x.p]||0)+1; n++; } });
       const order=[g.away.abbr,g.home.abbr,'TIE'].filter(k=>cnt[k]);
-      if(n>1 && order.length) grp=(grp?grp+'<br>':'')+`<span class="split">${curGroup()?esc(curGroup())+' split':'Group split'}: ${order.map(k=>`${esc(k==='TIE'?'Tie':k)} ${cnt[k]}`).join(' · ')} (of ${n})</span>`;
+      if(n>1 && order.length) grp=(grp?grp+'<br>':'')+`<span class="split">${curGroup()?esc(gname(curGroup())):'Group split'}: ${order.map(k=>`${esc(k==='TIE'?'Tie':k)} ${cnt[k]}`).join(' · ')} (of ${n})</span>`;
     }
 
     let admin='';

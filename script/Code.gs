@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.9.7';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.9.8';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -1045,6 +1045,9 @@ function splitList_(v) {
   return String(v === undefined || v === null ? '' : v).split(',').map(x => x.trim()).filter(Boolean);
 }
 
+/** "Greco" -> "Greco group" (left alone if the name already ends in "group"). */
+function groupPhrase_(g) { return /group$/i.test(g) ? g : g + ' group'; }
+
 function adminId_() { return (settings_().AdminPlayer || 'P1').toUpperCase(); }
 
 /** Every group name in use, in the order they first appear on the Players tab. */
@@ -1541,7 +1544,7 @@ function notifications_(nowMs) {
       if (!(group in leadFor)) {
         const gb = group ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => inGroup_(x, group))) : board;
         const top = gb.filter(b => b.rank === 1);
-        leadFor[group] = { top: top, label: group ? 'the ' + group : 'the season' };
+        leadFor[group] = { top: top, label: group ? 'the ' + groupPhrase_(group) : 'the season' };
       }
       const L = leadFor[group];
       if (!L.top.length) return '';
@@ -1580,8 +1583,8 @@ function notifications_(nowMs) {
         if (!grp) return;
         const hero = hits[grp];
         const body = hero.id === p.id
-          ? 'You were the only one in the ' + grp + ' to pick ' + team + '! (' + score + ')'
-          : 'Only ' + hero.name + ' picked ' + team + ' in the ' + grp + '. (' + score + ')';
+          ? 'You were the only one in the ' + groupPhrase_(grp) + ' to pick ' + team + '! (' + score + ')'
+          : 'Only ' + hero.name + ' picked ' + team + ' in the ' + groupPhrase_(grp) + '. (' + score + ')';
         sendPush_([p.id], 'Upset alert 👀', body);
       });
     }
