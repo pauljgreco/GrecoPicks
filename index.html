@@ -421,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.10.0';
+  const APP_VERSION = '2.10.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1075,11 +1075,39 @@
     // Only "on" when the phone itself allows notifications AND there's a delivery token.
     return (Notification.permission==='granted' && OS.User.PushSubscription.optedIn && OS.User.PushSubscription.token) ? 'on' : 'off';
   }
+  // Top-of-Picks nudges (one at a time): set up notifications → check notifications → what's new.
+  const LS={get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }};
+  const todayStr=()=>new Date().toLocaleDateString('en-CA');
+  function nagDue(){
+    // Shows all of the first day, then one day a week after that, until they say yes or no.
+    const day=todayStr(), last=LS.get('nflpicks_nagday');
+    if(LS.get('nflpicks_nagskip')===day) return false;
+    if(!last){ LS.set('nflpicks_nagday',day); return true; }
+    if(last===day) return true;
+    if((new Date(day)-new Date(last))/864e5>=7){ LS.set('nflpicks_nagday',day); return true; }
+    return false;
+  }
   function pushBanner(){
     const st=pushStatus();
-    let hide=false; try{ hide=localStorage.getItem('nflpicks_pushdismiss')==='1'; }catch(e){}
-    if(hide || st!=='off') return '';
-    return `<div class="banner"><span>🔔 Get a heads-up before picks lock?</span><button class="go" data-push="on">Turn on</button><button class="x2" data-push="dismiss" aria-label="Dismiss">✕</button></div>`;
+    if(LS.get('nflpicks_pushoptout')==='1') return whatsNew();
+    if(st==='off' && nagDue()) return `<div class="banner"><span>🔔 <b>Turn on notifications?</b> Reminders before picks lock, weekly results and more.</span><button class="go" data-push="on">Turn on</button><button class="x2" data-push="later" aria-label="Not now" title="Not now">✕</button></div><div style="text-align:right;margin:-6px 4px 10px"><button data-push="optout" style="font:inherit;font-size:13px;color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline">No thanks, don't ask again</button></div>`;
+    if(st==='ios' && nagDue()) return `<div class="banner"><span>🔔 <b>Want notifications?</b> On iPhone, open Greco Picks from your home screen first: in Safari tap Share → <b>Add to Home Screen</b>.</span><button class="x2" data-push="later" aria-label="Not now">✕</button></div>`;
+    if(st==='on' && LS.get('nflpicks_checked')!=='1') return `<div class="banner"><span>🔔 <b>Notifications are on.</b> We've added new ones since launch. Send yourself a test to make sure they come through.</span><button class="go" data-push="checktest">Test</button><button class="x2" data-push="checked" aria-label="Dismiss">✕</button></div>`;
+    return whatsNew();
+  }
+  const WHATS_NEW='2.10';
+  const WHATS_NEW_ON=false;   // turned on once Paul approves the wording
+  function whatsNew(){
+    if(!WHATS_NEW_ON || LS.get('nflpicks_whatsnew')===WHATS_NEW) return '';
+    return `<div class="crown" style="border-color:var(--accent)"><b>✨ New in Greco Picks</b>
+      <ul style="margin:6px 0 8px 18px;padding:0;font-size:14px;line-height:1.5">
+        <li><b>Groups</b> with their own 👑 and 💩 each week</li>
+        <li><b>Weekly recap</b> 🗞️ and season <b>Wrapped</b> 🎁 (top of Stats)</li>
+        <li><b>Reactions</b> on games after kickoff, and a <b>tiebreaker</b> guess on the last game</li>
+        <li><b>Team color themes</b> in Settings → Appearance</li>
+        <li><b>Add a friend</b>: Settings → Add someone</li>
+        <li>Pull down (or tap ↻) to refresh 🏈</li>
+      </ul><button class="sbtn" data-push="whatsnew">Got it</button> <button class="sbtn" data-push="whatsnewhelp">More in ?</button></div>`;
   }
   function refreshPushUI(){
     const box=document.getElementById('nbox'); if(!box) return;
@@ -1163,7 +1191,7 @@
   async function turnOnPush(){
     if(!pushReady){ toast(isIOS&&!standalone?'Add Greco Picks to your home screen first.':'Still loading, try again in a second.'); return; }
     if(turningOn) return;
-    turningOn=true; toast('Turning on…');
+    turningOn=true; toast('Turning on…'); try{ localStorage.removeItem('nflpicks_pushoptout'); }catch(e){}
     try{
       plog('Turn on tapped: '+subInfo());
       if(Notification.permission!=='granted'){
@@ -1189,6 +1217,7 @@
     finally{ turningOn=false; refreshPushUI(); }
   }
   async function turnOffPush(){
+    try{ localStorage.setItem('nflpicks_pushoptout','1'); }catch(e){}
     try{ await OS.User.PushSubscription.optOut(); plog('Turned off'); toast('Notifications off for this phone.'); }catch(e){ toast('Couldn\'t turn off notifications.'); }
     refreshPushUI();
   }
@@ -1228,7 +1257,12 @@
         .then(()=>toast('Sent a local test. Did it pop up?'))
         .catch(e=>toast('Local test failed: '+((e&&e.message)||e)));
     }
-    if(b.dataset.push==='dismiss'){ try{localStorage.setItem('nflpicks_pushdismiss','1');}catch(x){} render(); }
+    if(b.dataset.push==='later'){ render(); toast('No problem. We\'ll check back in a week.'); LS.set('nflpicks_nagskip',todayStr()); }
+    if(b.dataset.push==='optout'){ LS.set('nflpicks_pushoptout','1'); render(); toast('Got it. You can turn them on any time in Settings.'); }
+    if(b.dataset.push==='checked'){ LS.set('nflpicks_checked','1'); render(); }
+    if(b.dataset.push==='checktest'){ LS.set('nflpicks_checked','1'); b.disabled=true; api('testme',{}).then(()=>toast('Sent! If nothing pops up in a minute, open Settings → Notifications → Reset.')).catch(e=>toast(e.message)).finally(()=>render()); }
+    if(b.dataset.push==='whatsnew'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); }
+    if(b.dataset.push==='whatsnewhelp'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); document.getElementById('help').classList.add('on'); }
   });
   document.addEventListener('change',e=>{
     if(e.target.id==='diagTog'){ try{ localStorage.setItem('nflpicks_diag',e.target.checked?'1':'0'); }catch(x){} refreshPushUI(); return; }
@@ -1322,7 +1356,7 @@
       await Promise.all(names.map(n=>new Promise(res=>{ try{ const q=indexedDB.deleteDatabase(n); q.onsuccess=q.onerror=q.onblocked=()=>res(); setTimeout(res,1500); }catch(e){ res(); } })));
     }catch(e){}
     // Saved settings, keeping who you are
-    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'), th=localStorage.getItem('nflpicks_theme'), pt=localStorage.getItem('nflpicks_party'), tt=localStorage.getItem('nflpicks_tteam'), tv=localStorage.getItem('nflpicks_tvars'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); if(th) localStorage.setItem('nflpicks_theme',th); if(pt) localStorage.setItem('nflpicks_party',pt); if(tt) localStorage.setItem('nflpicks_tteam',tt); if(tv) localStorage.setItem('nflpicks_tvars',tv); }catch(e){}
+    try{ const dg=localStorage.getItem('nflpicks_diag'), gp=localStorage.getItem('nflpicks_group'), th=localStorage.getItem('nflpicks_theme'), pt=localStorage.getItem('nflpicks_party'), tt=localStorage.getItem('nflpicks_tteam'), tv=localStorage.getItem('nflpicks_tvars'), oo=localStorage.getItem('nflpicks_pushoptout'), wn=localStorage.getItem('nflpicks_whatsnew'), ck=localStorage.getItem('nflpicks_checked'); localStorage.clear(); if(key) localStorage.setItem('nflpicks_key',key); if(dg) localStorage.setItem('nflpicks_diag',dg); if(gp!==null) localStorage.setItem('nflpicks_group',gp); if(th) localStorage.setItem('nflpicks_theme',th); if(pt) localStorage.setItem('nflpicks_party',pt); if(tt) localStorage.setItem('nflpicks_tteam',tt); if(tv) localStorage.setItem('nflpicks_tvars',tv); if(oo) localStorage.setItem('nflpicks_pushoptout',oo); if(wn) localStorage.setItem('nflpicks_whatsnew',wn); if(ck) localStorage.setItem('nflpicks_checked',ck); }catch(e){}
     try{ sessionStorage.clear(); }catch(e){}
     location.replace(location.pathname+(key?'?k='+key:'')+(key?'&':'?')+'fresh='+Date.now());
   });
