@@ -296,12 +296,12 @@
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
     <div id="reqWrap" hidden>
-      <h3>Add someone</h3>
+      <h3>Request a new player</h3>
       <div class="nbox">
         <p id="reqIntro">Know someone who wants to play? Send a request and <span class="adminName">Paul</span> will add them.</p>
         <input id="reqName" maxlength="20" autocomplete="off" placeholder="Their name" aria-label="Their name" style="width:100%;font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-bottom:8px">
         <input id="reqNote" maxlength="200" autocomplete="off" placeholder="Optional note, e.g. my cousin, put him in Greco" aria-label="Note" style="width:100%;font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)">
-        <button class="nbtn" id="reqSend" style="margin-top:10px">Send request</button>
+        <button class="nbtn" id="reqSend" style="margin-top:10px">Send request to <span class="adminName">Paul</span></button>
       </div>
     </div>
     <h3>Hide people</h3>
@@ -394,13 +394,13 @@
     <details class="faq"><summary>Can I change my name?</summary><div>Yes. Tap <b>Settings</b>, change <b>Your name</b>, and tap <b>Save</b>. Everyone sees the new name right away, and your picks and records stay with you.</div></details>
     <details class="faq"><summary>What are groups?</summary><div>Paul can put people in groups (like <i>Greco's</i> or <i>Friends</i>). Picks, Group and Stats open on your group; use the <b>Group</b> menu at the top of each tab to switch to another group or <b>Everyone</b>. Each group gets its own 👑 and 💩.</div></details>
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
-    <details class="faq"><summary>Can I add a friend?</summary><div>Yes: <b>Settings → Add someone</b>. Type their name (and an optional note) and send it. Paul gets the request and adds them; you'll get a notification when they're in.</div></details>
+    <details class="faq"><summary>Someone else wants to play?</summary><div><b>Settings → Request a new player</b>. Type their name (and an optional note) and send it to Paul. He adds them and sends their link; you'll get a notification when they're in.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
     <details class="faq"><summary>Weekly recap?</summary><div>When a week is final, a <b>🗞️ recap</b> button appears at the top of Picks: your record, your best call, the one that got away, the group's biggest upset, and who took the 👑 and 💩. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
-    <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. Find it at the top of the <b>Stats</b> tab once you have a few picks graded (it says "so far" until the Super Bowl). Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
+    <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
@@ -421,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.10.1';
+  const APP_VERSION = '2.10.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -839,6 +839,8 @@
     if(season==='all') return '';
     const n=h.picks.filter(x=>x[1]===state.me.id&&(x[3]==='W'||x[3]==='L')).length;
     if(n<5) return '';
+    const late=h.games.some(g=>g.type===3||(g.type===2&&g.week>=15));
+    if(!late) return '';
     const over=h.games.some(g=>g.type===3&&g.week===5&&g.status==='final');
     return `<button class="wrapbtn" data-wrapped="${esc(season)}"><span>🎁 Your ${esc(season)} Wrapped${over?'':' (so far)'}</span><span>›</span></button>`;
   }
@@ -1096,16 +1098,16 @@
     return whatsNew();
   }
   const WHATS_NEW='2.10';
-  const WHATS_NEW_ON=false;   // turned on once Paul approves the wording
+  const WHATS_NEW_ON=true;
   function whatsNew(){
     if(!WHATS_NEW_ON || LS.get('nflpicks_whatsnew')===WHATS_NEW) return '';
     return `<div class="crown" style="border-color:var(--accent)"><b>✨ New in Greco Picks</b>
       <ul style="margin:6px 0 8px 18px;padding:0;font-size:14px;line-height:1.5">
         <li><b>Groups</b> with their own 👑 and 💩 each week</li>
-        <li><b>Weekly recap</b> 🗞️ and season <b>Wrapped</b> 🎁 (top of Stats)</li>
+        <li><b>Weekly recap</b> 🗞️ at the top of Picks after each week</li>
         <li><b>Reactions</b> on games after kickoff, and a <b>tiebreaker</b> guess on the last game</li>
         <li><b>Team color themes</b> in Settings → Appearance</li>
-        <li><b>Add a friend</b>: Settings → Add someone</li>
+        <li><b>Know someone who wants in?</b> Request to add them in Settings → Request a new player</li>
         <li>Pull down (or tap ↻) to refresh 🏈</li>
       </ul><button class="sbtn" data-push="whatsnew">Got it</button> <button class="sbtn" data-push="whatsnewhelp">More in ?</button></div>`;
   }
@@ -1611,7 +1613,7 @@
     const name=n.value.replace(/\s+/g,' ').trim(); if(!name){ toast('Type their name first.'); return; }
     b.disabled=true; b.textContent='Sending…';
     api('request',{name:name,note:note.value.trim()}).then(r=>{ n.value=''; note.value=''; toast('Sent! '+((state&&state.adminName)||'Paul')+' will add '+r.name+' if it\'s a go.'); })
-      .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.textContent='Send request'; });
+      .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.innerHTML='Send request to '+esc((state&&state.adminName)||'Paul'); });
   });
 
   // ---------- Report a problem ----------
