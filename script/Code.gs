@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.9.8';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.9.9';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -1469,22 +1469,29 @@ function notifications_(nowMs) {
   const roster = players_().filter(p => p.active);
   const picks = readPicks_();
 
-  // 1) Pick reminders: one per kickoff window, REMIND_HOURS before, only to people with unpicked games.
+  // 1) Pick reminders: REMIND_HOURS before a kickoff, only to people with unpicked games, and at most
+  //    ONE per person per day (it lists everything they still need that day).
+  const dayOf = d => Utilities.formatDate(d, TZ, 'yyyy-MM-dd');
   const windows = {};
   games.forEach(g => {
     const t = g.kickoff.getTime();
     if (g.status === 'pre' && t > now && t - now <= REMIND_HOURS * 3600e3) (windows[t] = windows[t] || []).push(g);
   });
-  Object.keys(windows).forEach(t => {
+  Object.keys(windows).sort().forEach(t => {
     const key = 'R|' + t;
     if (sent.indexOf(key) >= 0) return;
     const ws = windows[t];
+    const day = dayOf(new Date(Number(t)));
     const when = fmtTime_(new Date(Number(t)));
     roster.filter(p => p.remind).forEach(p => {
       const open = ws.filter(g => !picks.map[g.id + '|' + p.id]);
       if (!open.length) return;
-      const label = open.length === 1 ? open[0].away + ' @ ' + open[0].home : open.length + ' games';
-      sendPush_([p.id], 'Picks lock at ' + when.time, 'You still need to pick ' + label + '. Kickoff is ' + when.time + '.');
+      const dkey = 'RD|' + day + '|' + p.id;
+      if (sent.indexOf(dkey) >= 0) return;   // already reminded today
+      const today = games.filter(g => g.status === 'pre' && g.kickoff.getTime() > now && dayOf(g.kickoff) === day && !picks.map[g.id + '|' + p.id]);
+      const label = today.length === 1 ? today[0].away + ' @ ' + today[0].home : today.length + ' picks today';
+      sendPush_([p.id], 'Picks lock at ' + when.time, 'You still need ' + label + '. First one locks at ' + when.time + '.');
+      markSent_(sent, dkey);
     });
     markSent_(sent, key);
   });
@@ -1561,31 +1568,55 @@ function notifications_(nowMs) {
     markSent_(sent, key);
   });
 
-  // 4) Upset alerts: in groups of 3+ (you included), when exactly one person picked the winner and 2+ didn't.
-  //    One alert per person per game, using the first of their groups where it happened.
+  // 4) Upset roundup: in groups of 3+ (you included), a game where exactly one person picked the winner and 2+
+  //    didn't. Sent once per game day, after that day's last game is final, as a single notification.
   const groupNames = groupNames_();
-  games.filter(g => g.status === 'final' && g.winner && now - g.kickoff.getTime() < 12 * 3600e3).forEach(g => {
-    const key = 'U|' + g.id;
+  const days = {};
+  games.forEach(g => { const d = dayOf(g.kickoff); (days[d] = days[d] || []).push(g); });
+  Object.keys(days).forEach(day => {
+    const dg = days[day];
+    const key = 'UD|' + day;
     if (sent.indexOf(key) >= 0) return;
-    const hits = {};   // group -> hero
-    groupNames.forEach(grp => {
-      const members = roster.filter(p => inGroup_(p, grp));
-      if (members.length < 3) return;
-      const pickers = members.filter(p => { const x = picks.map[g.id + '|' + p.id]; return x && x.pick !== 'MISSED'; });
-      const right = pickers.filter(p => picks.map[g.id + '|' + p.id].pick === g.winner);
-      if (right.length === 1 && pickers.length - 1 >= 2) hits[grp] = right[0];
+    if (!dg.every(g => g.status === 'final')) return;
+    const last = Math.max.apply(null, dg.map(g => g.kickoff.getTime()));
+    if (now - last > 2 * 86400e3) { markSent_(sent, key); return; }   // too old, skip quietly
+    const found = [];   // {game, grp, hero, team}
+    dg.filter(g => g.winner).forEach(g => {
+      groupNames.forEach(grp => {
+        const members = roster.filter(p => inGroup_(p, grp));
+        if (members.length < 3) return;
+        const pickers = members.filter(p => { const x = picks.map[g.id + '|' + p.id]; return x && x.pick !== 'MISSED'; });
+        const right = pickers.filter(p => picks.map[g.id + '|' + p.id].pick === g.winner);
+        if (right.length === 1 && pickers.length - 1 >= 2) {
+          found.push({ game: g, grp: grp, hero: right[0], team: g.winner === g.awayAbbr ? g.away : g.winner === g.homeAbbr ? g.home : 'the tie' });
+        }
+      });
     });
-    if (Object.keys(hits).length) {
-      const team = g.winner === g.awayAbbr ? g.away : g.winner === g.homeAbbr ? g.home : 'the tie';
-      const score = g.awayAbbr + ' ' + g.awayScore + ', ' + g.homeAbbr + ' ' + g.homeScore;
+    if (found.length) {
       roster.filter(p => p.upsets).forEach(p => {
-        const grp = groupsOf_(p).find(x => hits[x]);
-        if (!grp) return;
-        const hero = hits[grp];
-        const body = hero.id === p.id
-          ? 'You were the only one in the ' + groupPhrase_(grp) + ' to pick ' + team + '! (' + score + ')'
-          : 'Only ' + hero.name + ' picked ' + team + ' in the ' + groupPhrase_(grp) + '. (' + score + ')';
-        sendPush_([p.id], 'Upset alert 👀', body);
+        const mine = groupsOf_(p);
+        const items = [];
+        const seen = {};
+        found.forEach(f => {
+          if (seen[f.game.id] || mine.indexOf(f.grp) < 0) return;   // one line per game, in their first group where it happened
+          const grp = mine.find(x => found.some(y => y.game.id === f.game.id && y.grp === x));
+          const it = found.find(y => y.game.id === f.game.id && y.grp === grp);
+          seen[f.game.id] = 1;
+          items.push(it);
+        });
+        if (!items.length) return;
+        const oneGroup = items.every(x => x.grp === items[0].grp);
+        const line = x => (x.hero.id === p.id ? 'You' : x.hero.name) + ' took ' + x.team + (oneGroup ? '' : ' (' + groupPhrase_(x.grp) + ')');
+        let body;
+        if (items.length === 1) {
+          const x = items[0];
+          body = x.hero.id === p.id
+            ? 'You were the only one in the ' + groupPhrase_(x.grp) + ' to pick ' + x.team + '!'
+            : 'Only ' + x.hero.name + ' picked ' + x.team + ' in the ' + groupPhrase_(x.grp) + '.';
+        } else {
+          body = items.length + ' upsets today' + (oneGroup ? ' in the ' + groupPhrase_(items[0].grp) : '') + ': ' + items.map(line).join('; ') + '.';
+        }
+        sendPush_([p.id], items.length === 1 ? 'Upset alert 👀' : 'Today\'s upsets 👀', body);
       });
     }
     markSent_(sent, key);

@@ -383,7 +383,7 @@
     <details class="faq"><summary>Weekly recap?</summary><div>When a week is final, a <b>🗞️ recap</b> button appears at the top of Picks: your record, your best call, the one that got away, the group's biggest upset, and who took the 👑 and 💩. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. Find it at the top of the <b>Stats</b> tab once you have a few picks graded (it says "so far" until the Super Bowl). Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
-    <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), everyone in that group gets a heads-up: "Only Holly picked the Jets 👀". Turn it off in <b>Settings</b>.</div></details>
+    <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
@@ -402,7 +402,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.9.8';
+  const APP_VERSION = '2.9.9';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1085,7 +1085,7 @@
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
     const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
     const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before kickoff, only if you have open picks')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','When only one person in your group (3+ people) picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before your first open game of the day (one per day)')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','One roundup after each game day, when only one person in your group picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
