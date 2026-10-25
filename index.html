@@ -225,6 +225,13 @@
   .phead b{display:inline;font-size:15px}
   .phead small{color:var(--muted)}
   .pdetail{margin-top:8px}
+  .reqbox{border:1px solid var(--accent);background:var(--sel);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+  .reqbox h4{margin:0 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .req{border-top:1px solid var(--line);padding:8px 0}
+  .req:first-of-type{border-top:0}
+  .req small{color:var(--muted);display:block;margin:2px 0 6px}
+  .req .namerow{margin-bottom:6px}
+  .req .namerow input{font:inherit;font-size:15px;padding:7px 9px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1;min-width:0}
   .pname{cursor:pointer}
   .pchips{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px}
   .pchips span{background:var(--sel);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:14px}
@@ -288,6 +295,15 @@
       <div id="teamThemes"></div></div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
+    <div id="reqWrap" hidden>
+      <h3>Add someone</h3>
+      <div class="nbox">
+        <p id="reqIntro">Know someone who wants to play? Send a request and <span class="adminName">Paul</span> will add them.</p>
+        <input id="reqName" maxlength="20" autocomplete="off" placeholder="Their name" aria-label="Their name" style="width:100%;font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-bottom:8px">
+        <input id="reqNote" maxlength="200" autocomplete="off" placeholder="Optional note, e.g. my cousin, put him in Greco" aria-label="Note" style="width:100%;font:inherit;font-size:16px;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)">
+        <button class="nbtn" id="reqSend" style="margin-top:10px">Send request</button>
+      </div>
+    </div>
     <h3>Hide people</h3>
     <div class="nbox"><button class="rowbtn" id="openHide"><span>Hide people<br><small id="hideCount">Only affects your screens</small></span><span class="chev">›</span></button></div>
     <div id="peopleWrap" hidden>
@@ -321,6 +337,7 @@
 <div id="peopleSheet" role="dialog" aria-modal="true" aria-label="People">
   <div class="sheet">
     <div class="sheet-top"><h2>People</h2><button class="x" id="peopleClose" aria-label="Close">✕</button></div>
+    <div id="reqList"></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
@@ -377,6 +394,7 @@
     <details class="faq"><summary>Can I change my name?</summary><div>Yes. Tap <b>Settings</b>, change <b>Your name</b>, and tap <b>Save</b>. Everyone sees the new name right away, and your picks and records stay with you.</div></details>
     <details class="faq"><summary>What are groups?</summary><div>Paul can put people in groups (like <i>Greco's</i> or <i>Friends</i>). Picks, Group and Stats open on your group; use the <b>Group</b> menu at the top of each tab to switch to another group or <b>Everyone</b>. Each group gets its own 👑 and 💩.</div></details>
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
+    <details class="faq"><summary>Can I add a friend?</summary><div>Yes: <b>Settings → Add someone</b>. Type their name (and an optional note) and send it. Paul gets the request and adds them; you'll get a notification when they're in.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
@@ -390,6 +408,7 @@
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
       <details class="faq"><summary>Add someone</summary><div>Tap <b>Settings → Manage people</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
+      <details class="faq"><summary>Player requests</summary><div>When someone asks to add a person, you get a notification and a <b>🔔 Review</b> banner on Picks. In <b>Settings → Manage people</b>, the request shows at the top: fix the name or groups if you want (it suggests the requester's group), then <b>Approve &amp; add</b> (their link opens to send) or <b>Decline</b>. The requester is told when you approve.</div></details>
       <details class="faq"><summary>Remind someone to pick</summary><div>Tap their name (Group tab or Stats) and tap <b>🔔 Remind … to pick</b>, or use <b>🔔 Remind everyone with open picks</b> at the top of <b>Settings → Manage people</b>. It goes out right away, even if they turned pick reminders off, and only to people who still have open picks. Once per person every 10 minutes.</div></details>
       <details class="faq"><summary>Groups</summary><div>In <b>Settings → Manage people</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
       <details class="faq"><summary>Someone stopped playing</summary><div>In <b>Settings → Manage people</b>, tap <b>Retire</b> (twice to confirm). They disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Bring back</b> undoes it.</div></details>
@@ -402,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.9.9';
+  const APP_VERSION = '2.10.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -483,7 +502,8 @@
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
     const vWarn=(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
-    m.innerHTML=vWarn+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
+    const rqBan=(s.me.isAdmin&&s.requests)?`<div class="banner"><span>🔔 ${s.requests} player request${s.requests>1?'s':''} waiting</span><button class="go" data-openreq="1">Review</button></div>`:'';
+    m.innerHTML=vWarn+rqBan+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?s.games.map(card).join(''):'<div class="empty">No games loaded yet.</div>');
   }
 
   // ---------- Groups (one selection shared by Picks, Group and Stats) ----------
@@ -1457,10 +1477,32 @@
         </div>`:''}
       </div>`;
     }).join('')||'<p>No one matches.</p>';
+    renderReqs();
     updateCounts();
   }
+  function renderReqs(){
+    const el=document.getElementById('reqList'); if(!el) return;
+    const rs=(people&&people.requests)||[];
+    el.innerHTML=rs.length?`<div class="reqbox"><h4>Requests (${rs.length})</h4>${rs.map(r=>`<div class="req">
+        <b>${esc(r.name)}</b><small>Asked by ${esc(r.fromName)}${r.at?' · '+esc(new Date(r.at).toLocaleDateString([], {month:'numeric',day:'numeric'})):''}${r.note?' · “'+esc(r.note)+'”':''}</small>
+        <div class="namerow"><input data-rqname="${esc(r.id)}" value="${esc(r.name)}" maxlength="20" aria-label="Name"><input data-rqgroups="${esc(r.id)}" value="${esc((r.suggestGroups||[]).join(', '))}" placeholder="Groups" maxlength="80" aria-label="Groups"></div>
+        <div class="acts"><button class="sbtn" data-rq="approve" data-id="${esc(r.id)}" style="background:var(--accent);color:var(--on-accent,#fff);border-color:var(--accent)">Approve &amp; add</button><button class="sbtn" data-rq="decline" data-id="${esc(r.id)}">Decline</button></div>
+      </div>`).join('')}</div>`:'';
+  }
+  document.getElementById('reqList').addEventListener('click',e=>{
+    const b=e.target.closest('[data-rq]'); if(!b) return;
+    const id=b.dataset.id, act=b.dataset.rq;
+    const nm=(document.querySelector(`[data-rqname="${id}"]`)||{}).value||'', gp=(document.querySelector(`[data-rqgroups="${id}"]`)||{}).value||'';
+    b.disabled=true;
+    api('resolve',{id:id,action:act,name:nm,groups:gp}).then(d=>{
+      people=d; if(state) state.requests=(d.requests||[]).length;
+      if(act==='approve'&&d.newId){ openPerson=d.newId; const np=d.people.find(x=>x.id===d.newId); toast((np?np.name:'They')+' added. Send them their link.'); if(np&&np.link) setTimeout(()=>shareLink(np.name,np.link),300); load(state&&state.selected,false); }
+      else toast('Request declined.');
+      renderPeople(); render();
+    }).catch(err=>{ toast(err.message); b.disabled=false; });
+  });
   function updateCounts(){
-    if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; document.getElementById('pplCount').textContent=act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }
+    if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; const rq=(people.requests||[]).length; document.getElementById('pplCount').textContent=(rq?'🔔 '+rq+' request'+(rq>1?'s':'')+' · ':'')+act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }
     if(state){ const n=((state.me&&state.me.hidden)||[]).length; document.getElementById('hideCount').textContent=n?n+' hidden on your screens':'Only affects your screens'; }
   }
   function loadPeople(){
@@ -1516,6 +1558,7 @@
 
   // ---------- People / Hide sheets ----------
   (function(){
+    document.getElementById('main').addEventListener('click',e=>{ if(e.target.closest('[data-openreq]')){ openPerson=''; renderPeople(); loadPeople(); document.getElementById('peopleSheet').classList.add('on'); } });
     const ps=document.getElementById('peopleSheet'), hs=document.getElementById('hideSheet');
     document.getElementById('openPeople').addEventListener('click',()=>{ openPerson=''; renderPeople(); loadPeople(); ps.classList.add('on'); });
     document.getElementById('peopleClose').addEventListener('click',()=>ps.classList.remove('on'));
@@ -1527,6 +1570,15 @@
     document.getElementById('pFilter').addEventListener('change',renderPeople);
     document.getElementById('hSearch').addEventListener('input',renderHide);
   })();
+
+  // ---------- Request to add someone (non-admins) ----------
+  document.getElementById('reqSend').addEventListener('click',()=>{
+    const n=document.getElementById('reqName'), note=document.getElementById('reqNote'), b=document.getElementById('reqSend');
+    const name=n.value.replace(/\s+/g,' ').trim(); if(!name){ toast('Type their name first.'); return; }
+    b.disabled=true; b.textContent='Sending…';
+    api('request',{name:name,note:note.value.trim()}).then(r=>{ n.value=''; note.value=''; toast('Sent! '+((state&&state.adminName)||'Paul')+' will add '+r.name+' if it\'s a go.'); })
+      .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.textContent='Send request'; });
+  });
 
   // ---------- Report a problem ----------
   document.getElementById('repSend').addEventListener('click',()=>{
@@ -1614,7 +1666,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     updateVer();
-    if(state){ updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));

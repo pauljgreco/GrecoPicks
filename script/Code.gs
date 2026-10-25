@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.9.9';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.10.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -243,6 +243,8 @@ function api_(p) {
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
     else if (p.api === 'react') data = react_(p.k, p.g, p.e);
+    else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
+    else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
     out = { ok: true, data: data };
   } catch (err) {
@@ -285,6 +287,8 @@ function getState(key, wk) {
       groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden },
     groups: groups,
     adminId: adminId_(),
+    adminName: adminName_(),
+    requests: me.isAdmin ? pendingRequests_().length : 0,
     my: { week: mine.week, season: mine.season },
     players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, groups: groupsOf_(p) })),
     weeks: weeks,
@@ -985,6 +989,7 @@ function people_(key) {
     groups: groupNames_(),
     adminId: adminId_(),
     people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '' })),
+    requests: pendingRequests_(),
   };
 }
 
@@ -993,6 +998,12 @@ function addPerson_(key, name) {
   requireAdmin_(key);
   name = cleanName_(name);
   if (nameTaken_(name, '')) throw new Error('Someone already uses that name.');
+  createPerson_(name, []);
+  return people_(key);
+}
+
+/** Adds a row on the Players tab with a fresh link. Returns the new player ID. */
+function createPerson_(name, groups) {
   if (!appBase_()) throw new Error('Put the app address in AppURL on the Settings tab first.');
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -1002,12 +1013,80 @@ function addPerson_(key, name) {
     players_().forEach(p => { const m = /^P(\d+)$/.exec(p.id); if (m) maxId = Math.max(maxId, Number(m[1])); });
     const id = 'P' + (maxId + 1), k = newKey_();
     sh.getRange('C:D').setNumberFormat('@');
-    sh.appendRow([id, name, k, appBase_() + '?k=' + k, true]);
+    const row = [id, name, k, appBase_() + '?k=' + k, true, '', '', '', '', (groups || []).join(', ')];
+    sh.appendRow(row);
     PLAYERS_ = null;
+    return id;
   } finally {
     lock.releaseLock();
   }
-  return people_(key);
+}
+
+// ---------- Requests to add someone (anyone asks, only the admin approves) ----------
+const REQ_HEADERS = ['ID', 'Requested', 'From', 'Name', 'Note', 'Status', 'Resolved'];
+function reqSheet_() { const sh = ensureSheet_('Requests', REQ_HEADERS); sh.getRange('A:A').setNumberFormat('@'); return sh; }
+
+function pendingRequests_() {
+  const sh = ss_().getSheetByName('Requests');
+  if (!sh || sh.getLastRow() < 2) return [];
+  const byId = {}; players_().forEach(p => { byId[p.id] = p; });
+  return sh.getDataRange().getValues().slice(1).filter(r => r[0] !== '' && String(r[5]) === 'Pending').map(r => {
+    const from = byId[String(r[2]).toUpperCase()] || { name: String(r[2]), groups: [] };
+    return { id: String(r[0]), at: r[1] instanceof Date ? r[1].toISOString() : '', fromId: String(r[2]).toUpperCase(), fromName: from.name,
+      name: String(r[3]), note: String(r[4]), suggestGroups: from.groups || [] };
+  });
+}
+
+/** Anyone: ask the admin to add someone. Max 5 requests per person per day. */
+function requestAdd_(key, name, note) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  name = cleanName_(name);
+  if (nameTaken_(name, '')) throw new Error(name + ' is already in Greco Picks.');
+  if (pendingRequests_().some(r => r.name.toLowerCase() === name.toLowerCase())) throw new Error('Someone already asked to add ' + name + '. ' + adminName_() + ' will take a look.');
+  note = String(note || '').replace(/[<>]/g, '').trim().slice(0, 200);
+  const cache = CacheService.getScriptCache();
+  const n = Number(cache.get('req_' + me.id) || 0);
+  if (n >= 5) throw new Error('That\'s a lot of requests for one day. Try again tomorrow.');
+  cache.put('req_' + me.id, String(n + 1), 86400);
+  const id = 'R' + Date.now();
+  reqSheet_().appendRow([id, new Date(), me.id, name, note, 'Pending', '']);
+  try {
+    const admin = adminId_();
+    if (admin !== me.id && String(settings_().OneSignalKey || '').trim()) {
+      sendPush_([admin], 'New player request', me.name + ' wants to add ' + name + (note ? ': ' + note : '.') + ' Approve it in Settings → Manage people.');
+    }
+  } catch (e) { Logger.log('Request push failed: ' + e.message); }
+  return { sent: true, name: name };
+}
+
+/** Admin: approve (adds them, optionally with an edited name and groups) or decline a request. */
+function resolveRequest_(key, reqId, action, name, groups) {
+  requireAdmin_(key);
+  const sh = reqSheet_();
+  const vals = sh.getDataRange().getValues();
+  let row = 0, r = null;
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]) === String(reqId)) { row = i + 1; r = vals[i]; break; }
+  if (!row || String(r[5]) !== 'Pending') throw new Error('That request was already handled.');
+  const fromId = String(r[2]).toUpperCase();
+  let newId = '';
+  if (action === 'approve') {
+    name = cleanName_(name || r[3]);
+    if (nameTaken_(name, '')) throw new Error('Someone already uses that name. Change it before approving.');
+    const known = groupNames_();
+    const gl = splitList_(groups).map(g => known.find(k => k.toLowerCase() === g.toLowerCase()) || g.slice(0, 20));
+    newId = createPerson_(name, gl);
+    sh.getRange(row, 6, 1, 2).setValues([['Approved', new Date()]]);
+    try {
+      if (fromId !== adminId_() && String(settings_().OneSignalKey || '').trim())
+        sendPush_([fromId], name + ' is in! 🎉', adminName_() + ' approved your request. They\'ll get their link soon.');
+    } catch (e) { Logger.log('Approve push failed: ' + e.message); }
+  } else if (action === 'decline') {
+    sh.getRange(row, 6, 1, 2).setValues([['Declined', new Date()]]);
+  } else throw new Error('Unknown action.');
+  const out = people_(key);
+  out.newId = newId;
+  return out;
 }
 
 /** Admin: give someone a new link. Their old link stops working; their picks and history stay. */
@@ -1047,6 +1126,8 @@ function splitList_(v) {
 
 /** "Greco" -> "Greco group" (left alone if the name already ends in "group"). */
 function groupPhrase_(g) { return /group$/i.test(g) ? g : g + ' group'; }
+
+function adminName_() { return (players_().find(p => p.id === adminId_()) || { name: 'Paul' }).name; }
 
 function adminId_() { return (settings_().AdminPlayer || 'P1').toUpperCase(); }
 
