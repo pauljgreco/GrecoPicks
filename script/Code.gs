@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.11.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.11.1';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -426,6 +426,8 @@ function history_(key, season) {
       awayPre: g.awayRecordPre, homePre: g.homeRecordPre, awayLogo: g.awayLogo, homeLogo: g.homeLogo,
     })),
     picks: pickRows,
+    // every week's total game count (including games not played yet), so the app knows which weeks are finished
+    weekGames: (() => { const o = {}; games.filter(g => want === 'all' || g.season === want).forEach(g => { const k = weekKey_(g); o[k] = (o[k] || 0) + 1; }); return o; })(),
     react: (() => { const r = readReactions_(), o = {}; Object.keys(r).forEach(id => { if (ids[id]) o[id] = Object.keys(r[id]).reduce((n, e) => n + r[id][e].length, 0); }); return o; })(),
   };
 }

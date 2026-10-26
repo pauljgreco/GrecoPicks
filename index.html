@@ -384,7 +384,7 @@
     <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
     <details class="faq"><summary>How are people ranked?</summary><div>On the <b>Stats</b> tab, by <b>win percentage</b> for whatever range you pick, then total wins. Joining partway through the season doesn't hurt you.</div></details>
     <details class="faq"><summary>What's on the Group tab?</summary><div>Everyone's picks for the week in one grid. A <b>✓</b> means that person has picked but you can't see it yet; make your own pick on that game (or wait for kickoff) to see theirs.</div></details>
-    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings (with perfect weeks), week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
+    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings (with perfect weeks), week-by-week records and splits. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
     <details class="faq"><summary>What are "upsets" and "with group"?</summary><div><b>Upsets</b>: correct picks of the team with the worse record going into the game. <b>With group</b>: how often your pick matched what most of the selected people picked.</div></details>
     <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
     <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
@@ -398,7 +398,7 @@
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
-    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week and the most reacted game. Tap ✕ to hide it.</div></details>
+    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, the most reacted game, and season-so-far highlights. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, perfect weeks, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
@@ -421,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.11.0';
+  const APP_VERSION = '2.11.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -643,15 +643,19 @@
     });
     const people=Object.values(per);
     const wkSize={}; games.forEach(g=>{ wkSize[wkKey(g)]=(wkSize[wkKey(g)]||0)+1; });
+    // a week is finished when every one of its games (played or not) is final
+    const finalBy={}; h.games.forEach(g=>{ if(g.status==='final') finalBy[wkKey(g)]=(finalBy[wkKey(g)]||0)+1; });
+    const done=k=>{ const total=(h.weekGames||{})[k]; return total?finalBy[k]===total:h.games.filter(g=>wkKey(g)===k).every(g=>g.status==='final'); };
     people.forEach(s=>{
       const n=s.W+s.L; s.pct=n?s.W/n:null;
       // perfect weeks: picked every game that week (in range) and got them all right
-      s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
+      s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return done(k)&&w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
     });
     people.sort((a,b)=>((b.pct==null?-1:b.pct)-(a.pct==null?-1:a.pct))||(b.W-a.W)||a.name.localeCompare(b.name));
     let rank=0,prev=null; people.forEach((s,i)=>{ const key=s.pct+'|'+s.W; if(key!==prev){rank=i+1;prev=key;} s.rank=s.pct==null?'':rank; });
     const weeks=Array.from(new Set(games.map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
-    return {people, weeks, weeksAll, everyone, names, sel, gameCount:games.length};
+    const inProgress=weeks.some(k=>!done(k));
+    return {people, weeks, weeksAll, everyone, names, sel, gameCount:games.length, inProgress, done};
   }
 
   function statsView(){
@@ -685,24 +689,6 @@
     html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
       P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
-
-    // Highlights
-    let bestWk=null, worstWk=null, perf=null, ups=null;
-    P.forEach(s=>{
-      Object.entries(s.weeks).forEach(([k,w])=>{
-        const n=w.W+w.L, pct=n?w.W/n:0;
-        if(!bestWk||w.W>bestWk.w.W||(w.W===bestWk.w.W&&pct>bestWk.pct)) bestWk={s,k,w,pct};
-        if(n&&(!worstWk||pct<worstWk.pct||(pct===worstWk.pct&&w.L>worstWk.w.L))) worstWk={s,k,w,pct};
-      });
-      if(s.perfect&&(!perf||s.perfect>perf.perfect)) perf=s;
-      if(!ups||s.ups>ups.ups) ups=s;
-    });
-    const card=(label,who,detail)=>`<div><small>${label}</small><b>${esc(who)}</b><span>${detail}</span></div>`;
-    html+=`<div class="sec">Highlights</div><div class="hl">${
-      bestWk?card('Best week',bestWk.s.name,`${bestWk.w.W}-${bestWk.w.L} · ${esc(wkName(bestWk.k))}`):''}${
-      perf?card('Most perfect weeks',perf.name,`${perf.perfect} perfect week${perf.perfect>1?'s':''}`):''}${
-      ups?card('Most upsets',ups.name,`${ups.ups} hit`):''}</div>`;
-    if(worstWk && P.length>1) html+=`<div class="note">Rough week: ${esc(worstWk.s.name)} went ${worstWk.w.W}-${worstWk.w.L} in ${esc(wkName(worstWk.k))}.</div>`;
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
@@ -842,6 +828,23 @@
     if(allWrong) sl.push(`<div class="kick">${gt} · everyone was wrong</div><div class="emo pop">🙈</div><div class="mid">${esc(allWrong.team)}</div><div class="sub">All ${allWrong.n} of you picked against them. ${esc(allWrong.g.away+' '+allWrong.g.awayScore+', '+allWrong.g.home+' '+allWrong.g.homeScore)}</div>`);
     if(lock) sl.push(`<div class="kick">${gt} · lock of the week</div><div class="emo pop">🔒</div><div class="mid">${esc(lock.team)}</div><div class="sub">All ${lock.n} of you took them, and they delivered.</div>`);
     const rx=h.react||{}; const hot=gs.map(g=>({g,n:rx[g.id]||0})).sort((a,b)=>b.n-a.n)[0];
+    // season so far (through this week): best single week, most perfect weeks, most upsets
+    const thru=wkOrder(wk), seasonG=h.games.filter(g=>wkOrder(wkKey(g))<=thru);
+    const wsz={}; seasonG.forEach(g=>{ wsz[wkKey(g)]=(wsz[wkKey(g)]||0)+1; });
+    const ss={}; members.forEach(id=>ss[id]={wk:{},ups:0});
+    seasonG.forEach(g=>{ const gp=by[g.id]||{}; const k=wkKey(g); members.forEach(id=>{ const x=gp[id]; if(!x||(x.r!=='W'&&x.r!=='L')) return;
+      const w=ss[id].wk[k]||(ss[id].wk[k]={W:0,L:0}); w[x.r]++;
+      if(x.r==='W'&&x.p!=='TIE'){ const a=recPct(g.awayPre), b=recPct(g.homePre); if(a!=null&&b!=null&&((x.p===g.away&&a<b)||(x.p===g.home&&b<a))) ss[id].ups++; } }); });
+    let bw=null, pf=null, up=null;
+    members.forEach(id=>{ const o=ss[id];
+      Object.entries(o.wk).forEach(([k,w])=>{ if(!bw||w.W>bw.w.W||(w.W===bw.w.W&&w.L<bw.w.L)) bw={id,k,w}; });
+      const per=Object.keys(o.wk).filter(k=>o.wk[k].L===0&&o.wk[k].W===wsz[k]).length; if(per&&(!pf||per>pf.n)) pf={id,n:per};
+      if(o.ups&&(!up||o.ups>up.n)) up={id,n:o.ups}; });
+    const cardS=(t,who,d)=>`<div><small>${t}</small><b>${esc(who)}</b><br><span style="opacity:.85;font-size:14px">${d}</span></div>`;
+    if(order.length>1&&(bw||pf||up)) sl.push(`<div class="kick">${gt} · season so far</div><div class="mid pop">Through ${esc(label)}</div><div class="sum">${
+      bw?cardS('Best week',names[bw.id],bw.w.W+'-'+bw.w.L+' · '+esc(wkName(bw.k).replace(/^Wk /,'Week '))):''}${
+      pf?cardS('Most perfect weeks',names[pf.id],pf.n+' perfect'):''}${
+      up?cardS('Most upsets called',names[up.id],up.n+' upset'+(up.n>1?'s':'')):''}</div>`);
     if(hot&&hot.n>0) sl.push(`<div class="kick">Most reacted game</div><div class="emo pop">😂🔥💀</div><div class="mid">${esc(hot.g.awayName+' @ '+hot.g.homeName)}</div><div class="sub">${hot.n} reaction${hot.n>1?'s':''}. ${esc(hot.g.away+' '+hot.g.awayScore+', '+hot.g.home+' '+hot.g.homeScore)}</div>`);
     return {slides:sl.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText:`My ${label} in Greco Picks: ${my.W}-${my.L}`+(won?' 👑':'')};
   }
