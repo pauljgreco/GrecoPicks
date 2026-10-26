@@ -398,7 +398,7 @@
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
-    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, the most reacted game, and season-so-far highlights. Tap ✕ to hide it.</div></details>
+    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. Past weeks' recaps are always there: pick the week in the menu at the top. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, the most reacted game, and season-so-far highlights. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, perfect weeks, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
@@ -421,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.11.1';
+  const APP_VERSION = '2.11.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -773,7 +773,12 @@
 
   // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
   function recapButton(){
-    const L=state.last; if(!L||!L.between) return '';
+    // Any finished week you're looking at (pick it in the week menu) has its recap, any time.
+    const s=state, wkLabel=((s.weeks||[]).find(w=>w.key===s.selected)||{}).label||'';
+    const selDone=s.games.length&&s.games.every(g=>g.status==='final');
+    const L=state.last;
+    if(selDone && !(L&&L.key===s.selected&&L.between)) return `<button class="recapbtn" data-recap="${esc(s.selected)}"><span>🗞️ ${esc(wkLabel.split(' · ')[0])} recap · ${esc(s.my.week)}</span><span>›</span></button>`;
+    if(!L||!L.between) return '';
     let off=''; try{ off=localStorage.getItem('nflpicks_recapoff')||''; }catch(e){}
     if(off===L.key) return '';
     return `<button class="recapbtn" data-recap="${esc(L.key)}"><span>🗞️ Your ${esc(L.label)} recap · ${esc(L.rec)}</span><span><span class="x3" data-recapx="${esc(L.key)}" aria-label="Hide">✕</span> ›</span></button>`;
@@ -799,7 +804,15 @@
       if(x&&x.r==='L'&&pick.length>1&&(!worstMiss||share>worstMiss.share)) worstMiss={g,share,right:right.length,n:pick.length,team:teamName(g,x.p)};
       if(pick.length>=3&&g.winner&&(!upset||share<upset.share)) upset={g,share,right,n:pick.length,team:teamName(g,g.winner)};
     });
-    const c=curCrown(); const won=c&&c.key===wk&&c.ids.indexOf(me)>=0, pooped=c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(me)>=0;
+    // 👑/💩 for this week: the server's (it knows the tiebreaker) for the latest week, otherwise worked out here.
+    let c=curCrown();
+    if(!c||c.key!==wk){
+      const played=members.filter(id=>rec[id].W+rec[id].L>0);
+      const top=played.length?Math.max(...played.map(id=>rec[id].W)):0, low=played.length?Math.min(...played.map(id=>rec[id].W)):0;
+      const lo=played.filter(id=>rec[id].W===low);
+      c=top>0?{key:wk,ids:played.filter(id=>rec[id].W===top),rec:played.filter(id=>rec[id].W===top).map(id=>rec[id].W+'-'+rec[id].L)[0],poop:(played.length>1&&low<top)?{ids:lo}:null}:null;
+    }
+    const won=c&&c.key===wk&&c.ids.indexOf(me)>=0, pooped=c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(me)>=0;
     const gl=grp?'the '+gname(grp):'everyone';
     const bgs=['linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#6366f1,#0ea5e9)'];
     const sl=[];
