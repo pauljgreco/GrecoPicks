@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.11.2';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.12.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -850,7 +850,8 @@ function setPref_(key, type, on) {
 }
 
 /** Sends one notification to the given players (by player ID). Returns OneSignal's reply text. */
-function sendPush_(playerIds, title, body) {
+/** Sends one notification. `open` (optional) is added to the app address, e.g. '?recap=2026|2|7' opens that week's recap. */
+function sendPush_(playerIds, title, body, open) {
   const key = String(settings_().OneSignalKey || '').trim();
   if (!key) throw new Error('Put your OneSignal REST API key in OneSignalKey on the Settings tab.');
   if (!playerIds.length) return 'nobody to send to';
@@ -863,7 +864,7 @@ function sendPush_(playerIds, title, body) {
     contents: { en: body },
     priority: 10,                    // deliver right away instead of when the phone next wakes
   };
-  if (app) payload.url = app;
+  if (app) { const base = app.replace(/[?#].*$/, ''); payload.url = (base.endsWith('/') ? base : base + '/') + (open || ''); }
   const res = UrlFetchApp.fetch('https://api.onesignal.com/notifications?c=push', {
     method: 'post',
     contentType: 'application/json',
@@ -1651,7 +1652,7 @@ function notifications_(nowMs) {
       const b = board.find(x => x.id === p.id);
       if (!b || b.week === '0-0') return;
       const group = p.id === adminId_() ? '' : (p.groups[0] || '');
-      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p) + ' Your recap is in the app.');
+      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p) + ' Tap to see your recap.', '?recap=' + encodeURIComponent(wk));
     });
     markSent_(sent, key);
   });

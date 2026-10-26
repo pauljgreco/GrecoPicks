@@ -47,6 +47,8 @@
   .tb input{width:90px;flex:none}
   .recapbtn{display:flex;align-items:center;justify-content:space-between;width:100%;font:inherit;font-weight:600;font-size:15px;padding:10px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer}
   .recapbtn .x3{color:var(--muted);padding:0 4px}
+  .recapbtn.fresh{border:2px solid transparent;background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(120deg,#7c3aed,#db2777 55%,#f59e0b) border-box}
+  .recapbtn .ring{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:linear-gradient(var(--card),var(--card)) padding-box,linear-gradient(120deg,#7c3aed,#db2777 55%,#f59e0b) border-box;border:2px solid transparent;margin-right:2px}
   /* confetti */
   .cf{position:fixed;top:-40px;z-index:60;pointer-events:none;will-change:transform;animation:cffall linear forwards}
   @keyframes cffall{to{transform:translate(var(--dx),110vh) rotate(var(--rot))}}
@@ -398,7 +400,7 @@
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
-    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. Past weeks' recaps are always there: pick the week in the menu at the top. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, the most reacted game, and season-so-far highlights. Tap ✕ to hide it.</div></details>
+    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), the weekly results notification opens it straight up, and a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. Past weeks' recaps are always there: pick the week in the menu at the top. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, the most reacted game, and season-so-far highlights. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, perfect weeks, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
@@ -421,7 +423,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.11.2';
+  const APP_VERSION = '2.12.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -449,7 +451,7 @@
   function load(wk, busy){
     spin(true); if(busy) document.body.classList.add('busy');
     return api('state', {wk: wk||''})
-      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); setTimeout(party,400); } })
+      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); if(openRecapFromLink()) return; setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -772,6 +774,16 @@
   }
 
   // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
+  let linkRecap=params.get('recap')||'';
+  function openRecapFromLink(){
+    if(!linkRecap||!state) return false;
+    const wk=linkRecap; linkRecap='';
+    try{ const u=new URL(location.href); u.searchParams.delete('recap'); history.replaceState(null,'',u.pathname+(u.search||'')); }catch(e){}
+    if(!/^\d{4}\|\d\|\d+$/.test(wk)) return false;
+    view='picks'; render(); showRecap(wk); return true;
+  }
+  const recapSeen=k=>{ try{ return (JSON.parse(localStorage.getItem('nflpicks_recapseen')||'[]')).indexOf(k)>=0; }catch(e){ return false; } };
+  function markRecapSeen(k){ try{ const a=JSON.parse(localStorage.getItem('nflpicks_recapseen')||'[]'); if(a.indexOf(k)<0){ a.push(k); localStorage.setItem('nflpicks_recapseen',JSON.stringify(a.slice(-40))); } }catch(e){} }
   function recapButton(){
     // Any finished week you're looking at (pick it in the week menu) has its recap, any time.
     const s=state, wkLabel=((s.weeks||[]).find(w=>w.key===s.selected)||{}).label||'';
@@ -781,7 +793,8 @@
     if(!L||!L.between) return '';
     let off=''; try{ off=localStorage.getItem('nflpicks_recapoff')||''; }catch(e){}
     if(off===L.key) return '';
-    return `<button class="recapbtn" data-recap="${esc(L.key)}"><span>🗞️ Your ${esc(L.label)} recap · ${esc(L.rec)}</span><span><span class="x3" data-recapx="${esc(L.key)}" aria-label="Hide">✕</span> ›</span></button>`;
+    const fresh=!recapSeen(L.key);
+    return `<button class="recapbtn${fresh?' fresh':''}" data-recap="${esc(L.key)}"><span>${fresh?'<span class="ring">🗞️</span>':'🗞️'} ${fresh?'<b>New:</b> ':''}Your ${esc(L.label)} recap · ${esc(L.rec)}</span><span><span class="x3" data-recapx="${esc(L.key)}" aria-label="Hide">✕</span> ›</span></button>`;
   }
   function buildRecap(h,wk){
     const me=state.me.id, grp=curGroup();
@@ -863,6 +876,7 @@
   }
   function showRecap(wk){
     const season=wk.split('|')[0];
+    markRecapSeen(wk);
     const go=()=>{ const h=hist[season]; if(!h){ toast('Couldn\'t load the recap.'); return; } WR=Object.assign(buildRecap(h,wk),{i:0}); drawWrapped(); document.getElementById('wrapd').classList.add('on'); };
     if(hist[season]) go(); else { const p=loadHistory(); if(p&&p.then) p.then(go); else setTimeout(go,1500); }
   }
@@ -977,7 +991,7 @@
   }
   document.getElementById('wrapd').addEventListener('click',e=>{
     if(!WR) return;
-    if(e.target.closest('[data-wclose]')){ document.getElementById('wrapd').classList.remove('on'); return; }
+    if(e.target.closest('[data-wclose]')){ document.getElementById('wrapd').classList.remove('on'); render(); return; }
     if(e.target.closest('[data-wshare]')){ if(navigator.share) navigator.share({title:'Greco Picks Wrapped',text:WR.shareText}).catch(()=>{}); else copyText(WR.shareText,'Copied your Wrapped.'); return; }
     const back=e.clientX<window.innerWidth*0.3;
     if(back){ if(WR.i>0){ WR.i--; drawWrapped(); } }
