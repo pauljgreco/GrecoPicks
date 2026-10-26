@@ -384,7 +384,7 @@
     <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
     <details class="faq"><summary>How are people ranked?</summary><div>On the <b>Stats</b> tab, by <b>win percentage</b> for whatever range you pick, then total wins. Joining partway through the season doesn't hurt you.</div></details>
     <details class="faq"><summary>What's on the Group tab?</summary><div>Everyone's picks for the week in one grid. A <b>✓</b> means that person has picked but you can't see it yet; make your own pick on that game (or wait for kickoff) to see theirs.</div></details>
-    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings, week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
+    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings (with perfect weeks), week-by-week records and fun stats. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
     <details class="faq"><summary>What are "upsets" and "with group"?</summary><div><b>Upsets</b>: correct picks of the team with the worse record going into the game. <b>With group</b>: how often your pick matched what most of the selected people picked.</div></details>
     <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
     <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
@@ -398,9 +398,9 @@
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Reactions?</summary><div>Once a game kicks off, tap an emoji under it (😂 🔥 💀 🤡 😤 👀). Tap again to take it back. Everyone sees who reacted.</div></details>
-    <details class="faq"><summary>Weekly recap?</summary><div>When a week is final, a <b>🗞️ recap</b> button appears at the top of Picks: your record, your best call, the one that got away, the group's biggest upset, and who took the 👑 and 💩. Tap ✕ to hide it.</div></details>
+    <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week and the most reacted game. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
-    <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, longest streak, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
+    <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, perfect weeks, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
@@ -421,7 +421,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.10.2';
+  const APP_VERSION = '2.11.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -528,11 +528,13 @@
     const o=(v,t)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`;
     return `<div class="gbar"><span>Group</span><select data-group="1">${mine.map(g=>o(g,g)).join('')}${rest.map(g=>o(g,g)).join('')}${o('','Everyone')}</select></div>`;
   }
+  function betweenWeeks(){ return !!(state&&state.last&&state.last.between); }
   function curCrown(){ const g=curGroup(); return state&&state.crowns ? (state.crowns[g]||null) : (g?null:(state&&state.crown)); }
-  function crowned(id){ const c=curCrown(); return !!(c&&c.ids.indexOf(id)>=0); }
-  function pooped(id){ const c=curCrown(); return !!(c&&c.poop&&c.poop.ids.indexOf(id)>=0); }
+  function crowned(id){ if(!betweenWeeks()) return false; const c=curCrown(); return !!(c&&c.ids.indexOf(id)>=0); }
+  function pooped(id){ if(!betweenWeeks()) return false; const c=curCrown(); return !!(c&&c.poop&&c.poop.ids.indexOf(id)>=0); }
   function tag(id){ return (crowned(id)?'👑 ':'')+(pooped(id)?'💩 ':''); }
   function crownLine(){
+    if(!betweenWeeks()) return '';
     const c=curCrown(); if(!c) return '';
     const names=(ids,ns)=>ids.map((id,i)=>id===state.me.id?'You':ns[i]).join(', ');
     const gl=curGroup()?' ('+esc(gname(curGroup()))+')':'';
@@ -640,12 +642,11 @@
       });
     });
     const people=Object.values(per);
+    const wkSize={}; games.forEach(g=>{ wkSize[wkKey(g)]=(wkSize[wkKey(g)]||0)+1; });
     people.forEach(s=>{
       const n=s.W+s.L; s.pct=n?s.W/n:null;
-      let best=0,run=0; s.seq.forEach(r=>{ if(r==='W'){run++; best=Math.max(best,run);} else run=0; });
-      s.longest=best;
-      let cur=0; const last=s.seq[s.seq.length-1]; for(let i=s.seq.length-1;i>=0&&s.seq[i]===last;i--) cur++;
-      s.streak=last?last+cur:'—';
+      // perfect weeks: picked every game that week (in range) and got them all right
+      s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
     });
     people.sort((a,b)=>((b.pct==null?-1:b.pct)-(a.pct==null?-1:a.pct))||(b.W-a.W)||a.name.localeCompare(b.name));
     let rank=0,prev=null; people.forEach((s,i)=>{ const key=s.pct+'|'+s.W; if(key!==prev){rank=i+1;prev=key;} s.rank=s.pct==null?'':rank; });
@@ -681,25 +682,25 @@
     const P=st.people;
 
     // Standings
-    html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Streak</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${esc(s.streak)}</td></tr>`).join('')
+    html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
 
     // Highlights
-    let bestWk=null, worstWk=null, longest=null, ups=null;
+    let bestWk=null, worstWk=null, perf=null, ups=null;
     P.forEach(s=>{
       Object.entries(s.weeks).forEach(([k,w])=>{
         const n=w.W+w.L, pct=n?w.W/n:0;
         if(!bestWk||w.W>bestWk.w.W||(w.W===bestWk.w.W&&pct>bestWk.pct)) bestWk={s,k,w,pct};
         if(n&&(!worstWk||pct<worstWk.pct||(pct===worstWk.pct&&w.L>worstWk.w.L))) worstWk={s,k,w,pct};
       });
-      if(!longest||s.longest>longest.longest) longest=s;
+      if(s.perfect&&(!perf||s.perfect>perf.perfect)) perf=s;
       if(!ups||s.ups>ups.ups) ups=s;
     });
     const card=(label,who,detail)=>`<div><small>${label}</small><b>${esc(who)}</b><span>${detail}</span></div>`;
     html+=`<div class="sec">Highlights</div><div class="hl">${
       bestWk?card('Best week',bestWk.s.name,`${bestWk.w.W}-${bestWk.w.L} · ${esc(wkName(bestWk.k))}`):''}${
-      longest?card('Longest win streak',longest.name,`${longest.longest} straight`):''}${
+      perf?card('Most perfect weeks',perf.name,`${perf.perfect} perfect week${perf.perfect>1?'s':''}`):''}${
       ups?card('Most upsets',ups.name,`${ups.ups} hit`):''}</div>`;
     if(worstWk && P.length>1) html+=`<div class="note">Rough week: ${esc(worstWk.s.name)} went ${worstWk.w.W}-${worstWk.w.L} in ${esc(wkName(worstWk.k))}.</div>`;
 
@@ -714,8 +715,8 @@
     }
 
     // Splits
-    html+=`<div class="sec">Splits</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Home picks</th><th>Away picks</th><th>Upsets</th><th>With group</th><th>Best streak</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td><td>${s.longest}</td></tr>`).join('')
+    html+=`<div class="sec">Splits</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Home picks</th><th>Away picks</th><th>Upsets</th><th>With group</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
     }</tbody></table></div>
     <div class="note">Only games that have kicked off count. Upsets = correct picks of the team with the worse record going in. With group = how often a pick matched most of the selected people.</div>`;
     return html;
@@ -774,7 +775,7 @@
     }
   }
   function party(){
-    if(!state||!state.last) return;
+    if(!state||!state.last||!state.last.between) return;
     let seen={}; try{ seen=JSON.parse(localStorage.getItem('nflpicks_party')||'{}'); }catch(e){}
     const mark=k=>{ seen[k]=1; try{ localStorage.setItem('nflpicks_party',JSON.stringify(seen)); }catch(e){} };
     const L=state.last;
@@ -786,7 +787,7 @@
 
   // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
   function recapButton(){
-    const L=state.last; if(!L) return '';
+    const L=state.last; if(!L||!L.between) return '';
     let off=''; try{ off=localStorage.getItem('nflpicks_recapoff')||''; }catch(e){}
     if(off===L.key) return '';
     return `<button class="recapbtn" data-recap="${esc(L.key)}"><span>🗞️ Your ${esc(L.label)} recap · ${esc(L.rec)}</span><span><span class="x3" data-recapx="${esc(L.key)}" aria-label="Hide">✕</span> ›</span></button>`;
@@ -816,12 +817,32 @@
     const gl=grp?'the '+gname(grp):'everyone';
     const bgs=['linear-gradient(160deg,#0ea5e9,#2563eb)','linear-gradient(160deg,#10b981,#0e7490)','linear-gradient(160deg,#f59e0b,#ef4444)','linear-gradient(160deg,#334155,#0f172a)','linear-gradient(160deg,#a855f7,#ec4899)','linear-gradient(160deg,#6366f1,#0ea5e9)'];
     const sl=[];
-    sl.push(`<div class="emo pop">🗞️</div><div class="kick">Greco Picks</div><div class="mid pop">Your ${esc(label)} recap</div><div class="sub">Tap to continue</div>`);
+    sl.push(`<div class="emo pop">🗞️</div><div class="kick">Greco Picks</div><div class="mid pop">${esc(label)} recap</div><div class="sub">First your week, then how ${grp?'the '+esc(gname(grp)):'everyone'} did.</div>`);
     sl.push(`<div class="kick">You went</div><div class="big pop">${my.W}-${my.L}</div><div class="sub">${rank&&ranked.length>1?(rankTie?'Tied for ':'')+'#'+rank+' of '+ranked.length+' in '+esc(gl)+' this week.':''}${won?'<br><br>👑 You took the crown'+(c.tb?' on the tiebreaker (guessed '+esc(c.tb.guess)+', total '+esc(c.tb.total)+')':'')+'!':''}${pooped?'<br><br>💩 Bottom of the week. It happens.':''}</div>`);
     if(bestCall) sl.push(`<div class="kick">Your best call</div><div class="emo pop">🎯</div><div class="mid">${esc(bestCall.team)}</div><div class="sub">${bestCall.right===1?'You were the <b>only one</b> who got it.':'Only '+bestCall.right+' of '+bestCall.n+' got it, and you did.'}<br>${esc(bestCall.g.away+' '+bestCall.g.awayScore+', '+bestCall.g.home+' '+bestCall.g.homeScore)}</div>`);
     if(worstMiss) sl.push(`<div class="kick">The one that got away</div><div class="emo pop">🤦</div><div class="mid">${esc(worstMiss.team)}</div><div class="sub">${worstMiss.right} of ${worstMiss.n} got it right. You… did not.<br>${esc(worstMiss.g.away+' '+worstMiss.g.awayScore+', '+worstMiss.g.home+' '+worstMiss.g.homeScore)}</div>`);
-    if(upset&&upset.share<0.5) sl.push(`<div class="kick">Group's biggest upset</div><div class="emo pop">👀</div><div class="mid">${esc(upset.team)}</div><div class="sub">${upset.right.length?'Only '+upset.right.map(id=>esc(names[id])).join(', ')+' saw it coming.':'Nobody in '+esc(gl)+' saw it coming.'}</div>`);
-    if(c&&c.key===wk) sl.push(`<div class="kick">${esc(label)} hardware</div><div class="mid pop">👑 ${esc(c.ids.map(id=>names[id]||id).join(', '))}${c.poop?'<br>💩 '+esc(c.poop.ids.map(id=>names[id]||id).join(', ')):''}</div><div class="sub">${esc(c.rec)} took the crown in ${esc(gl)}.</div>`);
+    // ----- Part 2: the group's week -----
+    const gt=grp?esc(gname(grp)):'Everyone';
+    const order=members.filter(id=>rec[id].W+rec[id].L>0).sort((a,b)=>rec[b].W-rec[a].W||rec[a].L-rec[b].L||(names[a]||'').localeCompare(names[b]||''));
+    if(order.length>1){
+      let rk=0, prev=null;
+      const rows=order.map((id,i)=>{ if(rec[id].W!==prev){ rk=i+1; prev=rec[id].W; }
+        const tagc=(c&&c.key===wk&&c.ids.indexOf(id)>=0)?' 👑':(c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(id)>=0)?' 💩':'';
+        return `<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.2);${id===me?'font-weight:800':''}"><span>${rk}. ${esc(names[id]||id)}${tagc}</span><span>${rec[id].W}-${rec[id].L}</span></div>`; }).join('');
+      sl.push(`<div class="kick">${gt} · ${esc(label)}</div><div class="mid pop">Final standings</div><div style="width:100%;max-width:320px;text-align:left;font-size:18px;margin-top:6px">${rows}</div>${c&&c.key===wk&&c.tb?`<div class="sub" style="margin-top:10px">👑 decided by the tiebreaker: guessed ${esc(c.tb.guess)}, total was ${esc(c.tb.total)}.</div>`:''}`);
+    }
+    if(upset&&upset.share<0.5) sl.push(`<div class="kick">${gt} · biggest upset</div><div class="emo pop">👀</div><div class="mid">${esc(upset.team)}</div><div class="sub">${upset.right.length===1&&upset.right[0]===me?'You were the only one who saw it coming.':upset.right.length?'Only '+upset.right.map(id=>esc(names[id])).join(', ')+' saw it coming.':'Nobody saw it coming.'}</div>`);
+    // everyone wrong / lock of the week
+    let allWrong=null, lock=null;
+    gs.forEach(g=>{ const gp=by[g.id]||{}; const pick=members.filter(id=>gp[id]&&gp[id].p!=='MISSED'&&(gp[id].r==='W'||gp[id].r==='L')); if(pick.length<2) return;
+      const right=pick.filter(id=>gp[id].r==='W');
+      if(!right.length&&(!allWrong||pick.length>allWrong.n)) allWrong={g,n:pick.length,team:teamName(g,g.winner)};
+      const same=pick.every(id=>gp[id].p===gp[pick[0]].p);
+      if(same&&right.length===pick.length&&pick.length>=3&&(!lock||pick.length>lock.n)) lock={g,n:pick.length,team:teamName(g,g.winner)}; });
+    if(allWrong) sl.push(`<div class="kick">${gt} · everyone was wrong</div><div class="emo pop">🙈</div><div class="mid">${esc(allWrong.team)}</div><div class="sub">All ${allWrong.n} of you picked against them. ${esc(allWrong.g.away+' '+allWrong.g.awayScore+', '+allWrong.g.home+' '+allWrong.g.homeScore)}</div>`);
+    if(lock) sl.push(`<div class="kick">${gt} · lock of the week</div><div class="emo pop">🔒</div><div class="mid">${esc(lock.team)}</div><div class="sub">All ${lock.n} of you took them, and they delivered.</div>`);
+    const rx=h.react||{}; const hot=gs.map(g=>({g,n:rx[g.id]||0})).sort((a,b)=>b.n-a.n)[0];
+    if(hot&&hot.n>0) sl.push(`<div class="kick">Most reacted game</div><div class="emo pop">😂🔥💀</div><div class="mid">${esc(hot.g.awayName+' @ '+hot.g.homeName)}</div><div class="sub">${hot.n} reaction${hot.n>1?'s':''}. ${esc(hot.g.away+' '+hot.g.awayScore+', '+hot.g.home+' '+hot.g.homeScore)}</div>`);
     return {slides:sl.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText:`My ${label} in Greco Picks: ${my.W}-${my.L}`+(won?' 👑':'')};
   }
   function showRecap(wk){
@@ -863,9 +884,8 @@
     const wks=Object.keys(wk).sort((a,b)=>wkOrder(a)-wkOrder(b));
     let best=null, worst=null;
     wks.forEach(k=>{ const w=wk[k], n=w.W+w.L, pc=w.W/n; if(!best||w.W>best.w.W||(w.W===best.w.W&&pc>best.pc)) best={k,w,pc}; if(n>=3&&(!worst||pc<worst.pc||(pc===worst.pc&&w.L>worst.w.L))) worst={k,w,pc}; });
-    // streak
-    let run=0, longest=0, endAt=null, startAt=null, curStart=null;
-    mine.forEach(x=>{ if(x.r==='W'){ if(!run) curStart=x.g; run++; if(run>longest){ longest=run; startAt=curStart; endAt=x.g; } } else run=0; });
+    const wsz={}; h.games.forEach(g=>{ wsz[wkKey(g)]=(wsz[wkKey(g)]||0)+1; });
+    const perfectWks=wks.filter(k=>wk[k].L===0&&wk[k].W===wsz[k]).length;
     // teams
     const teamName=(g,a)=>a===g.away?g.awayName:a===g.home?g.homeName:a;
     const teamLogo=(g,a)=>a===g.away?g.awayLogo:a===g.home?g.homeLogo:'';
@@ -914,7 +934,7 @@
     add(`<div class="kick">Your record</div><div class="big pop">${W}-${L}</div><div class="sub">That's ${fmtPct(mine.length?W/mine.length:0)}${rank&&ranked.length>1?`, <b>#${rank} of ${ranked.length}</b> in ${esc(gl)}`:''}.${rank===1&&ranked.length>1?' 👑':''}</div>`);
     if(best) add(`<div class="kick">Your best week</div><div class="emo pop">🔥</div><div class="mid">${esc(wkName(best.k))}: ${best.w.W}-${best.w.L}</div><div class="sub">${best.pc===1?'Perfect. Not a single miss.':'You were locked in.'}</div>`);
     if(worst&&(!best||worst.k!==best.k)) add(`<div class="kick">And then there was…</div><div class="emo pop">🫠</div><div class="mid">${esc(wkName(worst.k))}: ${worst.w.W}-${worst.w.L}</div><div class="sub">We don't talk about ${esc(wkName(worst.k))}.</div>`);
-    if(longest>=3) add(`<div class="kick">Longest win streak</div><div class="big pop">${longest}</div><div class="sub">correct picks in a row${startAt&&endAt?`, from ${esc(startAt.away+' @ '+startAt.home)} to ${esc(endAt.away+' @ '+endAt.home)}`:''}.</div>`);
+    if(perfectWks) add(`<div class="kick">Perfect weeks</div><div class="big pop">${perfectWks}</div><div class="sub">week${perfectWks>1?'s':''} you didn't miss a single pick. 🎯</div>`);
     if(ride) add(`<div class="kick">Your ride or die</div>${ride[1].logo?`<img class="logo pop" src="${esc(ride[1].logo)}" alt="">`:'<div class="emo pop">🏈</div>'}<div class="mid">${esc(ride[1].name)}</div><div class="sub">You picked them ${ride[1].n} time${ride[1].n>1?'s':''} and went ${ride[1].W}-${ride[1].n-ride[1].W} with them.</div>`);
     if(nemesis&&nemesis[1].n>=2) add(`<div class="kick">Your nemesis</div>${nemesis[1].logo?`<img class="logo pop" src="${esc(nemesis[1].logo)}" alt="">`:'<div class="emo pop">😤</div>'}<div class="mid">${esc(nemesis[1].name)}</div><div class="sub">They burned you ${nemesis[1].n} times.</div>`);
     add(`<div class="kick">Upsets called</div><div class="big pop">${ups}</div><div class="sub">${ups?'times you picked the team with the worse record, and they won.':'Not one. The favorites never let you down… right?'}${bestUpset?`<br><br>Biggest: <b>${esc(teamName(bestUpset.x.g,bestUpset.x.p))}</b> (${esc(bestUpset.x.p===bestUpset.x.g.away?bestUpset.x.g.awayPre:bestUpset.x.g.homePre)}) in ${esc(wkName(wkKey(bestUpset.x.g)))}.`:''}</div>`);
@@ -923,7 +943,7 @@
     if(crowns||poops) add(`<div class="kick">Weekly hardware</div><div class="mid pop">👑 × ${crowns}${poops?'<br>💩 × '+poops:''}</div><div class="sub">${crowns?'Week'+(crowns>1?'s':'')+' you finished on top':'No crowns this time'}${poops?(crowns?', and ':' and ')+poops+' you\'d rather forget':''} in ${esc(gl)}.</div>`);
     if(timing) add(`<div class="kick">Your pick timing</div><div class="emo pop">${timing.e}</div><div class="mid">${esc(timing.t)}</div><div class="sub">${esc(timing.d)}</div>`);
     add(`<div class="kick">Your picking style</div><div class="emo pop">${persona.e}</div><div class="mid">${esc(persona.t)}</div><div class="sub">${esc(persona.d)}</div>`);
-    const summary=[['Record',W+'-'+L],['Rank',rank&&ranked.length>1?'#'+rank+' of '+ranked.length:'—'],['Best week',best?wkName(best.k)+' '+best.w.W+'-'+best.w.L:'—'],['Streak',longest+' straight'],['Ride or die',ride?ride[1].name:'—'],['Upsets',String(ups)],['Pick twin',ag.length?names[ag[0].id]:'—'],['Style',persona.t]];
+    const summary=[['Record',W+'-'+L],['Rank',rank&&ranked.length>1?'#'+rank+' of '+ranked.length:'—'],['Best week',best?wkName(best.k)+' '+best.w.W+'-'+best.w.L:'—'],['Perfect weeks',String(perfectWks)],['Ride or die',ride?ride[1].name:'—'],['Upsets',String(ups)],['Pick twin',ag.length?names[ag[0].id]:'—'],['Style',persona.t]];
     add(`<div class="kick">${esc(season)} Wrapped · ${esc(state.me.name)}</div><div class="sum pop">${summary.map(([a,b])=>`<div><small>${esc(a)}</small><b>${esc(b)}</b></div>`).join('')}</div><button class="wbtn" data-wshare="1">Share</button>`);
     const shareText=`My ${season} Greco Picks Wrapped 🏈\n`+summary.map(([a,b])=>a+': '+b).join('\n');
     return {slides:slides.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText};
@@ -1416,7 +1436,7 @@
     if(!state) return;
     const p=(state.players||[]).find(x=>x.id===id); if(!p) return;
     const b=(state.board||[]).find(x=>x.id===id)||{week:'0-0',season:'0-0',rank:''};
-    const all=state.crowns||{}, badges=[];
+    const all=betweenWeeks()?(state.crowns||{}):{}, badges=[];
     Object.keys(all).forEach(g=>{ const c=all[g]; if(!c) return; const gl=g||'Everyone';
       if(c.ids.indexOf(id)>=0) badges.push('👑 '+c.label+' · '+gl);
       if(c.poop&&c.poop.ids.indexOf(id)>=0) badges.push('💩 '+c.label+' · '+gl); });

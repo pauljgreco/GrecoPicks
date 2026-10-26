@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.10.2';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.11.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -426,6 +426,7 @@ function history_(key, season) {
       awayPre: g.awayRecordPre, homePre: g.homeRecordPre, awayLogo: g.awayLogo, homeLogo: g.homeLogo,
     })),
     picks: pickRows,
+    react: (() => { const r = readReactions_(), o = {}; Object.keys(r).forEach(id => { if (ids[id]) o[id] = Object.keys(r[id]).reduce((n, e) => n + r[id][e].length, 0); }); return o; })(),
   };
 }
 
@@ -1368,7 +1369,11 @@ function lastWeekFor_(games, pickVals, me, roster) {
   const rec = b ? b.week : '0-0';
   const [w, l] = rec.split('-').map(Number);
   const n = byWeek[done[0]].length;
-  return { key: done[0], label: weekLabel_(parts[1], parts[2]), rec: rec, games: n, perfect: l === 0 && w === n && n > 0 };
+  // "Between weeks": that week is final and no game after it has kicked off yet.
+  const lastKick = Math.max.apply(null, byWeek[done[0]].map(g => g.kickoff.getTime()));
+  const now = Date.now();
+  const between = !games.some(g => weekKey_(g) !== done[0] && g.kickoff.getTime() > lastKick && g.kickoff.getTime() <= now);
+  return { key: done[0], label: weekLabel_(parts[1], parts[2]), rec: rec, games: n, perfect: l === 0 && w === n && n > 0, between: between };
 }
 
 const ARCH_HEAD = { games: GAME_HEADERS, picks: PICK_HEADERS };
