@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.14.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.14.1';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -1677,7 +1677,8 @@ function notifications_(nowMs) {
     const wkGames = games.filter(g => weekKey_(g) === cur);
     if (wkGames.some(g => g.status === 'pre')) {
       const [, type, week] = cur.split('|');
-      const ids = roster.filter(p => p.newweek).map(p => p.id);
+      // only people who still have games to pick this week
+      const ids = roster.filter(p => p.newweek && wkGames.some(g => g.status === 'pre' && !picks.map[g.id + '|' + p.id])).map(p => p.id);
       sendPush_(ids, weekLabel_(type, week) + ' is up', 'The ' + weekLabel_(type, week) + ' games are ready. Make your picks!');
     }
     PropertiesService.getScriptProperties().setProperty('LAST_NEW_WEEK', cur);

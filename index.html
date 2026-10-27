@@ -425,7 +425,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.14.0';
+  const APP_VERSION = '2.14.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1200,7 +1200,7 @@
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
     const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
     const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
-    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before your first open game of the day (one per day)')+tog('newweek','New week','When the next week\'s games are up')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','One roundup after each game day, when only one person in your group picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
+    box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before your first open game of the day (one per day)')+tog('newweek','New week','When the next week\'s games are up (skipped if you\'ve already picked)')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','One roundup after each game day, when only one person in your group picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
   // Step log so we can see exactly where turning on gets stuck (shown under Notifications, and sent with problem reports).
