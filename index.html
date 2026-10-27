@@ -223,6 +223,7 @@
   .ptools{display:flex;gap:8px;margin:10px 0 4px}
   .ptools input,.ptools select{font:inherit;font-size:15px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
   .ptools input{flex:1;min-width:0}
+  .ptools select{max-width:46%}
   .phead{display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer}
   .phead b{display:inline;font-size:15px}
   .phead small{color:var(--muted)}
@@ -410,6 +411,7 @@
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
       <details class="faq"><summary>Add someone</summary><div>Tap <b>Settings → Manage people</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
+      <details class="faq"><summary>Who's been on, and what version?</summary><div>In <b>Settings → Manage people</b>, each person shows when they last opened the app, the app version on their phone (⚠️ if it's out of date), their device, and whether notifications are on. Use the menu next to search to see who's been quiet for a week, who's on an old version, or who has notifications off. Someone on an old version can tap <b>Settings → Force update</b>.</div></details>
       <details class="faq"><summary>Player requests</summary><div>When someone asks to add a person, you get a notification and a <b>🔔 Review</b> banner on Picks. In <b>Settings → Manage people</b>, the request shows at the top: fix the name or groups if you want (it suggests the requester's group), then <b>Approve &amp; add</b> (their link opens to send) or <b>Decline</b>. The requester is told when you approve.</div></details>
       <details class="faq"><summary>Remind someone to pick</summary><div>Tap their name (Group tab or Stats) and tap <b>🔔 Remind … to pick</b>, or use <b>🔔 Remind everyone with open picks</b> at the top of <b>Settings → Manage people</b>. It goes out right away, even if they turned pick reminders off, and only to people who still have open picks. Once per person every 10 minutes.</div></details>
       <details class="faq"><summary>Groups</summary><div>In <b>Settings → Manage people</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
@@ -423,7 +425,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.12.0';
+  const APP_VERSION = '2.13.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -448,9 +450,21 @@
     return fetch(u.toString()).then(r=>r.json()).then(j=>{ if(!j.ok) throw new Error(j.error||'Something went wrong.'); return j.data; });
   }
 
+  function deviceLabel(){
+    const ua=navigator.userAgent, inst=(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+    const dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':/Mac/.test(ua)?'Mac':/Windows/.test(ua)?'Windows':'Other';
+    return dev+(inst?' app':' browser');
+  }
+  function ago(iso){
+    if(!iso) return ''; const t=new Date(iso).getTime(); if(!t) return '';
+    const m=Math.round((Date.now()-t)/60000);
+    if(m<2) return 'just now'; if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago'; const d=Math.round(h/24); return d===1?'yesterday':d+'d ago';
+  }
+  let sentN='';
   function load(wk, busy){
     spin(true); if(busy) document.body.classList.add('busy');
-    return api('state', {wk: wk||''})
+    sentN=pushReady?pushStatus():'';
+    return api('state', {wk: wk||'', v: APP_VERSION, d: deviceLabel(), n: sentN})
       .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); if(openRecapFromLink()) return; setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
@@ -1097,6 +1111,7 @@
         linkUser(); refreshPushUI();
       });
       plog('Ready: '+subInfo()+', user '+((OneSignal.User.onesignalId||'none')+'').slice(0,8));
+      setTimeout(()=>{ try{ const n=pushStatus(); if(n!==sentN&&state){ sentN=n; api('state',{wk:state.selected,v:APP_VERSION,d:deviceLabel(),n:n}).catch(()=>{}); } }catch(e){} },2500);
       linkUser(); refreshPushUI();
       let wasReset=false; try{ wasReset=sessionStorage.getItem('nflpicks_pushreset')==='1'; sessionStorage.removeItem('nflpicks_pushreset'); }catch(e){}
       if(wasReset){
@@ -1536,26 +1551,35 @@
   }
   function fallbackCopy(t,done){ const a=document.createElement('textarea'); a.value=t; a.style.position='fixed'; a.style.opacity='0'; document.body.appendChild(a); a.select(); try{ document.execCommand('copy'); done(); }catch(e){ toast('Couldn\'t copy. Long-press the link instead.'); } a.remove(); }
   let openPerson='';
+  function activity(p){
+    if(!p.lastSeen) return 'Hasn\'t opened the app yet';
+    const old=p.appVersion&&people.current&&p.appVersion!==people.current;
+    const nt={on:'🔔 on',off:'🔕 off',blocked:'🔕 blocked',ios:'🔕 not on home screen',unsupported:'🔕 n/a',error:'⚠️ notif error'}[p.notifs]||'';
+    return ['Seen '+esc(ago(p.lastSeen)), p.appVersion?(old?'⚠️ v'+esc(p.appVersion):'v'+esc(p.appVersion)):'', esc(p.device), nt].filter(Boolean).join(' · ');
+  }
   function renderPeople(){
     const el=document.getElementById('people'); if(!el) return;
     if(!people){ el.innerHTML='<p>Loading…</p>'; return; }
     // filter menu
     const fs=document.getElementById('pFilter'), fv=fs.value||'__all';
     const gs=people.groups||[];
-    fs.innerHTML=[['__all','Everyone'],['__active','Playing'],['__retired','Retired'],['__none','No group']].concat(gs.map(g=>[g,g])).map(([v,t])=>`<option value="${esc(v)}"${v===fv?' selected':''}>${esc(t)}</option>`).join('');
+    fs.innerHTML=[['__all','Everyone'],['__active','Playing'],['__recent','Most recently seen'],['__quiet','Not seen in 7+ days'],['__oldver','On an old version'],['__notifoff','Notifications off'],['__retired','Retired'],['__none','No group']].concat(gs.map(g=>[g,g])).map(([v,t])=>`<option value="${esc(v)}"${v===fv?' selected':''}>${esc(t)}</option>`).join('');
     const q=(document.getElementById('pSearch').value||'').trim().toLowerCase();
     const list=people.people.filter(p=>{
       if(fv==='__active'&&!p.active) return false;
       if(fv==='__retired'&&p.active) return false;
+      if(fv==='__quiet'&&(!p.active||(p.lastSeen&&Date.now()-new Date(p.lastSeen)<7*864e5))) return false;
+      if(fv==='__oldver'&&(!p.active||!p.appVersion||p.appVersion===people.current)) return false;
+      if(fv==='__notifoff'&&(!p.active||p.notifs==='on')) return false;
       if(fv==='__none'&&((p.groups||[]).length||p.id===people.adminId)) return false;
       if(gs.indexOf(fv)>=0&&p.id!==people.adminId&&(p.groups||[]).indexOf(fv)<0) return false;
       return !q||p.name.toLowerCase().indexOf(q)>=0||(p.groups||[]).some(g=>g.toLowerCase().indexOf(q)>=0);
-    }).sort((a,b)=>(b.active-a.active)||(a.id===people.adminId?-1:b.id===people.adminId?1:a.name.localeCompare(b.name)));
+    }).sort(fv==='__recent'?((a,b)=>(new Date(b.lastSeen||0))-(new Date(a.lastSeen||0))):((a,b)=>(b.active-a.active)||(a.id===people.adminId?-1:b.id===people.adminId?1:a.name.localeCompare(b.name))));
     el.innerHTML=list.map(p=>{
       const tags=p.id===people.adminId?'Every group':((p.groups||[]).join(', ')||'No group');
       const open=openPerson===p.id;
       return `<div class="person">
-        <div class="phead" data-pexp="${esc(p.id)}"><span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
+        <div class="phead" data-pexp="${esc(p.id)}"><span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}

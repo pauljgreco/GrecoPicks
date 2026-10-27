@@ -24,12 +24,12 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.12.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.13.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
 const REACTIONS = ['😂', '🔥', '💀', '🤡', '😤', '👀'];
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -221,12 +221,39 @@ function noteLiveVersion_() {
   } catch (e) { /* never block the app over this */ }
 }
 
+/**
+ * Remembers when each person last opened the app, which app version they're on, their device and
+ * notification status (Players tab: LastSeen, AppVersion, Device, Notifications). Written at most
+ * every 10 minutes per person, or right away if something changed.
+ */
+function noteSeen_(key, v, d, n) {
+  try {
+    const me = playerForKey_(key);
+    if (!me) return;
+    v = String(v || '').slice(0, 20); d = String(d || '').slice(0, 30); n = String(n || '').slice(0, 20);
+    const cache = CacheService.getScriptCache();
+    const sig = [v, d, n].join('|');
+    if (cache.get('seen_' + me.id) === sig) return;
+    const sh = playersSheet_();
+    const vals = sh.getDataRange().getValues();
+    for (let i = 1; i < vals.length; i++) {
+      if (String(vals[i][0]).trim().toUpperCase() !== me.id) continue;
+      sh.getRange(i + 1, 13, 1, 4).setValues([[new Date(), v || vals[i][13] || '', d || vals[i][14] || '', n || vals[i][15] || '']]);
+      sh.getRange(i + 1, 13).setNumberFormat('m/d h:mm AM/PM');
+      sh.getRange(i + 1, 14).setNumberFormat('@');
+      break;
+    }
+    cache.put('seen_' + me.id, sig, 600);
+    PLAYERS_ = null;
+  } catch (e) { Logger.log('noteSeen: ' + e.message); }
+}
+
 /** JSON API used by the installable app: ?api=state|pick|admin&k=KEY&... */
 function api_(p) {
   let out;
   try {
     let data;
-    if (p.api === 'state') data = getState(p.k, p.wk || '');
+    if (p.api === 'state') { noteSeen_(p.k, p.v, p.d, p.n); data = getState(p.k, p.wk || ''); }
     else if (p.api === 'pick') data = submitPick(p.k, p.g, p.p);
     else if (p.api === 'admin') data = adminSetPick(p.k, p.g, p.pl, p.p, p.wk || '');
     else if (p.api === 'history') data = history_(p.k, p.season || '');
@@ -636,6 +663,8 @@ function players_() {
       groups: splitList_(r[9]),
       hidden: splitList_(r[10]).map(x => x.toUpperCase()),
       upsets: isOn_(r[11]),
+      lastSeen: r[12] instanceof Date ? r[12].toISOString() : (r[12] ? String(r[12]) : ''),
+      appVersion: String(r[13] || ''), device: String(r[14] || ''), notifs: String(r[15] || ''),
     }));
   return PLAYERS_;
 }
@@ -992,7 +1021,9 @@ function people_(key) {
     base: base,
     groups: groupNames_(),
     adminId: adminId_(),
-    people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '' })),
+    people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '',
+      lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs })),
+    current: SCRIPT_VERSION,
     requests: pendingRequests_(),
   };
 }
