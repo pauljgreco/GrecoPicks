@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.13.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.14.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -114,16 +114,20 @@ function refreshGames() {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    const props = PropertiesService.getScriptProperties();
     const current = fetchScoreboard_();
     if (current.length) {
       upsertGames_(current);
-      PropertiesService.getScriptProperties().setProperty('CURRENT_WEEK', weekKey_(current[0]));
+      // Only move forward: once we've opened next week early, ESPN's "current" (still last week) doesn't pull us back.
+      const espnWeek = weekKey_(current[0]), stored = props.getProperty('CURRENT_WEEK');
+      if (!stored || weekOrder_(espnWeek) > weekOrder_(stored)) props.setProperty('CURRENT_WEEK', espnWeek);
     }
     const fetched = new Set(current.map(weekKey_));
     staleWeeks_().filter(k => !fetched.has(k)).slice(0, 3).forEach(k => {
       const [season, type, week] = k.split('|');
       upsertGames_(fetchScoreboard_(season, type, week));
     });
+    try { openNextWeekEarly_(); } catch (e) { Logger.log('Next week not loaded yet: ' + e.message); }
     gradeAndRecord_();
     try { notifications_(); } catch (e) { Logger.log('Notifications skipped: ' + e.message); }
     try { archiveOldSeasons_(); } catch (e) { Logger.log('Archive skipped: ' + e.message); }
@@ -674,6 +678,32 @@ function playerForKey_(key) {
   const p = players_().find(x => x.key === key && x.active);
   if (!p) return null;
   return { id: p.id, name: p.name, isAdmin: (settings_().AdminPlayer || 'P1').toUpperCase() === p.id };
+}
+
+function weekOrder_(k) { const [a, b, c] = String(k).split('|').map(Number); return a * 1000 + b * 100 + c; }
+
+/** The week after season|type|week: regular season 1–18, then Wild Card, Divisional, Conference, Super Bowl. */
+function nextWeekKey_(k) {
+  const [season, type, week] = String(k).split('|').map(Number);
+  if (type === 2) return week < 18 ? [season, 2, week + 1].join('|') : [season, 3, 1].join('|');
+  if (type === 3) return week < 3 ? [season, 3, week + 1].join('|') : week === 3 ? [season, 3, 5].join('|') : '';
+  return '';
+}
+
+/** As soon as every game of the current week is final, load next week's games and open picks for it. */
+function openNextWeekEarly_() {
+  const props = PropertiesService.getScriptProperties();
+  const cur = props.getProperty('CURRENT_WEEK');
+  if (!cur) return;
+  const games = readGames_().filter(g => weekKey_(g) === cur);
+  if (!games.length || !games.every(g => g.status === 'final')) return;
+  const next = nextWeekKey_(cur);
+  if (!next) return;
+  const [season, type, week] = next.split('|');
+  const ng = fetchScoreboard_(season, type, week).filter(g => weekKey_(g) === next);
+  if (!ng.length) return;   // schedule not posted yet (e.g., playoff matchups still to be set); try again next refresh
+  upsertGames_(ng);
+  props.setProperty('CURRENT_WEEK', next);
 }
 
 function weekKey_(g) { return [g.season, g.seasonType, g.week].join('|'); }
@@ -1643,7 +1673,7 @@ function notifications_(nowMs) {
   const lastWeek = PropertiesService.getScriptProperties().getProperty('LAST_NEW_WEEK');
   if (lastWeek === null) {
     PropertiesService.getScriptProperties().setProperty('LAST_NEW_WEEK', cur);   // first run: don't announce the current week
-  } else if (cur && cur !== lastWeek) {
+  } else if (cur && cur !== lastWeek && hourEt >= 9 && hourEt < 21) {   // waits for a decent hour (Eastern)
     const wkGames = games.filter(g => weekKey_(g) === cur);
     if (wkGames.some(g => g.status === 'pre')) {
       const [, type, week] = cur.split('|');
