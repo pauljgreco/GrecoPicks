@@ -24,11 +24,10 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.14.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.15.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
-  TIEBREAK: 'Tiebreakers', REACT: 'Reactions', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
-const REACTIONS = ['😂', '🔥', '💀', '🤡', '😤', '👀'];
+  TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
 const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
@@ -36,7 +35,7 @@ const REMIND_HOURS = 2;
 const GAME_HEADERS = ['GameID', 'Season', 'SeasonType', 'Week', 'Kickoff', 'Away', 'AwayAbbr', 'AwayLogo', 'AwayScore',
   'Home', 'HomeAbbr', 'HomeLogo', 'HomeScore', 'Status', 'Detail', 'Winner', 'LastUpdated', 'AwayRecord', 'HomeRecord',
   'AwayRecordPre', 'HomeRecordPre'];
-const PICK_HEADERS = ['GameID', 'Season', 'SeasonType', 'Week', 'Player', 'Pick', 'PickedAt', 'Override', 'Result'];
+const PICK_HEADERS = ['GameID', 'Season', 'SeasonType', 'Week', 'Player', 'Pick', 'PickedAt', 'Override', 'Result', 'Locked'];
 const G = {}; GAME_HEADERS.forEach((h, i) => { G[h] = i; });
 const P = {}; PICK_HEADERS.forEach((h, i) => { P[h] = i; });
 
@@ -273,7 +272,7 @@ function api_(p) {
     else if (p.api === 'active') data = setActive_(p.k, p.pl, p.on);
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
-    else if (p.api === 'react') data = react_(p.k, p.g, p.e);
+    else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -302,9 +301,8 @@ function getState(key, wk) {
 
   const picks = readPicks_();
   const now = Date.now();
-  const reactions = readReactions_();
   const weekGames = games.filter(g => weekKey_(g) === sel).sort((a, b) => a.kickoff - b.kickoff || a.id.localeCompare(b.id));
-  const list = weekGames.map(g => gameView_(g, me, picks, now, roster, reactions));
+  const list = weekGames.map(g => gameView_(g, me, picks, now, roster));
 
   const parts = sel ? sel.split('|') : ['', '', ''];
   const board = leaderboard_(picks.vals, parts, roster);
@@ -338,12 +336,13 @@ function getState(key, wk) {
  * One game as seen by one player. Other players' picks are only sent once you've
  * picked that game (or it has kicked off). Picks can be changed until kickoff.
  */
-function gameView_(g, me, picks, now, roster, reactions) {
+function gameView_(g, me, picks, now, roster) {
   const mine = picks.map[g.id + '|' + me.id];
   const locked = now >= g.kickoff.getTime();
   const others = roster.filter(p => p.id !== me.id).map(p => ({ p: p, pk: picks.map[g.id + '|' + p.id] }));
   const othersPicked = others.filter(x => x.pk).length;
-  const reveal = !!mine || locked;
+  // Other people's picks show once you've LOCKED yours for this game, or once it kicks off.
+  const reveal = (mine && mine.locked) || locked;
   const out = {
     id: g.id,
     kickoff: g.kickoff.toISOString(),
@@ -355,7 +354,7 @@ function gameView_(g, me, picks, now, roster, reactions) {
     frozen: false,
     away: { name: g.away, abbr: g.awayAbbr, logo: g.awayLogo, score: g.awayScore, record: g.awayRecord },
     home: { name: g.home, abbr: g.homeAbbr, logo: g.homeLogo, score: g.homeScore, record: g.homeRecord },
-    mine: mine ? { pick: mine.pick, result: mine.result, override: mine.override } : null,
+    mine: mine ? { pick: mine.pick, result: mine.result, override: mine.override, locked: !!mine.locked || locked } : null,
     othersPicked: othersPicked,
     othersTotal: others.length,
     others: reveal ? others.filter(x => x.pk).map(x => ({ name: x.p.name, pick: x.pk.pick, result: x.pk.result, override: x.pk.override })) : [],
@@ -364,9 +363,9 @@ function gameView_(g, me, picks, now, roster, reactions) {
   roster.forEach(p => {
     const pk = picks.map[g.id + '|' + p.id];
     if (!pk) return;
-    out.all[p.id] = (reveal || p.id === me.id) ? { p: pk.pick, r: pk.result, o: pk.override } : { h: 1 };
+    // before you lock: only whether they've locked (l) or are still picking, never the team
+    out.all[p.id] = (reveal || p.id === me.id) ? { p: pk.pick, r: pk.result, o: pk.override, l: pk.locked ? 1 : 0 } : { h: 1, l: pk.locked ? 1 : 0 };
   });
-  if (locked) out.react = ((reactions || readReactions_())[g.id]) || {};
   if (me.isAdmin && locked) {
     out.admin = roster.map(p => ({ id: p.id, name: p.name, pick: (picks.map[g.id + '|' + p.id] || {}).pick || '' }));
   }
@@ -388,10 +387,44 @@ function submitPick(key, gameId, pick) {
     if (allowed.indexOf(pick) < 0) throw new Error('That pick isn\'t allowed for this game.');
     const roster = players_().filter(p => p.active);
     const picks = readPicks_();
+    const had = picks.map[g.id + '|' + me.id];
+    if (had && had.locked) throw new Error('You locked this pick in, so it can\'t be changed.');
     writePick_(g, me.id, pick, false, picks);
     const fresh = readPicks_();
     try { allInCheck_(weekKey_(g), fresh); } catch (e) { Logger.log('All-in check: ' + e.message); }
     return { game: gameView_(g, me, fresh, Date.now(), roster) };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Lock in your picks for one or more games (comma-separated IDs). Locked picks can't be changed, and locking a game
+ * reveals everyone else's picks for it. Unlocked picks still count; they lock on their own at kickoff.
+ */
+function lockPicks_(key, gameIds) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  const ids = String(gameIds || '').split(',').map(x => x.trim()).filter(Boolean);
+  if (!ids.length) throw new Error('Nothing to lock.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = sheet_(TABS.PICKS);
+    if (String(sh.getRange(1, P.Locked + 1).getValue()) !== 'Locked') sh.getRange(1, P.Locked + 1).setValue('Locked').setFontWeight('bold');
+    const games = {}; readGames_().forEach(g => { games[g.id] = g; });
+    const picks = readPicks_();
+    const now = new Date();
+    let n = 0;
+    ids.forEach(id => {
+      const g = games[id], pk = picks.map[id + '|' + me.id];
+      if (!g || !pk || pk.locked || now.getTime() >= g.kickoff.getTime()) return;
+      sh.getRange(pk.row, P.Locked + 1).setValue(now);
+      n++;
+    });
+    const fresh = readPicks_();
+    const roster = players_().filter(p => p.active);
+    return { locked: n, games: ids.filter(id => games[id]).map(id => gameView_(games[id], me, fresh, Date.now(), roster)) };
   } finally {
     lock.releaseLock();
   }
@@ -459,7 +492,6 @@ function history_(key, season) {
     picks: pickRows,
     // every week's total game count (including games not played yet), so the app knows which weeks are finished
     weekGames: (() => { const o = {}; games.filter(g => want === 'all' || g.season === want).forEach(g => { const k = weekKey_(g); o[k] = (o[k] || 0) + 1; }); return o; })(),
-    react: (() => { const r = readReactions_(), o = {}; Object.keys(r).forEach(id => { if (ids[id]) o[id] = Object.keys(r[id]).reduce((n, e) => n + r[id][e].length, 0); }); return o; })(),
   };
 }
 
@@ -791,6 +823,7 @@ function readPicks_() {
       pick: String(r[P.Pick]).toUpperCase(),
       override: r[P.Override] === true || String(r[P.Override]).toUpperCase() === 'TRUE',
       result: String(r[P.Result]),
+      locked: !!r[P.Locked],
     };
   }
   return { sh: sh, vals: vals, map: map };
@@ -1319,7 +1352,7 @@ function crown_(games, pickVals, roster) {
 }
 
 // ======================================================================
-// Tiebreaker, reactions, last week, milestones, archive
+// Tiebreaker, last week, milestones, archive
 // ======================================================================
 
 let TB_ = null;
@@ -1379,47 +1412,6 @@ function setTiebreak_(key, wk, guess) {
   return tiebreakView_(weekGames, String(wk), me, players_().filter(p => p.active), Date.now());
 }
 
-let REACT_ = null;
-function readReactions_() {
-  if (REACT_) return REACT_;
-  const sh = ensureSheet_(TABS.REACT, ['GameID', 'Player', 'Emoji', 'At']);
-  sh.getRange('A:A').setNumberFormat('@');
-  const o = {};
-  sh.getDataRange().getValues().slice(1).forEach(r => {
-    if (r[0] === '') return;
-    const g = o[String(r[0])] || (o[String(r[0])] = {});
-    (g[String(r[2])] = g[String(r[2])] || []).push(String(r[1]).toUpperCase());
-  });
-  REACT_ = o;
-  return o;
-}
-
-/** Toggle your emoji reaction on a game (after kickoff). */
-function react_(key, gameId, emoji) {
-  const me = playerForKey_(key);
-  if (!me) throw new Error('This link is no longer valid.');
-  emoji = String(emoji || '');
-  if (REACTIONS.indexOf(emoji) < 0) throw new Error('Unknown reaction.');
-  const g = readGames_().find(x => x.id === String(gameId));
-  if (!g) throw new Error('Game not found.');
-  if (Date.now() < g.kickoff.getTime()) throw new Error('Reactions open at kickoff.');
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
-    const sh = ensureSheet_(TABS.REACT, ['GameID', 'Player', 'Emoji', 'At']);
-    sh.getRange('A:A').setNumberFormat('@');
-    const vals = sh.getDataRange().getValues();
-    let row = 0;
-    for (let i = 1; i < vals.length; i++) {
-      if (String(vals[i][0]) === g.id && String(vals[i][1]).toUpperCase() === me.id && String(vals[i][2]) === emoji) { row = i + 1; break; }
-    }
-    if (row) sh.deleteRow(row); else sh.appendRow([g.id, me.id, emoji, new Date()]);
-    REACT_ = null;
-  } finally {
-    lock.releaseLock();
-  }
-  return { gameId: g.id, react: readReactions_()[g.id] || {} };
-}
 
 /** Your record in the most recent fully final week (for confetti and the weekly recap). */
 function lastWeekFor_(games, pickVals, me, roster) {
