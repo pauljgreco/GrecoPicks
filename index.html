@@ -333,8 +333,8 @@
     </div>
     <h3>Fix the app</h3>
     <div class="nbox">
-      <p>Stuck on an old version? Tap <b>Force update</b>. Still acting weird, or notifications won't turn on? <b>Reset</b> clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
-      <button class="nbtn" id="appUpdate">Force update</button>
+      <p>Stuck on an old version? Tap <b>Get the latest version</b>. Still acting weird, or notifications won't turn on? <b>Reset</b> clears everything the app has saved on this phone and reloads it fresh. Your picks are safe, and you stay signed in.</p>
+      <button class="nbtn" id="appUpdate">Get the latest version</button>
       <p style="margin:6px 0 12px;font-size:13px">Throws away the saved copy of the app and loads the newest one from the internet right now. You stay signed in and nothing else is cleared.</p>
       <button class="nbtn" id="appReset" style="background:none;color:var(--accent);border:1px solid var(--accent)">Reset the app on this phone</button>
     </div>
@@ -423,7 +423,7 @@
     <div id="adminHelp" hidden>
       <h3>Admin (only you see this)</h3>
       <details class="faq"><summary>Add someone</summary><div>Tap <b>Settings → Manage people</b>, type their name and tap <b>Add</b>. Then send them their link with <b>Send link</b>. You can grab anyone's link there any time.</div></details>
-      <details class="faq"><summary>Who's been on, and what version?</summary><div>In <b>Settings → Manage people</b>, each person shows when they last opened the app, the app version on their phone (⚠️ if it's out of date), their device, and whether notifications are on. Use the menu next to search to see who's been quiet for a week, who's on an old version, or who has notifications off. Someone on an old version can tap <b>Settings → Force update</b>.</div></details>
+      <details class="faq"><summary>Who's been on, and what version?</summary><div>In <b>Settings → Manage people</b>, each person shows when they last opened the app, the app version on their phone (⚠️ if it's out of date), their device, and whether notifications are on. Use the menu next to search to see who's been quiet for a week, who's on an old version, or who has notifications off. Someone on an old version sees a ✨ <b>Update</b> banner, or can tap <b>Settings → Get the latest version</b>.</div></details>
       <details class="faq"><summary>Player requests</summary><div>When someone asks to add a person, you get a notification and a <b>🔔 Review</b> banner on Picks. In <b>Settings → Manage people</b>, the request shows at the top: fix the name or groups if you want (it suggests the requester's group), then <b>Approve &amp; add</b> (their link opens to send) or <b>Decline</b>. The requester is told when you approve.</div></details>
       <details class="faq"><summary>Remind someone to pick</summary><div>Tap their name (Group tab or Stats) and tap <b>🔔 Remind … to pick</b>, or use <b>🔔 Remind everyone with open picks</b> at the top of <b>Settings → Manage people</b>. It goes out right away, even if they turned pick reminders off, and only to people who still have open picks. Once per person every 10 minutes.</div></details>
       <details class="faq"><summary>Groups</summary><div>In <b>Settings → Manage people</b>, type someone's groups separated by commas (e.g. <i>Greco's, Friends</i>) and tap <b>Save</b>. Their first group is the one their app opens on. To take someone out of a group, delete it from their list and Save. You're in every group automatically.</div></details>
@@ -437,7 +437,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.15.1';
+  const APP_VERSION = '2.15.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -544,7 +544,9 @@
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
-    const vWarn=(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
+    // Phone has an older app than what's live: anyone can fix it with one tap. App newer than the script: only the admin hears about it.
+    const vWarn=(s.version&&verNewer(s.version,APP_VERSION))?`<div class="banner"><span>✨ <b>A new version of Greco Picks is ready.</b></span><button class="go" data-push="update">Update</button></div>`
+      :(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
     const rqBan=(s.me.isAdmin&&s.requests)?`<div class="banner"><span>🔔 ${s.requests} player request${s.requests>1?'s':''} waiting</span><button class="go" data-openreq="1">Review</button></div>`:'';
     m.innerHTML=vWarn+rqBan+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?slotsView(s):'<div class="empty">No games loaded yet.</div>');
     lockBar(s);
@@ -1404,6 +1406,7 @@
     if(b.dataset.push==='optout'){ LS.set('nflpicks_pushoptout','1'); render(); toast('Got it. You can turn them on any time in Settings.'); }
     if(b.dataset.push==='checked'){ LS.set('nflpicks_checked','1'); render(); }
     if(b.dataset.push==='checktest'){ LS.set('nflpicks_checked','1'); b.disabled=true; api('testme',{}).then(()=>toast('Sent! If nothing pops up in a minute, open Settings → Notifications → Reset.')).catch(e=>toast(e.message)).finally(()=>render()); }
+    if(b.dataset.push==='update'){ b.disabled=true; b.textContent='Updating…'; document.getElementById('appUpdate').click(); }
     if(b.dataset.push==='locktip'){ LS.set('nflpicks_locktip','1'); render(); }
     if(b.dataset.push==='whatsnew'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); }
     if(b.dataset.push==='whatsnewhelp'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); document.getElementById('help').classList.add('on'); }
@@ -1457,10 +1460,12 @@
     });
   })();
 
+  function verNewer(a,b){ const x=String(a).split('.').map(Number), y=String(b).split('.').map(Number); for(let i=0;i<3;i++){ if((x[i]||0)!==(y[i]||0)) return (x[i]||0)>(y[i]||0); } return false; }
   function updateVer(){
     const el=document.getElementById('ver'); if(!el) return;
     const sv=(state&&state.version)||'older', okv=sv===APP_VERSION;
-    el.innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ App and script match':'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+(state&&state.me.isAdmin?'<br>Tap Force update. If it stays, check GitHub → Actions.':'<br>Tap Force update.'));
+    const behind=state&&state.version&&verNewer(state.version,APP_VERSION);
+    el.innerHTML=esc('Greco Picks '+APP_VERSION)+'<br>'+(okv?'✅ Up to date':behind?'✨ A new version ('+esc(sv)+') is ready. Tap <b>Get the latest version</b> above.':(state&&state.me.isAdmin?'⚠️ App '+esc(APP_VERSION)+' · script '+esc(sv)+'<br>If this stays, check GitHub → Actions.':'Finishing an update…'));
   }
 
   // ---------- Force update: drop the saved app files and reload fresh (keeps sign-in and settings) ----------
