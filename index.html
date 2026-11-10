@@ -411,7 +411,7 @@
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
     <details class="faq"><summary>Someone else wants to play?</summary><div><b>Settings → Request a new player</b>. Type their name (and an optional note) and send it to Paul. He adds them and sends their link; you'll get a notification when they're in.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
-    <details class="faq"><summary>Locking in picks 🔒</summary><div>Tapping a team saves a <b>draft</b> (✏️) you can change. <b>Locking</b> makes it final (🔒) and shows you everyone else's picks for that game. Lock everything with the <b>🔒 Lock in all</b> button at the bottom, a whole time slot with <b>Lock these</b>, or one game with its <b>🔒 Lock</b> button. Forgot to lock? Your draft still counts: it locks on its own at kickoff. Tap a time slot's header to collapse or expand it. ⬜ means not picked yet.</div></details>
+    <details class="faq"><summary>Locking in picks 🔒</summary><div>Tapping a team saves a <b>draft</b> (✏️) you can change. <b>Locking</b> makes it final (🔒) and shows you everyone else's picks for that game. Lock everything with the <b>🔒 Lock in all</b> button at the bottom, a whole time slot with its <b>Lock picks</b> button, or one game with its <b>🔒 Lock</b> button. Forgot to lock? Your draft still counts: it locks on its own at kickoff. Tap a time slot's header to collapse or expand it. ⬜ means not picked yet.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), the weekly results notification opens it straight up, and a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. Past weeks' recaps are always there: pick the week in the menu at the top. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, and season-so-far highlights. Tap ✕ to hide it.</div></details>
     <details class="faq"><summary>Light or dark mode? Team colors?</summary><div><b>Settings → Appearance</b>: Auto (follows your phone), Light or Dark, plus <b>Team colors</b> for every NFL team and a bunch of Eagles looks (Midnight Green, Black, Silver, Kelly Green, Kelly White and the Frankford Yellow Jackets throwback). It's just for your phone.</div></details>
@@ -437,7 +437,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.15.0';
+  const APP_VERSION = '2.15.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -585,7 +585,7 @@
         <button class="sbtn" data-slots="${anyOpen?'collapse':'expand'}">${anyOpen?'Collapse all':'Expand all'}</button></div>`;
     return head+slots.map(sl=>{
       const op=slotOpen(sl), done=sl.c.open+sl.c.picked===0;
-      const act=sl.c.started===sl.games.length?'<span class="mut">Started</span>':sl.c.picked?`<button class="lkslot" data-lockslot="${esc(sl.id)}">Lock these ${sl.c.picked}</button>`:done?'<span class="mut">🔒 Locked</span>':`<span class="mut">${sl.c.locked} of ${sl.games.length-sl.c.started} picked</span>`;
+      const act=sl.c.started===sl.games.length?'<span class="mut">Started</span>':sl.c.picked?`<button class="lkslot" data-lockslot="${esc(sl.id)}">${sl.c.picked===1?'Lock pick':'Lock '+sl.c.picked+' picks'}</button>`:done?'<span class="mut">🔒 Locked</span>':`<span class="mut">${sl.c.locked} of ${sl.games.length-sl.c.started} picked</span>`;
       return `<div class="slot${op?' open':''}"><div class="shead" data-slot="${esc(sl.id)}"><span class="chev">${op?'▾':'▸'}</span><span class="sl">${esc(sl.label)}<small>${cnts(sl.c)}${sl.c.started&&sl.c.started<sl.games.length?' · '+sl.c.started+' started':''}</small></span>${act}</div>
         ${op?sl.games.map(card).join(''):''}</div>`;
     }).join('');
@@ -1239,7 +1239,7 @@
   const WHATS_NEW_ON=true;
   function whatsNew(){
     if(LS.get('nflpicks_locktip')!=='1') return `<div class="crown" style="border-color:var(--accent)"><b>🔒 New: lock in your picks</b>
-      <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Tapping a team is now a <b>draft</b> ✏️ you can change. <b>Lock</b> it 🔒 to make it final and see everyone else's picks. Use <b>Lock in all</b> at the bottom, <b>Lock these</b> on a time slot, or 🔒 on one game. Forget to lock? Drafts still count and lock at kickoff.</div>
+      <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Tapping a team is now a <b>draft</b> ✏️ you can change. <b>Lock</b> it 🔒 to make it final and see everyone else's picks. Use <b>Lock in all</b> at the bottom, <b>Lock picks</b> on a time slot, or 🔒 on one game. Forget to lock? Drafts still count and lock at kickoff.</div>
       <button class="sbtn" data-push="locktip">Got it</button></div>`;
     if(!WHATS_NEW_ON || LS.get('nflpicks_whatsnew')===WHATS_NEW) return '';
     return `<div class="crown" style="border-color:var(--accent)"><b>✨ New in Greco Picks</b>
