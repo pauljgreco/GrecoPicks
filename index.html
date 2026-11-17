@@ -42,6 +42,8 @@
   .wsum a{color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
   .wsum .sbtn{flex:none}
   .mut{color:var(--muted);font-size:13px}
+  .mv{font-size:12px;font-weight:800;white-space:nowrap}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
+  .hw{font-size:12px;color:var(--muted);margin-left:4px;white-space:nowrap}
   .slot{margin-bottom:8px}
   .shead{display:flex;align-items:center;gap:8px;padding:9px 4px;cursor:pointer;border-bottom:2px solid var(--line);margin-bottom:8px;user-select:none;-webkit-user-select:none}
   .shead .chev{width:14px;color:var(--muted)}
@@ -438,7 +440,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.16.1';
+  const APP_VERSION = '2.17.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -798,9 +800,14 @@
 
     // Standings
     const shareWk=(state.weeks||[]).some(w=>w.key===state.selected)&&h.games.some(g=>wkKey(g)===state.selected)?state.selected:(st.weeks.length?st.weeks[st.weeks.length-1]:'');
-    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
-    }</tbody></table></div>`;
+    // movement only makes sense for the whole season; 👑/💩 counts cover the weeks in the selected range
+    const lastWk=st.weeks.length?st.weeks[st.weeks.length-1]:'';
+    const ex=(lastWk&&season!=='all')?seasonExtras(h,lastWk,P.map(s=>s.id)):{crowns:{},poops:{},move:{}};
+    if(sf.range!=='season') ex.move={};
+    if(sf.range!=='season'&&sf.range!=='reg'){ ex.crowns={}; ex.poops={}; }
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)} ${hwTxt(ex.crowns[s.id],ex.poops[s.id])}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
+    }</tbody></table></div>${Object.keys(ex.move).length?'<div class="note">▲▼ = change in rank since last week · 👑 / 💩 = weeks won / finished last</div>':''}`;
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
@@ -974,6 +981,32 @@
   });
 
   // ---------- Share standings as a picture (week + season, for the selected group) ----------
+  // Season extras through week `wk` for these people: 👑/💩 counts (finished weeks only) and rank movement since the previous finished week.
+  function seasonExtras(h,wk,ids){
+    const season=wk.split('|')[0], games={}; h.games.forEach(g=>games[g.id]=g);
+    const tot=h.weekGames||{}, fin={}; h.games.forEach(g=>{ if(g.status==='final') fin[wkKey(g)]=(fin[wkKey(g)]||0)+1; });
+    const done=k=>tot[k]?fin[k]===tot[k]:h.games.filter(g=>wkKey(g)===k).every(g=>g.status==='final');
+    const weeks=Array.from(new Set(h.games.filter(g=>String(g.season)===season).map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&done(k)).sort((a,b)=>wkOrder(a)-wkOrder(b));
+    const per={}; ids.forEach(id=>per[id]={});
+    h.picks.forEach(x=>{ const g=games[x[0]]; if(!g||!per[x[1]]||(x[3]!=='W'&&x[3]!=='L')) return; const k=wkKey(g); const o=per[x[1]][k]||(per[x[1]][k]={W:0,L:0}); o[x[3]]++; });
+    const crowns={}, poops={}; ids.forEach(id=>{ crowns[id]=0; poops[id]=0; });
+    weeks.forEach(k=>{
+      const played=ids.filter(id=>per[id][k]); if(played.length<2) return;
+      const top=Math.max(...played.map(id=>per[id][k].W)), low=Math.min(...played.map(id=>per[id][k].W));
+      let winners=played.filter(id=>per[id][k].W===top&&top>0);
+      const c=curCrown(); if(c&&c.key===k) winners=winners.filter(id=>c.ids.indexOf(id)>=0).length?winners.filter(id=>c.ids.indexOf(id)>=0):winners;   // the server knows the tiebreaker for the latest week
+      winners.forEach(id=>crowns[id]++);
+      if(low<top) played.filter(id=>per[id][k].W===low).forEach(id=>poops[id]++);
+    });
+    const rankThru=last=>{ const rows=ids.map(id=>{ let W=0,L=0; Object.keys(per[id]).forEach(k=>{ if(wkOrder(k)<=wkOrder(last)&&k.split('|')[0]===season){ W+=per[id][k].W; L+=per[id][k].L; } }); return {id,W,L,pct:W+L?W/(W+L):-1}; })
+      .filter(r=>r.pct>=0).sort((a,b)=>b.pct-a.pct||b.W-a.W); const out={}; let rk=0,prev=null; rows.forEach((r,i)=>{ const key=r.pct+'|'+r.W; if(key!==prev){ rk=i+1; prev=key; } out[r.id]=rk; }); return out; };
+    const move={};
+    const lastDone=weeks.length?weeks[weeks.length-1]:null, prevDone=weeks.length>1?weeks[weeks.length-2]:null;
+    if(lastDone&&prevDone){ const now=rankThru(lastDone), before=rankThru(prevDone); ids.forEach(id=>{ if(now[id]&&before[id]) move[id]=before[id]-now[id]; }); }
+    return {crowns,poops,move};
+  }
+  const moveTxt=n=>!n?'':n>0?`<span class="mv up">▲${n}</span>`:`<span class="mv dn">▼${-n}</span>`;
+  const hwTxt=(c,p)=>(c?`<span class="hw">👑${c}</span>`:'')+(p?`<span class="hw">💩${p}</span>`:'');
   function standingsData(h,wk){
     const grp=curGroup();
     const members=h.players.filter(p=>p.id===state.me.id||!grp||(p.groups||[]).indexOf(grp)>=0);
@@ -993,6 +1026,7 @@
       .sort((a,b)=>b.pct-a.pct||b.W-a.W||a.name.localeCompare(b.name));
     const rank=rows=>{ let r=0,prev=null; rows.forEach((x,i)=>{ const k=x.pct!=null?x.pct+'|'+x.W:x.W+'|'+x.L; if(k!==prev){ r=i+1; prev=k; } x.rank=r; }); };
     rank(wkRows); rank(seRows);
+    const ex=seasonExtras(h,wk,members.map(p=>p.id)); seRows.forEach(r=>{ r.move=ex.move[r.id]||0; r.c=ex.crowns[r.id]||0; r.p=ex.poops[r.id]||0; });
     const done=h.games.filter(g=>wkKey(g)===wk).every(g=>g.status==='final');
     return {wk, label:wkName(wk).replace(/^Wk /,'Week '), season:wk.split('|')[0], group:grp, wkRows, seRows, done};
   }
@@ -1012,13 +1046,18 @@
     rr(pad-16,top,Wd-2*pad+32,H-top-110,36); x.fill();
     let y=top+90;
     const sec=(t)=>{ x.fillStyle=acc; x.font=F(800,40); x.fillText(t,pad+24,y); y+=24; x.fillStyle='#e5e7eb'; x.fillRect(pad+24,y,Wd-2*pad-48,3); y+=58; };
-    const row=(r,right,me)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
+    const row=(r,right,me,extra)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
       x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
-      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>560&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
-      x.textAlign='right'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); x.textAlign='left'; y+=rowH; };
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?330:560)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
+      let nx=pad+100+x.measureText(nm).width+14;
+      if(extra){
+        x.font=F(600,30); x.fillStyle='#6b7280'; const hw=(r.c?'👑'+r.c+' ':'')+(r.p?'💩'+r.p:''); if(hw.trim()) x.fillText(hw.trim(),nx,y-2);
+        if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.textAlign='right'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),Wd-pad-300,y); x.textAlign='left'; }
+      }
+      x.fillStyle='#111827'; x.textAlign='right'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); x.textAlign='left'; y+=rowH; };
     if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,false)); y+=40; }
     sec(d.season+' season');
-    if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),false)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
+    if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),false,true)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
     x.fillStyle=ink; x.globalAlpha=.75; x.font=F(500,30); x.fillText(new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'}),pad,H-46); x.globalAlpha=1;
     return cv;
   }
