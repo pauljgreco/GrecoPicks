@@ -804,10 +804,10 @@
     const lastWk=st.weeks.length?st.weeks[st.weeks.length-1]:'';
     const ex=(lastWk&&season!=='all')?seasonExtras(h,lastWk,P.map(s=>s.id)):{crowns:{},poops:{},move:{}};
     if(sf.range!=='season') ex.move={};
-    if(sf.range!=='season'&&sf.range!=='reg'){ ex.crowns={}; ex.poops={}; }
-    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)} ${hwTxt(ex.crowns[s.id],ex.poops[s.id])}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
-    }</tbody></table></div>${Object.keys(ex.move).length?'<div class="note">▲▼ = change in rank since last week · 👑 / 💩 = weeks won / finished last</div>':''}`;
+    const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th>Perfect wks</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${esc(s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+    }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last':''}</div>`:''}`;
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
@@ -1006,7 +1006,6 @@
     return {crowns,poops,move};
   }
   const moveTxt=n=>!n?'':n>0?`<span class="mv up">▲${n}</span>`:`<span class="mv dn">▼${-n}</span>`;
-  const hwTxt=(c,p)=>(c?`<span class="hw">👑${c}</span>`:'')+(p?`<span class="hw">💩${p}</span>`:'');
   function standingsData(h,wk){
     const grp=curGroup();
     const members=h.players.filter(p=>p.id===state.me.id||!grp||(p.groups||[]).indexOf(grp)>=0);
@@ -1048,15 +1047,19 @@
     const sec=(t)=>{ x.fillStyle=acc; x.font=F(800,40); x.fillText(t,pad+24,y); y+=24; x.fillStyle='#e5e7eb'; x.fillRect(pad+24,y,Wd-2*pad-48,3); y+=58; };
     const row=(r,right,me,extra)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
       x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
-      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?330:560)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
-      let nx=pad+100+x.measureText(nm).width+14;
-      if(extra){
-        x.font=F(600,30); x.fillStyle='#6b7280'; const hw=(r.c?'👑'+r.c+' ':'')+(r.p?'💩'+r.p:''); if(hw.trim()) x.fillText(hw.trim(),nx,y-2);
-        if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.textAlign='right'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),Wd-pad-300,y); x.textAlign='left'; }
-      }
-      x.fillStyle='#111827'; x.textAlign='right'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); x.textAlign='left'; y+=rowH; };
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?300:560)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
+      x.textAlign='right';
+      if(extra){   // season columns: ▲▼ · W-L · Pct · 👑 · 💩
+        if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),COL.mv,y); }
+        x.fillStyle='#111827'; x.font=F(800,38); x.fillText(r.W+'-'+r.L,COL.wl,y);
+        x.font=F(600,36); x.fillText(r.pct.toFixed(3).replace(/^0/,''),COL.pct,y);
+        x.font=F(800,36); x.fillText(r.c?String(r.c):'–',COL.c,y); x.fillText(r.p?String(r.p):'–',COL.p,y);
+      } else { x.fillStyle='#111827'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); }
+      x.textAlign='left'; y+=rowH; };
+    const COL={p:Wd-pad-28, c:Wd-pad-118, pct:Wd-pad-210, wl:Wd-pad-340, mv:Wd-pad-480};
     if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,false)); y+=40; }
     sec(d.season+' season');
+    if(d.seRows.length){ y-=22; x.textAlign='right'; x.fillStyle='#6b7280'; x.font=F(700,26); x.fillText('W-L',COL.wl,y); x.fillText('PCT',COL.pct,y); x.font=F(600,30); x.fillText('👑',COL.c,y); x.fillText('💩',COL.p,y); x.textAlign='left'; y+=56; }
     if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),false,true)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
     x.fillStyle=ink; x.globalAlpha=.75; x.font=F(500,30); x.fillText(new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'}),pad,H-46); x.globalAlpha=1;
     return cv;
