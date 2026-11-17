@@ -234,6 +234,8 @@
   .pitch{margin:6px 0 10px 0;padding:0;list-style:none;font-size:14px;line-height:1.5}
   .pitch li{margin:2px 0}
   .pitchb{align-items:flex-start}
+  .steps{margin:6px 0 8px 20px;padding:0;font-size:14px;line-height:1.55}
+  .kbd{display:inline-block;padding:0 4px;border:1px solid var(--line);border-radius:5px;background:var(--card);font-size:12px}
   .pitchb .go{margin:0}
   .rcyou{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:17px;margin-top:8px}
   .rcnote{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:8px;font-size:15px;line-height:1.45}
@@ -318,6 +320,7 @@
       <p style="margin:8px 0 12px;font-size:13px">Auto follows your phone's setting.</p>
       <label style="display:block;font-size:14px;color:var(--muted);margin-bottom:6px">Team colors</label>
       <div id="teamThemes"></div></div>
+    <div id="installWrap" hidden><h3>Add to home screen</h3><div class="nbox" id="installBox"></div></div>
     <h3>Notifications</h3>
     <div class="nbox" id="nbox"><p>Checking…</p></div>
     <div id="reqWrap" hidden>
@@ -436,6 +439,7 @@
     <details class="faq"><summary>What's Wrapped? 🎁</summary><div>Your season recap, Spotify-style: record and rank, best and worst weeks, perfect weeks, your ride-or-die team, your nemesis, upsets called, lone-wolf moments, your pick twin and more. It shows up at the top of the <b>Stats</b> tab late in the season (Week 15 on), and everyone gets a notification once the Super Bowl is final. Tap the right side to go forward, the left side to go back. It uses the group selected at the top.</div></details>
     <details class="faq"><summary>What's an upset alert?</summary><div>In groups of 3 or more, when only one person picked the winner (and at least two others didn't), you get one roundup after that day's games are done, like "2 upsets today in the Greco group: Holly took the Jets; Mom took the Bears." Turn it off in <b>Settings</b>.</div></details>
     <details class="faq"><summary>What are the 👑 and 💩?</summary><div>👑 goes to the winner of the most recent finished week (most wins that week). 💩 goes to whoever had the fewest wins that week, among people who picked. Ties share. They move to the new winners when the next week is final.</div></details>
+    <details class="faq"><summary>Add Greco Picks to my home screen?</summary><div><b>iPhone (Safari):</b> tap Share ⬆️ → <b>Add to Home Screen</b> → <b>Add</b>, then open it from your home screen (needed for notifications on iPhone). <b>Android (Chrome):</b> tap ⋮ → <b>Add to Home screen</b> / <b>Install app</b>. The app also shows these steps until it's on your home screen.</div></details>
     <details class="faq"><summary>New phone, or it says to open my link?</summary><div>Just open your personal link again. That's how the app knows who you are. Lost it? Ask Paul.</div></details>
 
     <div id="adminHelp" hidden>
@@ -455,7 +459,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.18.1';
+  const APP_VERSION = '2.18.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1269,6 +1273,21 @@
   setTimeout(()=>{ if(!pushReady && !pushErr){ pushErr='OneSignal didn\'t load (timed out).'; refreshPushUI(); } }, 12000);
   const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
   const standalone=window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  // ---------- Add to home screen help ----------
+  const isAndroid=/Android/.test(navigator.userAgent), isPhone=isIOS||isAndroid;
+  let installEvt=null;
+  window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); installEvt=e; try{ render(); refreshPushUI(); }catch(x){} });
+  window.addEventListener('appinstalled',()=>{ installEvt=null; toast('📲 Added! Open Greco Picks from your home screen.'); });
+  function installSteps(){
+    if(standalone||!isPhone) return '';
+    if(isIOS){
+      const chrome=/CriOS/.test(navigator.userAgent);
+      return `<ol class="steps">${chrome?'<li>Tap <b>Share</b> <span class="kbd">⬆️</span> at the right end of the address bar</li>':'<li>Tap <b>Share</b> <span class="kbd">⬆️</span> (the square with the arrow) at the bottom of Safari</li>'}<li>Scroll down and tap <b>Add to Home Screen</b></li><li>Tap <b>Add</b> (top right)</li><li>Open <b>Greco Picks</b> from your home screen. That's the one to use from now on</li></ol>`;
+    }
+    return installEvt?`<button class="nbtn" data-install="1">📲 Add Greco Picks to my home screen</button>`
+      :`<ol class="steps"><li>Tap <b>⋮</b> (top right of Chrome)</li><li>Tap <b>Add to Home screen</b> or <b>Install app</b></li><li>Open <b>Greco Picks</b> from your home screen</li></ol>`;
+  }
+  document.addEventListener('click',e=>{ if(!e.target.closest('[data-install]')||!installEvt) return; installEvt.prompt(); installEvt.userChoice.finally(()=>{ installEvt=null; try{ render(); refreshPushUI(); }catch(x){} }); });
   window.OneSignalDeferred=window.OneSignalDeferred||[];
   OneSignalDeferred.push(async function(OneSignal){
     try{
@@ -1328,6 +1347,8 @@
   // Top-of-Picks nudges (one at a time): set up notifications → check notifications → what's new.
   const LS={get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }};
   const todayStr=()=>new Date().toLocaleDateString('en-CA');
+  const PITCH_LIST='<ul class="pitch"><li>📊 Your <b>results &amp; weekly recap</b> the moment Monday\'s game ends</li><li>⏰ A heads-up <b>before picks lock</b>, only if you still have picks to make</li><li>🗓️ A ping when the <b>next week\'s games are up</b></li></ul>';
+  function installDue(){ const day=todayStr(), last=LS.get('nflpicks_installday'); if(LS.get('nflpicks_installskip')===day) return false; if(!last||(new Date(day)-new Date(last))/864e5>=7){ LS.set('nflpicks_installday',day); return true; } return last===day; }
   function nagDue(){
     // Shows all of the first day, then one day a week after that, until they say yes or no.
     const day=todayStr(), last=LS.get('nflpicks_nagday');
@@ -1340,8 +1361,9 @@
   function pushBanner(){
     const st=pushStatus();
     if(LS.get('nflpicks_pushoptout')==='1') return whatsNew();
-    if(st==='off' && nagDue()) return `<div class="banner pitchb"><div><b>🔔 Turn on notifications</b><ul class="pitch"><li>📊 Your <b>results &amp; weekly recap</b> the moment Monday's game ends</li><li>⏰ A heads-up <b>before picks lock</b>, only if you still have picks to make</li><li>🗓️ A ping when the <b>next week's games are up</b></li></ul><button class="go" data-push="on">Turn on notifications</button></div><button class="x2" data-push="later" aria-label="Not now" title="Not now">✕</button></div><div style="text-align:right;margin:-6px 4px 10px"><button data-push="optout" style="font:inherit;font-size:13px;color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline">No thanks, don't ask again</button></div>`;
-    if(st==='ios' && nagDue()) return `<div class="banner"><span>🔔 <b>Want notifications?</b> On iPhone, open Greco Picks from your home screen first: in Safari tap Share → <b>Add to Home Screen</b>.</span><button class="x2" data-push="later" aria-label="Not now">✕</button></div>`;
+    if(st==='off' && nagDue()) return `<div class="banner pitchb"><div><b>🔔 Turn on notifications</b><ul class="pitch"><li>📊 Your <b>results &amp; weekly recap</b> the moment Monday's game ends</li><li>⏰ A heads-up <b>before picks lock</b>, only if you still have picks to make</li><li>🗓️ A ping when the <b>next week's games are up</b></li></ul><button class="go" data-push="on">Turn on notifications</button>${isAndroid&&!standalone?`<div style="font-size:14px;margin-top:10px"><b>📲 Tip:</b> add Greco Picks to your home screen too, so it opens like an app.</div>${installSteps()}`:''}</div><button class="x2" data-push="later" aria-label="Not now" title="Not now">✕</button></div><div style="text-align:right;margin:-6px 4px 10px"><button data-push="optout" style="font:inherit;font-size:13px;color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline">No thanks, don't ask again</button></div>`;
+    if(st==='ios' && nagDue()) return `<div class="banner pitchb"><div><b>📲 Add Greco Picks to your home screen</b><div style="font-size:14px;margin:4px 0 2px">It opens like a real app, and it's the only way iPhones can get notifications:</div>${PITCH_LIST}${installSteps()}</div><button class="x2" data-push="later" aria-label="Not now">✕</button></div>`;
+    if(isAndroid && !standalone && st==='on' && installDue()) return `<div class="banner pitchb"><div><b>📲 Add Greco Picks to your home screen</b><div style="font-size:14px;margin:4px 0 6px">It opens like a real app, full screen, one tap away.</div>${installSteps()}</div><button class="x2" data-push="installlater" aria-label="Not now">✕</button></div>`;
     if(st==='on' && LS.get('nflpicks_checked')!=='1') return `<div class="banner"><span>🔔 <b>Notifications are on.</b> We've added new ones since launch. Send yourself a test to make sure they come through.</span><button class="go" data-push="checktest">Test</button><button class="x2" data-push="checked" aria-label="Dismiss">✕</button></div>`;
     return whatsNew();
   }
@@ -1363,10 +1385,12 @@
       </ul><button class="sbtn" data-push="whatsnew">Got it</button> <button class="sbtn" data-push="whatsnewhelp">More in ?</button></div>`;
   }
   function refreshPushUI(){
+    const iw=document.getElementById('installWrap');
+    if(iw){ const showIt=isAndroid&&!standalone; iw.hidden=!showIt; if(showIt) document.getElementById('installBox').innerHTML='<p style="margin:0 0 8px">Open Greco Picks like a real app, full screen and one tap away:</p>'+installSteps(); }
     const box=document.getElementById('nbox'); if(!box) return;
     const st=pushStatus(), p=Object.assign({remind:true,newweek:true,results:true,evening:true,upsets:true},(state&&state.me&&state.me.prefs)||{});
     let top;
-    if(st==='ios') top='<p>On iPhone, notifications only work from the home-screen app. In Safari, tap Share → <b>Add to Home Screen</b>, then open Greco Picks from there and come back here.</p>';
+    if(st==='ios') top=PITCH_LIST+'<p style="margin:0 0 6px"><b>On iPhone, notifications only work from the home-screen app.</b> Add it first:</p>'+installSteps()+'<p style="font-size:13px;margin:6px 0 0">Then open it from your home screen and come back here to turn notifications on.</p>';
     else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
     else if(st==='blocked') top='<p>Notifications are blocked for this app. Turn them on in your phone\'s settings for Greco Picks (or Chrome → Site settings → Notifications), then come back.</p>';
     else if(st==='loading') top='<p>Getting notifications ready…</p>';
@@ -1510,6 +1534,7 @@
         .then(()=>toast('Sent a local test. Did it pop up?'))
         .catch(e=>toast('Local test failed: '+((e&&e.message)||e)));
     }
+    if(b.dataset.push==='installlater'){ LS.set('nflpicks_installskip',todayStr()); render(); }
     if(b.dataset.push==='later'){ render(); toast('No problem. We\'ll check back in a week.'); LS.set('nflpicks_nagskip',todayStr()); }
     if(b.dataset.push==='optout'){ LS.set('nflpicks_pushoptout','1'); render(); toast('Got it. You can turn them on any time in Settings.'); }
     if(b.dataset.push==='checked'){ LS.set('nflpicks_checked','1'); render(); }
