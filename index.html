@@ -401,7 +401,7 @@
     <details class="faq"><summary>How is it scored?</summary><div>Pick the winner and it's a <b>win</b>; pick the loser and it's a <b>loss</b>. If a game ends in a tie, only a <b>Tie</b> pick wins. No pick means it just doesn't count.</div></details>
     <details class="faq"><summary>How are people ranked?</summary><div>On the <b>Stats</b> tab, by <b>win percentage</b> for whatever range you pick, then total wins. Joining partway through the season doesn't hurt you.</div></details>
     <details class="faq"><summary>What's on the Group tab?</summary><div>Everyone's picks for the week in one grid. A <b>✓</b> means that person has picked but you can't see it yet; make your own pick on that game (or wait for kickoff) to see theirs.</div></details>
-    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings (with perfect weeks), week-by-week records and splits. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
+    <details class="faq"><summary>What's on the Stats tab?</summary><div>Standings (with 👑, 💩 and 💯 perfect weeks), week-by-week records and splits. Use the menus to pick a season and a range (one week, a span of weeks, regular season, playoffs), and tap <b>People</b> to choose who's included. Only games that have kicked off count.</div></details>
     <details class="faq"><summary>What are "upsets" and "with group"?</summary><div><b>Upsets</b>: correct picks of the team with the worse record going into the game. <b>With group</b>: how often your pick matched what most of the selected people picked.</div></details>
     <details class="faq"><summary>When do scores update?</summary><div>Automatically about every 30 minutes, and records update when games go final. Tap <b>↻</b> at the top to refresh now.</div></details>
     <details class="faq"><summary>How do I see past weeks?</summary><div>Use the week dropdown at the top.</div></details>
@@ -805,9 +805,9 @@
     const ex=(lastWk&&season!=='all')?seasonExtras(h,lastWk,P.map(s=>s.id)):{crowns:{},poops:{},move:{}};
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
-    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th>Perfect wks</th></tr></thead><tbody>${
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
       P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${esc(s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
-    }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last':''}</div>`:''}`;
+    }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
