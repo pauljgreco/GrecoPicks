@@ -438,7 +438,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.16.0';
+  const APP_VERSION = '2.16.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1016,9 +1016,9 @@
       x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
       x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>560&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
       x.textAlign='right'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); x.textAlign='left'; y+=rowH; };
-    if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,r.id===state.me.id)); y+=40; }
+    if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,false)); y+=40; }
     sec(d.season+' season');
-    if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),r.id===state.me.id)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
+    if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),false)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
     x.fillStyle=ink; x.globalAlpha=.75; x.font=F(500,30); x.fillText(new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'}),pad,H-46); x.globalAlpha=1;
     return cv;
   }
