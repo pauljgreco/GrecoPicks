@@ -411,6 +411,7 @@
     <details class="faq"><summary>How do I see someone's profile?</summary><div>Tap their name on the <b>Group</b> tab or in the <b>Stats</b> standings to see their groups, record and any 👑/💩. Tap <b>Hi, (your name)</b> at the top to see your own.</div></details>
     <details class="faq"><summary>Someone else wants to play?</summary><div><b>Settings → Request a new player</b>. Type their name (and an optional note) and send it to Paul. He adds them and sends their link; you'll get a notification when they're in.</div></details>
     <details class="faq"><summary>Can I hide someone?</summary><div>Yes, just for you: <b>Settings → Hide people</b>. They disappear from your Picks, Group and Stats screens. Nobody else is affected, and you can show them again any time.</div></details>
+    <details class="faq"><summary>Share the standings 📸</summary><div>Tap <b>📸 Share</b> next to Standings on the Stats tab, or on the recap's final standings slide. It makes a picture with that week's records (👑 and 💩 included) and everyone's season record, for the group selected at the top, and opens your phone's share menu so you can text it or save it to your photos.</div></details>
     <details class="faq"><summary>Locking in picks 🔒</summary><div>Tapping a team saves a <b>draft</b> (✏️) you can change. <b>Locking</b> makes it final (🔒) and shows you everyone else's picks for that game. Lock everything with the <b>🔒 Lock in all</b> button at the bottom, a whole time slot with its <b>Lock picks</b> button, or one game with its <b>🔒 Lock</b> button. Forgot to lock? Your draft still counts: it locks on its own at kickoff. Tap a time slot's header to collapse or expand it. ⬜ means not picked yet.</div></details>
     <details class="faq"><summary>What's the tiebreaker?</summary><div>The last game of each week has a <b>Tiebreaker</b> box: guess the total points scored. If two or more people tie for the week's 👑, the closest guess takes it. Guesses lock at that game's kickoff and everyone's show up then.</div></details>
     <details class="faq"><summary>Weekly recap?</summary><div>Once a week is final (usually after Monday night), the weekly results notification opens it straight up, and a <b>🗞️ recap</b> button appears at the top of Picks until the next week's first kickoff. Past weeks' recaps are always there: pick the week in the menu at the top. First your week (record, rank, best call, the one that got away), then your group's week: final standings with 👑 and 💩, biggest upset, the game everyone got wrong, the lock of the week, and season-so-far highlights. Tap ✕ to hide it.</div></details>
@@ -437,7 +438,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.15.2';
+  const APP_VERSION = '2.16.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -796,7 +797,8 @@
     const P=st.people;
 
     // Standings
-    html+=`<div class="sec">Standings</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
+    const shareWk=(state.weeks||[]).some(w=>w.key===state.selected)&&h.games.some(g=>wkKey(g)===state.selected)?state.selected:(st.weeks.length?st.weeks[st.weeks.length-1]:'');
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>Perfect wks</th></tr></thead><tbody>${
       P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${tag(s.id)}${esc(s.name)}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td><td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
 
@@ -929,7 +931,7 @@
       const rows=order.map((id,i)=>{ if(rec[id].W!==prev){ rk=i+1; prev=rec[id].W; }
         const tagc=(c&&c.key===wk&&c.ids.indexOf(id)>=0)?' 👑':(c&&c.key===wk&&c.poop&&c.poop.ids.indexOf(id)>=0)?' 💩':'';
         return `<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.2);${id===me?'font-weight:800':''}"><span>${rk}. ${esc(names[id]||id)}${tagc}</span><span>${rec[id].W}-${rec[id].L}</span></div>`; }).join('');
-      sl.push(`<div class="kick">${gt} · ${esc(label)}</div><div class="mid pop">Final standings</div><div style="width:100%;max-width:320px;text-align:left;font-size:18px;margin-top:6px">${rows}</div>${c&&c.key===wk&&c.tb?`<div class="sub" style="margin-top:10px">👑 decided by the tiebreaker: guessed ${esc(c.tb.guess)}, total was ${esc(c.tb.total)}.</div>`:''}`);
+      sl.push(`<div class="kick">${gt} · ${esc(label)}</div><div class="mid pop">Final standings</div><div style="width:100%;max-width:320px;text-align:left;font-size:18px;margin-top:6px">${rows}</div>${c&&c.key===wk&&c.tb?`<div class="sub" style="margin-top:10px">👑 decided by the tiebreaker: guessed ${esc(c.tb.guess)}, total was ${esc(c.tb.total)}.</div>`:''}<button class="wbtn" data-sharest="${esc(wk)}" style="margin-top:16px">📸 Share / save as picture</button>`);
     }
     if(upset&&upset.share<0.5) sl.push(`<div class="kick">${gt} · biggest upset</div><div class="emo pop">👀</div><div class="mid">${esc(upset.team)}</div><div class="sub">${upset.right.length===1&&upset.right[0]===me?'You were the only one who saw it coming.':upset.right.length?'Only '+upset.right.map(id=>esc(names[id])).join(', ')+' saw it coming.':'Nobody saw it coming.'}</div>`);
     // everyone wrong / lock of the week
@@ -970,6 +972,71 @@
     const x=e.target.closest('[data-recapx]'); if(x){ e.stopPropagation(); try{ localStorage.setItem('nflpicks_recapoff',x.dataset.recapx); }catch(er){} render(); return; }
     const b=e.target.closest('[data-recap]'); if(b) showRecap(b.dataset.recap);
   });
+
+  // ---------- Share standings as a picture (week + season, for the selected group) ----------
+  function standingsData(h,wk){
+    const grp=curGroup();
+    const members=h.players.filter(p=>p.id===state.me.id||!grp||(p.groups||[]).indexOf(grp)>=0);
+    const names={}; members.forEach(p=>names[p.id]=p.name);
+    const games={}; h.games.forEach(g=>games[g.id]=g);
+    const thru=wkOrder(wk), W={}, S={};
+    members.forEach(p=>{ W[p.id]={W:0,L:0}; S[p.id]={W:0,L:0}; });
+    h.picks.forEach(x=>{ const g=games[x[0]]; if(!g||!W[x[1]]||(x[3]!=='W'&&x[3]!=='L')) return;
+      const k=wkKey(g); if(wkOrder(k)<=thru) S[x[1]][x[3]]++; if(k===wk) W[x[1]][x[3]]++; });
+    const wkRows=members.filter(p=>W[p.id].W+W[p.id].L>0).map(p=>({id:p.id,name:p.name,W:W[p.id].W,L:W[p.id].L}))
+      .sort((a,b)=>b.W-a.W||a.L-b.L||a.name.localeCompare(b.name));
+    // 👑 / 💩: server's (knows the tiebreaker) when it's the same week, else most / fewest wins
+    let c=curCrown(); if(!c||c.key!==wk){ const top=wkRows.length?wkRows[0].W:0, low=wkRows.length?wkRows[wkRows.length-1].W:0;
+      c={ids:wkRows.filter(r=>r.W===top&&top>0).map(r=>r.id),poop:low<top?{ids:wkRows.filter(r=>r.W===low).map(r=>r.id)}:null}; }
+    wkRows.forEach(r=>{ r.tag=c.ids.indexOf(r.id)>=0?'👑':(c.poop&&c.poop.ids.indexOf(r.id)>=0?'💩':''); });
+    const seRows=members.filter(p=>S[p.id].W+S[p.id].L>0).map(p=>({id:p.id,name:p.name,W:S[p.id].W,L:S[p.id].L,pct:S[p.id].W/(S[p.id].W+S[p.id].L)}))
+      .sort((a,b)=>b.pct-a.pct||b.W-a.W||a.name.localeCompare(b.name));
+    const rank=rows=>{ let r=0,prev=null; rows.forEach((x,i)=>{ const k=x.pct!=null?x.pct+'|'+x.W:x.W+'|'+x.L; if(k!==prev){ r=i+1; prev=k; } x.rank=r; }); };
+    rank(wkRows); rank(seRows);
+    const done=h.games.filter(g=>wkKey(g)===wk).every(g=>g.status==='final');
+    return {wk, label:wkName(wk).replace(/^Wk /,'Week '), season:wk.split('|')[0], group:grp, wkRows, seRows, done};
+  }
+  function drawStandings(d){
+    const css=getComputedStyle(document.documentElement);
+    const bar=(css.getPropertyValue('--bar')||'#0b1f3a').trim()||'#0b1f3a', ink=(css.getPropertyValue('--bar-ink')||'#fff').trim()||'#fff';
+    const acc=(css.getPropertyValue('--accent')||'#0b5cff').trim();
+    const Wd=1080, pad=64, rowH=64, n=Math.max(d.wkRows.length,1)+Math.max(d.seRows.length,1);
+    const H=Math.max(1080, 300+ (d.wkRows.length?130:0) + 130 + n*rowH + 140);
+    const cv=document.createElement('canvas'); cv.width=Wd; cv.height=H; const x=cv.getContext('2d');
+    const F=(w,sz)=>`${w} ${sz}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+    x.fillStyle=bar; x.fillRect(0,0,Wd,H);
+    x.fillStyle=ink; x.font=F(800,64); x.textBaseline='alphabetic'; x.fillText('🏈 Greco Picks',pad,128);
+    x.globalAlpha=.85; x.font=F(500,36); x.fillText(d.label+' · '+d.season+(d.group?' · '+gname(d.group):'')+(d.done?'':' (in progress)'),pad,184); x.globalAlpha=1;
+    // white panel
+    const top=230; x.fillStyle='#ffffff'; const rr=(X,Y,w,h,r)=>{ x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); };
+    rr(pad-16,top,Wd-2*pad+32,H-top-110,36); x.fill();
+    let y=top+90;
+    const sec=(t)=>{ x.fillStyle=acc; x.font=F(800,40); x.fillText(t,pad+24,y); y+=24; x.fillStyle='#e5e7eb'; x.fillRect(pad+24,y,Wd-2*pad-48,3); y+=58; };
+    const row=(r,right,me)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
+      x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>560&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
+      x.textAlign='right'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); x.textAlign='left'; y+=rowH; };
+    if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,r.id===state.me.id)); y+=40; }
+    sec(d.season+' season');
+    if(d.seRows.length) d.seRows.forEach(r=>row(r,r.W+'-'+r.L+'   '+(r.pct.toFixed(3).replace(/^0/,'')),r.id===state.me.id)); else { x.fillStyle='#6b7280'; x.font=F(500,34); x.fillText('No games graded yet.',pad+28,y); }
+    x.fillStyle=ink; x.globalAlpha=.75; x.font=F(500,30); x.fillText(new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'}),pad,H-46); x.globalAlpha=1;
+    return cv;
+  }
+  async function shareStandings(wk){
+    const season=wk.split('|')[0];
+    let h=hist[season]; if(!h){ const pr=loadHistory(); if(pr&&pr.then) await pr; h=hist[season]; }
+    if(!h){ toast('Couldn\'t load the standings. Try again.'); return; }
+    const d=standingsData(h,wk), cv=drawStandings(d);
+    const name=('greco-picks-'+d.label+'-'+d.season).toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.png';
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+    const file=new File([blob],name,{type:'image/png'});
+    try{
+      if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'Greco Picks · '+d.label}); return; }
+    }catch(e){ if(e&&e.name==='AbortError') return; }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Saved the picture.');
+  }
+  document.addEventListener('click',e=>{ const b=e.target.closest('[data-sharest]'); if(!b) return; e.stopPropagation(); b.disabled=true; shareStandings(b.dataset.sharest).finally(()=>{ b.disabled=false; }); });
 
   // ---------- Wrapped: a Spotify-Wrapped style recap of your season ----------
   function wrapButton(h,season){
@@ -1078,6 +1145,7 @@
   document.getElementById('wrapd').addEventListener('click',e=>{
     if(!WR) return;
     if(e.target.closest('[data-wclose]')){ document.getElementById('wrapd').classList.remove('on'); render(); return; }
+    if(e.target.closest('[data-sharest]')) return;
     if(e.target.closest('[data-wshare]')){ if(navigator.share) navigator.share({title:'Greco Picks Wrapped',text:WR.shareText}).catch(()=>{}); else copyText(WR.shareText,'Copied your Wrapped.'); return; }
     const back=e.clientX<window.innerWidth*0.3;
     if(back){ if(WR.i>0){ WR.i--; drawWrapped(); } }
