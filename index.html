@@ -460,7 +460,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.19.1';
+  const APP_VERSION = '2.20.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1368,6 +1368,9 @@
   }
   function pushBanner(){
     const st=pushStatus();
+    const issue=state&&state.me&&state.me.pushIssue;
+    if(issue && LS.get('nflpicks_pushoptout')!=='1' && st!=='blocked' && LS.get('nflpicks_issueseen')!==issue)
+      return `<div class="banner"><span>🔔 <b>Your notifications stopped working.</b> It happens sometimes after phone updates.</span><button class="go" data-push="fixit">Fix it</button><button class="x2" data-push="issuex" aria-label="Dismiss">✕</button></div>`;
     if(LS.get('nflpicks_pushoptout')==='1') return whatsNew();
     if(st==='off' && nagDue()) return `<div class="banner pitchb"><div><b>🔔 Turn on notifications</b><ul class="pitch"><li>📊 Your <b>results &amp; weekly recap</b> the moment Monday's game ends</li><li>⏰ A heads-up <b>before picks lock</b>, only if you still have picks to make</li><li>🗓️ A ping when the <b>next week's games are up</b></li></ul><button class="go" data-push="on">Turn on notifications</button>${isAndroid&&!standalone?`<div style="font-size:14px;margin-top:10px"><b>📲 Tip:</b> add Greco Picks to your home screen too, so it opens like an app.</div>${installSteps()}`:''}</div><button class="x2" data-push="later" aria-label="Not now" title="Not now">✕</button></div>${optoutLink('push')}`;
     if(st==='ios' && nagDue()) return `<div class="banner pitchb"><div><b>📲 Add Greco Picks to your home screen</b><div style="font-size:14px;margin:4px 0 2px">It opens like a real app, and it's the only way iPhones can get notifications:</div>${PITCH_LIST}${installSteps()}</div><button class="x2" data-push="later" aria-label="Not now">✕</button></div>${optoutLink('push')}`;
@@ -1496,6 +1499,9 @@
       linkUser();
       const ok=await waitForToken(10000);
       plog(ok?'Done: '+subInfo():'No token after 10s: '+subInfo());
+      if(ok&&state&&state.me&&state.me.pushIssue){ state.me.pushIssue=''; api('pushok',{}).catch(()=>{}); }
+      let fixing=false; try{ fixing=sessionStorage.getItem('nflpicks_fixing')==='1'; sessionStorage.removeItem('nflpicks_fixing'); }catch(e){}
+      if(fixing&&ok){ toast('✅ Fixed. You\'re all set.'); render(); return; }
       if(!ok){ plog('Checking the phone\'s push service…'); await rawPushTest(); }
       toast(ok?'Notifications are on.':'Still not working. Screenshot the log under Notifications.');
     }catch(e){ plog('Error: '+((e&&e.message)||e)); toast('Couldn\'t turn on notifications: '+((e&&e.message)||e)); }
@@ -1548,6 +1554,8 @@
     if(b.dataset.push==='optout'){ LS.set('nflpicks_pushoptout','1'); render(); toast('Got it. You can turn them on any time in Settings.'); }
     if(b.dataset.push==='checked'){ LS.set('nflpicks_checked','1'); render(); }
     if(b.dataset.push==='checktest'){ LS.set('nflpicks_checked','1'); b.disabled=true; api('testme',{}).then(()=>toast('Sent! If nothing pops up in a minute, open Settings → Notifications → Reset.')).catch(e=>toast(e.message)).finally(()=>render()); }
+    if(b.dataset.push==='issuex'){ LS.set('nflpicks_issueseen',(state&&state.me&&state.me.pushIssue)||'1'); render(); }
+    if(b.dataset.push==='fixit'){ LS.set('nflpicks_issueseen',(state&&state.me&&state.me.pushIssue)||'1'); try{ sessionStorage.setItem('nflpicks_fixing','1'); }catch(e){} resetPush(); }
     if(b.dataset.push==='update'){ b.disabled=true; b.textContent='Updating…'; document.getElementById('appUpdate').click(); }
     if(b.dataset.push==='locktip'){ LS.set('nflpicks_locktip','1'); render(); }
     if(b.dataset.push==='whatsnew'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); }
@@ -1778,7 +1786,7 @@
   function activity(p){
     if(!p.lastSeen) return 'Hasn\'t opened the app yet';
     const old=p.appVersion&&people.current&&p.appVersion!==people.current;
-    const nt={on:'🔔 on',off:'🔕 off',blocked:'🔕 blocked',ios:'🔕 not on home screen',unsupported:'🔕 n/a',error:'⚠️ notif error'}[p.notifs]||'';
+    const nt=p.notifIssue?'⚠️ notifications need a fix':({on:'🔔 on',off:'🔕 off',blocked:'🔕 blocked',ios:'🔕 not on home screen',unsupported:'🔕 n/a',error:'⚠️ notif error'}[p.notifs]||'');
     return ['Seen '+esc(ago(p.lastSeen)), p.appVersion?(old?'⚠️ v'+esc(p.appVersion):'v'+esc(p.appVersion)):'', esc(p.device), nt].filter(Boolean).join(' · ');
   }
   function renderPeople(){
@@ -1794,7 +1802,7 @@
       if(fv==='__retired'&&p.active) return false;
       if(fv==='__quiet'&&(!p.active||(p.lastSeen&&Date.now()-new Date(p.lastSeen)<7*864e5))) return false;
       if(fv==='__oldver'&&(!p.active||!p.appVersion||p.appVersion===people.current)) return false;
-      if(fv==='__notifoff'&&(!p.active||p.notifs==='on')) return false;
+      if(fv==='__notifoff'&&(!p.active||(p.notifs==='on'&&!p.notifIssue))) return false;
       if(fv==='__none'&&((p.groups||[]).length||p.id===people.adminId)) return false;
       if(gs.indexOf(fv)>=0&&p.id!==people.adminId&&(p.groups||[]).indexOf(fv)<0) return false;
       return !q||p.name.toLowerCase().indexOf(q)>=0||(p.groups||[]).some(g=>g.toLowerCase().indexOf(q)>=0);

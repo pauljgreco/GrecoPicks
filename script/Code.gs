@@ -24,11 +24,11 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.19.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.20.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications', 'NotifIssue'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -274,6 +274,7 @@ function api_(p) {
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
     else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
     else if (p.api === 'updnotice') data = updateNotice_(p.k);
+    else if (p.api === 'pushok') data = pushFixed_(p.k);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -314,7 +315,7 @@ function getState(key, wk) {
   const groups = groupNames_();
   return {
     me: { id: me.id, name: me.name, isAdmin: me.isAdmin, pushId: 'gp_' + me.id, prefs: prefsFor_(me.id),
-      groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden },
+      groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden, pushIssue: meP.notifIssue || '' },
     groups: groups,
     adminId: adminId_(),
     adminName: adminName_(),
@@ -702,6 +703,7 @@ function players_() {
       upsets: isOn_(r[11]),
       lastSeen: r[12] instanceof Date ? r[12].toISOString() : (r[12] ? String(r[12]) : ''),
       appVersion: String(r[13] || ''), device: String(r[14] || ''), notifs: String(r[15] || ''),
+      notifIssue: r[16] instanceof Date ? r[16].toISOString() : (r[16] ? String(r[16]) : ''),
     }));
   return PLAYERS_;
 }
@@ -965,9 +967,44 @@ function sendPush_(playerIds, title, body, open) {
     payload: JSON.stringify(payload),
     muteHttpExceptions: true,
   });
-  const text = res.getResponseCode() + ' ' + res.getContentText().slice(0, 300);
+  const raw = res.getContentText();
+  const text = res.getResponseCode() + ' ' + raw.slice(0, 300);
   logNotice_(playerIds.join(','), title + ' — ' + body, text);
+  try { trackDelivery_(playerIds, res.getResponseCode(), raw); } catch (e) { Logger.log('trackDelivery: ' + e.message); }
   return text;
+}
+
+/**
+ * Notices notifications that bounce. If OneSignal has no working sign-up for someone whose phone says notifications
+ * are on, mark them (NotifIssue) so the app can offer them a one-tap fix. A later successful send clears it.
+ */
+function trackDelivery_(playerIds, code, raw) {
+  if (code !== 200) return;
+  let j = {}; try { j = JSON.parse(raw); } catch (e) { return; }
+  const bad = ((j.errors && j.errors.invalid_aliases && j.errors.invalid_aliases.external_id) || []).map(x => String(x).replace(/^gp_/, '').toUpperCase());
+  const failedAll = !j.id;   // nothing went out at all
+  const ps = players_();
+  const changes = [];
+  playerIds.forEach(id => {
+    const p = ps.find(x => x.id === id); if (!p) return;
+    const bounced = bad.indexOf(id) >= 0 || (failedAll && playerIds.length === 1);
+    if (bounced && !p.notifIssue && p.notifs === 'on') changes.push([id, new Date()]);
+    else if (!bounced && j.id && p.notifIssue) changes.push([id, '']);
+  });
+  if (!changes.length) return;
+  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+  changes.forEach(([id, v]) => { for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === id) { sh.getRange(i + 1, 17).setValue(v); break; } });
+  PLAYERS_ = null;
+}
+
+/** App: this phone just got notifications working again; clear the "needs a fix" flag. */
+function pushFixed_(key) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === me.id) { if (vals[i][16]) sh.getRange(i + 1, 17).setValue(''); break; }
+  PLAYERS_ = null;
+  return { ok: true };
 }
 
 function logNotice_(to, message, result) {
@@ -1086,7 +1123,7 @@ function people_(key) {
     groups: groupNames_(),
     adminId: adminId_(),
     people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '',
-      lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs })),
+      lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs, notifIssue: p.notifIssue })),
     current: SCRIPT_VERSION,
     requests: pendingRequests_(),
   };
@@ -1597,7 +1634,7 @@ function updateNotice_(key) {
     const k = 'UPD|' + SCRIPT_VERSION + '|' + p.id;
     if (sent.indexOf(k) >= 0) { out.skipped.push(p.name + ' (already sent)'); return; }
     const res = sendPush_([p.id], '✨ Greco Picks has an update', 'Tap to get the latest version.', '?update=1');
-    if (res.indexOf('"id":""') >= 0 || res.indexOf('"id"') < 0) { out.skipped.push(p.name + ' (notifications off)'); return; }
+    if (res.indexOf('"id":""') >= 0 || res.indexOf('"id"') < 0) { out.skipped.push(p.name + (p.notifs === 'on' ? ' (phone\'s notifications need a fix; they\'ll be asked next time they open the app)' : ' (notifications off)')); return; }
     markSent_(sent, k);
     out.sent.push(p.name);
   });
