@@ -459,7 +459,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.18.2';
+  const APP_VERSION = '2.19.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -566,6 +566,7 @@
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
+    if(s.version&&verNewer(s.version,APP_VERSION)){ try{ const k='nflpicks_autoupd_'+s.version; if(!sessionStorage.getItem(k)){ sessionStorage.setItem(k,'1'); setTimeout(()=>{ const b=document.getElementById('appUpdate'); if(b&&!pending) b.click(); },800); } }catch(e){} }
     // Phone has an older app than what's live: anyone can fix it with one tap. App newer than the script: only the admin hears about it.
     const vWarn=(s.version&&verNewer(s.version,APP_VERSION))?`<div class="banner"><span>✨ <b>A new version of Greco Picks is ready.</b></span><button class="go" data-push="update">Update</button></div>`
       :(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
@@ -2003,7 +2004,7 @@
   settings.addEventListener('click',e=>{if(e.target===settings) settings.classList.remove('on');});
   document.getElementById('helpClose').addEventListener('click',()=>help.classList.remove('on'));
   help.addEventListener('click',e=>{if(e.target===help) help.classList.remove('on');});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state) load(state.selected,false);});
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden) return; if(state) load(state.selected,false); try{ navigator.serviceWorker&&navigator.serviceWorker.getRegistration('/GrecoPicks/').then(r=>r&&r.update()).catch(()=>{}); }catch(e){} });
 
   // ---------- Start ----------
   if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(API)){
