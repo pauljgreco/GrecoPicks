@@ -368,6 +368,7 @@
     <div id="reqList"></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
+    <button class="sbtn" id="updNotice" style="width:100%;margin-top:8px" hidden></button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
     <div id="people"><p>Loading…</p></div>
     <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
@@ -459,7 +460,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.19.0';
+  const APP_VERSION = '2.19.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -892,6 +893,8 @@
 
   // ---------- Weekly recap (mini Wrapped for the last finished week) ----------
   let linkRecap=params.get('recap')||'';
+  if(params.get('update')==='1'){ try{ const u=new URL(location.href); u.searchParams.delete('update'); history.replaceState(null,'',u.pathname+(u.search||'')); }catch(e){}
+    setTimeout(()=>{ const b=document.getElementById('appUpdate'); if(b) b.click(); },300); }
   function openRecapFromLink(){
     if(!linkRecap||!state) return false;
     const wk=linkRecap; linkRecap='';
@@ -1809,6 +1812,7 @@
       </div>`;
     }).join('')||'<p>No one matches.</p>';
     renderReqs();
+    updNoticeUI();
     updateCounts();
   }
   function renderReqs(){
@@ -1831,6 +1835,16 @@
       else toast('Request declined.');
       renderPeople(); render();
     }).catch(err=>{ toast(err.message); b.disabled=false; });
+  });
+  function updNoticeUI(){
+    const b=document.getElementById('updNotice'); if(!b||!people) return;
+    const old=people.people.filter(p=>p.active&&(!p.appVersion||verNewer(people.current,p.appVersion)));
+    b.hidden=!old.length; b.textContent='✨ Send update notice to '+old.length+' '+(old.length===1?'person':'people')+' on an old version';
+  }
+  document.getElementById('updNotice').addEventListener('click',()=>{
+    const b=document.getElementById('updNotice'); b.disabled=true; const t=b.textContent; b.textContent='Sending…';
+    api('updnotice',{}).then(r=>toast((r.sent.length?'Sent to '+r.sent.join(', ')+'.':'Nobody to send to.')+(r.skipped.length?' Skipped: '+r.skipped.join(', ')+'.':'')))
+      .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.textContent=t; });
   });
   function updateCounts(){
     if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; const rq=(people.requests||[]).length; document.getElementById('pplCount').textContent=(rq?'🔔 '+rq+' request'+(rq>1?'s':'')+' · ':'')+act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }

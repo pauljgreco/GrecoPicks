@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.19.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.19.1';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -273,6 +273,7 @@ function api_(p) {
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
     else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
+    else if (p.api === 'updnotice') data = updateNotice_(p.k);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -1580,6 +1581,27 @@ function allInCheck_(wk, picks) {
   const parts = wk.split('|');
   sendPush_([adminId_()], 'Everyone\'s in ✅', 'All ' + roster.length + ' players have picked every ' + weekLabel_(parts[1], parts[2]) + ' game.');
   markSent_(sent, key);
+}
+
+/**
+ * Admin: tell everyone on an older app version (or an unknown one) to update. Sent once per person per version.
+ * Tapping the notification opens the app and loads the newest version.
+ */
+function updateNotice_(key) {
+  requireAdmin_(key);
+  if (!String(settings_().OneSignalKey || '').trim()) throw new Error('Notifications aren\'t set up (OneSignalKey).');
+  const older = v => { if (!v) return true; const a = String(v).split('.').map(Number), b = SCRIPT_VERSION.split('.').map(Number);
+    for (let i = 0; i < 3; i++) { if ((a[i] || 0) !== (b[i] || 0)) return (a[i] || 0) < (b[i] || 0); } return false; };
+  const sent = sentSet_(), out = { sent: [], skipped: [] };
+  players_().filter(p => p.active && older(p.appVersion)).forEach(p => {
+    const k = 'UPD|' + SCRIPT_VERSION + '|' + p.id;
+    if (sent.indexOf(k) >= 0) { out.skipped.push(p.name + ' (already sent)'); return; }
+    const res = sendPush_([p.id], '✨ Greco Picks has an update', 'Tap to get the latest version.', '?update=1');
+    if (res.indexOf('"id":""') >= 0 || res.indexOf('"id"') < 0) { out.skipped.push(p.name + ' (notifications off)'); return; }
+    markSent_(sent, k);
+    out.sent.push(p.name);
+  });
+  return out;
 }
 
 /** Editor: sends a test notification to you. Turn notifications on in the app first. */
