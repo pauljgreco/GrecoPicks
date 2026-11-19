@@ -24,11 +24,11 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.20.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.21.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications', 'NotifIssue'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications', 'NotifIssue', 'Avatar'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -275,6 +275,8 @@ function api_(p) {
     else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
     else if (p.api === 'updnotice') data = updateNotice_(p.k);
     else if (p.api === 'pushok') data = pushFixed_(p.k);
+    else if (p.api === 'avatars') data = avatars_(p.k);
+    else if (p.api === 'avatar') data = setAvatar_(p.k, p.pl, p.av);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -283,6 +285,66 @@ function api_(p) {
     out = { ok: false, error: (err && err.message) || String(err) };
   }
   return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST version of the API, for requests too big for a web address (profile pictures).
+ * The app sends a JSON body as plain text: {"api":"avatar","k":KEY,"av":"p:<base64>"}.
+ */
+function doPost(e) {
+  let p = {};
+  try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { p = {}; }
+  if (p.api !== 'avatar') p = { api: 'bad' };   // only big requests come this way
+  return api_(p);
+}
+
+// ---------- Profile pictures ----------
+// Players tab column 18 (Avatar) holds one of:
+//   p:<base64 JPEG>  a photo the person uploaded (the app shrinks it to 128x128 first, ~5-10 KB)
+//   e:<emoji>        an emoji
+//   t:<TEAM>         an NFL team logo (team abbreviation, e.g. PHI)
+//   (blank)          none: the app shows a colored circle with their initial
+
+/** Short fingerprint of a picture, so phones only download pictures that changed. */
+function avStamp_(v) {
+  if (!v) return '';
+  if (v.indexOf('p:') !== 0) return v;   // emoji / team: the value itself is tiny
+  const d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, v);
+  return 'p' + d.slice(0, 5).map(b => ((b + 256) % 256).toString(16)).join('');
+}
+
+/** Everyone's pictures (anyone with a valid link). */
+function avatars_(key) {
+  if (!playerForKey_(key)) throw new Error('This link is no longer valid.');
+  const out = {};
+  players_().forEach(p => { if (p.avatar) out[p.id] = p.avatar; });
+  return out;
+}
+
+/** Set your own picture, or (admin only) remove someone else's. Blank value = remove. */
+function setAvatar_(key, playerId, value) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  const id = String(playerId || me.id).trim().toUpperCase();
+  value = String(value || '').trim();
+  if (id !== me.id) {
+    if (!me.isAdmin) throw new Error('You can only change your own picture.');
+    if (value) throw new Error('You can remove someone\'s picture, not set it.');
+  }
+  if (value) {
+    const ok = (/^p:[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length >= 200 && value.length <= 45000) ||
+      (/^e:[^<>&"'\s]{1,16}$/.test(value) && !/[A-Za-z0-9]/.test(value.slice(2))) ||
+      /^t:[A-Z]{2,3}$/.test(value);
+    if (!ok) throw new Error('That picture didn\'t work. Try a different one.');
+  }
+  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() !== id) continue;
+    sh.getRange(i + 1, 18).setNumberFormat('@').setValue(value);
+    PLAYERS_ = null;
+    return { id: id, av: value };
+  }
+  throw new Error('Couldn\'t find that person.');
 }
 
 function getState(key, wk) {
@@ -321,7 +383,7 @@ function getState(key, wk) {
     adminName: adminName_(),
     requests: me.isAdmin ? pendingRequests_().length : 0,
     my: { week: mine.week, season: mine.season },
-    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, groups: groupsOf_(p) })),
+    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, groups: groupsOf_(p), av: avStamp_(p.avatar) })),
     weeks: weeks,
     selected: sel,
     games: list,
@@ -704,6 +766,7 @@ function players_() {
       lastSeen: r[12] instanceof Date ? r[12].toISOString() : (r[12] ? String(r[12]) : ''),
       appVersion: String(r[13] || ''), device: String(r[14] || ''), notifs: String(r[15] || ''),
       notifIssue: r[16] instanceof Date ? r[16].toISOString() : (r[16] ? String(r[16]) : ''),
+      avatar: String(r[17] || ''),
     }));
   return PLAYERS_;
 }
@@ -1123,7 +1186,7 @@ function people_(key) {
     groups: groupNames_(),
     adminId: adminId_(),
     people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '',
-      lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs, notifIssue: p.notifIssue })),
+      lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs, notifIssue: p.notifIssue, av: avStamp_(p.avatar) })),
     current: SCRIPT_VERSION,
     requests: pendingRequests_(),
   };

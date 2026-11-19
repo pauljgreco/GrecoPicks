@@ -228,8 +228,9 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on{display:flex}
+  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet,#avSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on,#avSheet.on{display:flex}
+  #avSheet{z-index:30}
   #recapSheet .sheet{max-height:94vh}
   .pitch{margin:6px 0 10px 0;padding:0;list-style:none;font-size:14px;line-height:1.5}
   .pitch li{margin:2px 0}
@@ -281,6 +282,31 @@
   .faq div{padding:0 14px 12px;font-size:15px;color:var(--muted);line-height:1.45}
   .faq div b{color:var(--ink)}
   .faq ol{margin:6px 0 0;padding-left:20px}
+  /* Profile pictures */
+  .av{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;position:relative;top:-1px;margin-right:7px;flex:none;font-size:12px;font-weight:700;color:#fff;line-height:1;background:var(--line);overflow:hidden;font-style:normal;letter-spacing:0;text-transform:none;box-sizing:border-box}
+  .av.sm{width:18px;height:18px;font-size:10px;margin-right:4px}
+  .av.md{width:38px;height:38px;font-size:17px;margin:0}
+  .av.lg{width:76px;height:76px;font-size:34px;margin:0}
+  .av.xl{width:120px;height:120px;font-size:52px;margin:0}
+  .av.ae{background:var(--sel);font-size:14px}
+  .av.sm.ae{font-size:11px}.av.md.ae{font-size:24px}.av.lg.ae{font-size:46px}.av.xl.ae{font-size:72px}
+  .av.at{background:#fff;padding:2px;object-fit:contain;border:1px solid var(--line)}
+  .av.md.at{padding:4px}.av.lg.at,.av.xl.at{padding:9px}
+  h1 .av{width:30px;height:30px;top:-2px;margin-right:9px;font-size:15px}
+  h1 .av.ae{font-size:18px}
+  .avhead{display:flex;flex-direction:column;align-items:center;gap:10px;margin:4px 0 8px}
+  .avhead .sbtn{font-size:14px}
+  #avSheet .avcur{display:flex;justify-content:center;margin:6px 0 14px}
+  .avup{display:block;width:100%;padding:14px;border-radius:12px;border:0;background:var(--accent);color:var(--accent-ink,#fff);font:inherit;font-weight:700;font-size:16px;cursor:pointer}
+  .avgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:8px}
+  .avgrid button{aspect-ratio:1;border-radius:50%;border:1px solid var(--line);background:var(--card);font-size:24px;padding:0;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .avgrid button img{width:72%;height:72%;object-fit:contain}
+  .avgrid button.on{outline:3px solid var(--accent);outline-offset:1px}
+  .cropbox{position:relative;width:280px;max-width:100%;aspect-ratio:1;margin:0 auto;border-radius:14px;overflow:hidden;background:#000;touch-action:none;cursor:grab}
+  .cropbox canvas{width:100%;height:100%;display:block}
+  #avZoom{width:100%;margin:14px 0 4px}
+  .avrow{display:flex;gap:10px;margin-top:12px}.avrow button{flex:1}
+  .avlink{display:block;margin:18px auto 4px;background:none;border:0;color:var(--muted);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer}
 </style>
 </head>
 <body>
@@ -310,8 +336,9 @@
 <div id="settings" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet">
     <div class="sheet-top"><h2>Settings</h2><button class="x" id="setClose" aria-label="Close">✕</button></div>
-    <h3>Your name</h3>
+    <h3>Your name &amp; picture</h3>
     <div class="nbox">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span id="setAv"></span><button class="sbtn" data-avopen="1" id="setAvBtn">Add a picture</button></div>
       <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
       <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
     </div>
@@ -359,6 +386,28 @@
   <div class="sheet">
     <div class="sheet-top"><h2 id="pTitle">Profile</h2><button class="x" id="pClose" aria-label="Close">✕</button></div>
     <div id="pBody"></div>
+  </div>
+</div>
+
+<div id="avSheet" role="dialog" aria-modal="true" aria-label="Your picture">
+  <div class="sheet">
+    <div class="sheet-top"><h2>Your picture</h2><button class="x" id="avClose" aria-label="Close">✕</button></div>
+    <div id="avMain">
+      <div class="avcur" id="avCur"></div>
+      <button class="avup" id="avUpload">📷 Upload a photo</button>
+      <input type="file" id="avFile" accept="image/*" hidden>
+      <h3>Or pick an emoji</h3>
+      <div class="avgrid" id="avEmo"></div>
+      <h3>Or a team logo</h3>
+      <div class="avgrid" id="avTeams"></div>
+      <button class="avlink" id="avRemove" hidden>Remove my picture</button>
+    </div>
+    <div id="avCrop" hidden>
+      <div class="cropbox" id="avBox"><canvas id="avCv" width="560" height="560"></canvas></div>
+      <input type="range" id="avZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom">
+      <p style="text-align:center;color:var(--muted);font-size:13px;margin:0">Drag to move · slide to zoom</p>
+      <div class="avrow"><button class="sbtn" id="avBack">Back</button><button class="nbtn" id="avSave">Save picture</button></div>
+    </div>
   </div>
 </div>
 
@@ -460,7 +509,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.20.0';
+  const APP_VERSION = '2.21.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -472,6 +521,46 @@
   let state = null, view = 'picks', pending = 0;
 
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+  // ---------- Profile pictures ----------
+  // Saved on the phone; only re-downloaded when someone's picture changes (the state call sends a fingerprint per person).
+  let AVS={stamps:{},map:{}};
+  try{ const c=JSON.parse(localStorage.getItem('nflpicks_avatars')||'null'); if(c&&c.map) AVS=c; }catch(e){}
+  const NAMES={};
+  function noteNames(list){ (list||[]).forEach(p=>{ if(p&&p.id&&p.name) NAMES[p.id]=p.name; }); }
+  const teamLogo=a=>'https://a.espncdn.com/i/teamlogos/nfl/500/'+(a==='WAS'?'wsh':String(a).toLowerCase())+'.png';
+  function avColor(id){ let h=7; for(const c of String(id)) h=(h*31+c.charCodeAt(0))%360; return 'hsl('+((h*47)%360)+',55%,42%)'; }
+  function avInitial(id,name){ const n=String(name||NAMES[id]||'?').trim(); const m=n.match(/\p{L}|\p{N}/u); return (m?m[0]:'?').toUpperCase(); }
+  function av(id,cls,nameHint){
+    const v=AVS.map[id]||'', c='av'+(cls?' '+cls:'');
+    if(v.indexOf('p:')===0) return `<img class="${c}" src="data:image/jpeg;base64,${v.slice(2)}" alt="">`;
+    if(v.indexOf('e:')===0) return `<span class="${c} ae" aria-hidden="true">${esc(v.slice(2))}</span>`;
+    if(v.indexOf('t:')===0) return `<img class="${c} at" src="${esc(teamLogo(v.slice(2)))}" alt="">`;
+    return `<span class="${c} ai" style="background:${avColor(id)}" aria-hidden="true">${esc(avInitial(id,nameHint))}</span>`;
+  }
+  function saveAvs(){ try{ localStorage.setItem('nflpicks_avatars',JSON.stringify(AVS)); }catch(e){} }
+  let avSyncing=false;
+  function syncAvatars(players){
+    const want={}; (players||[]).forEach(p=>{ want[p.id]=p.av||''; });
+    if(avSyncing||!Object.keys(want).some(id=>(AVS.stamps[id]||'')!==want[id])) return;
+    avSyncing=true;
+    api('avatars').then(m=>{ AVS={stamps:want,map:m||{}}; saveAvs(); render(); }).catch(()=>{}).finally(()=>{ avSyncing=false; });
+  }
+  function apiPost(action, body){
+    // Plain-text body (no special headers) so the browser sends it straight to Google without a pre-check.
+    return fetch(API,{method:'POST',body:JSON.stringify(Object.assign({api:action,k:KEY},body||{}))})
+      .then(r=>r.json()).then(j=>{ if(!j.ok) throw new Error(j.error||'Something went wrong.'); return j.data; });
+  }
+  // Loads the pictures for the share image (team logos may not load; those fall back to the initial).
+  function avImages(ids){
+    const out={};
+    return Promise.all(ids.map(id=>new Promise(res=>{
+      const v=AVS.map[id]||''; if(!v||v.indexOf('e:')===0){ res(); return; }
+      const im=new Image(); im.crossOrigin='anonymous';
+      im.onload=()=>{ out[id]=im; res(); }; im.onerror=()=>res(); setTimeout(res,4000);
+      im.src=v.indexOf('p:')===0?'data:image/jpeg;base64,'+v.slice(2):teamLogo(v.slice(2));
+    }))).then(()=>out);
+  }
   function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',3500);}
   function spin(on){document.getElementById('reload').classList.toggle('spin',on);}
   function save(){try{localStorage.setItem(CACHE_KEY,JSON.stringify(state));}catch(e){}}
@@ -500,7 +589,7 @@
     spin(true); if(busy) document.body.classList.add('busy');
     sentN=pushReady?pushStatus():'';
     return api('state', {wk: wk||'', v: APP_VERSION, d: deviceLabel(), n: sentN})
-      .then(s=>{ if(!pending){ state=s; save(); render(); linkUser(); if(openRecapFromLink()) return; setTimeout(party,400); } })
+      .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); linkUser(); if(openRecapFromLink()) return; setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -556,7 +645,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    document.getElementById('hi').textContent='Hi, '+s.me.name;
+    noteNames(s.players); document.getElementById('hi').innerHTML=av(s.me.id,'',s.me.name)+esc(s.me.name);
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
@@ -670,10 +759,10 @@
   function crownLine(){
     if(!betweenWeeks()) return '';
     const c=curCrown(); if(!c) return '';
-    const names=(ids,ns)=>ids.map((id,i)=>id===state.me.id?'You':ns[i]).join(', ');
+    const names=(ids,ns)=>ids.map((id,i)=>av(id,'sm',ns[i])+esc(id===state.me.id?'You':ns[i])).join(', ');
     const gl=curGroup()?' ('+esc(gname(curGroup()))+')':'';
-    let h=`👑 ${esc(c.label)} winner${c.ids.length>1?'s':''}${gl}: <b>${esc(names(c.ids,c.names))}</b> (${esc(c.rec)})`;
-    if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}${gl}: <b>${esc(names(c.poop.ids,c.poop.names))}</b> (${esc(c.poop.rec)})`;
+    let h=`👑 ${esc(c.label)} winner${c.ids.length>1?'s':''}${gl}: <b>${names(c.ids,c.names)}</b> (${esc(c.rec)})`;
+    if(c.poop) h+=`<br>💩 Bottom of ${esc(c.label)}${gl}: <b>${names(c.poop.ids,c.poop.names)}</b> (${esc(c.poop.rec)})`;
     return `<div class="crown">${h}</div>`;
   }
 
@@ -683,7 +772,7 @@
     if(!s.games.length) return groupBar()+'<div class="empty">No games loaded yet.</div>';
     const players=shownPlayers();
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${av(p.id,'sm',p.name)}${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -718,7 +807,7 @@
     if(!season || histLoading || (hist[season] && !force)) return;
     histLoading=true; spin(true);
     return api('history',{season:season})
-      .then(h=>{ hist[season]=h; if(view==='stats') render(); })
+      .then(h=>{ hist[season]=h; noteNames(h.players); if(view==='stats') render(); })
       .catch(e=>toast(e.message))
       .finally(()=>{ histLoading=false; spin(false); });
   }
@@ -827,12 +916,12 @@
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
     html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${esc(s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
-      html+=`<div class="sec">Week by week</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Week</th>${P.map(s=>`<th>${esc(s.id===me?'You':s.name)}</th>`).join('')}</tr></thead><tbody>${
+      html+=`<div class="sec">Week by week</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Week</th>${P.map(s=>`<th>${av(s.id,'sm',s.name)}${esc(s.id===me?'You':s.name)}</th>`).join('')}</tr></thead><tbody>${
         st.weeks.slice().reverse().map(k=>{
           const top=Math.max(...P.map(s=>(s.weeks[k]||{W:0}).W));
           return `<tr><td class="n">${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</td>${P.map(s=>{const w=s.weeks[k]; return w?`<td class="${w.W===top&&top>0&&P.length>1?'best':''}">${w.W}-${w.L}</td>`:'<td>—</td>';}).join('')}</tr>`;
@@ -842,7 +931,7 @@
 
     // Splits
     html+=`<div class="sec">Splits</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Home picks</th><th>Away picks</th><th>Upsets</th><th>With group</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
     }</tbody></table></div>
     <div class="note">Only games that have kicked off count. Upsets = correct picks of the team with the worse record going in. With group = how often a pick matched most of the selected people.</div>`;
     return html;
@@ -856,7 +945,7 @@
       <small style="color:var(--muted)">${t.mine==null?'No guess yet.':'Your guess: '+esc(t.mine)+'.'} ${esc(t.count)} ${t.count===1?'person has':'people have'} guessed. Everyone's guesses show at kickoff.</small></div>`;
     const shown=new Set(shownPlayers().map(p=>p.id));
     const list=(t.all||[]).filter(x=>shown.has(x.id)).sort((a,b)=>t.total!=null?Math.abs(a.guess-t.total)-Math.abs(b.guess-t.total):a.guess-b.guess);
-    return `<div class="tb"><b>Tiebreaker</b>${t.total!=null?` · total was <b>${esc(t.total)}</b>`:' · total points'}<br>${list.length?list.map(x=>`${esc(x.id===state.me.id?'You':x.name)} ${esc(x.guess)}${t.total!=null?` <small style="color:var(--muted)">(${Math.abs(x.guess-t.total)} off)</small>`:''}`).join(' · '):'No guesses.'}</div>`;
+    return `<div class="tb"><b>Tiebreaker</b>${t.total!=null?` · total was <b>${esc(t.total)}</b>`:' · total points'}<br>${list.length?list.map(x=>`${av(x.id,'sm',x.name)}${esc(x.id===state.me.id?'You':x.name)} ${esc(x.guess)}${t.total!=null?` <small style="color:var(--muted)">(${Math.abs(x.guess-t.total)} off)</small>`:''}`).join(' · '):'No guesses.'}</div>`;
   }
   document.getElementById('main').addEventListener('click',e=>{
     const b=e.target.closest('[data-tbsave]'); if(!b||!state.tiebreak) return;
@@ -945,7 +1034,7 @@
     } else html+=`<div class="rcyou">You didn't have any picks this week.</div>`;
     // week standings
     html+=`<h3>${esc(label)} · ${esc(grp?gname(grp):'Everyone')}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th></tr></thead><tbody>${
-      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${tagOf(id)}${esc(names[id])}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
+      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id])}${tagOf(id)}${esc(names[id])}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
     }</tbody></table></div>${byTb?`<div class="note">👑 went to ${esc(crown.map(id=>names[id]).join(', '))} on the tiebreaker (closest total-points guess).</div>`:''}`;
     // season standings through this week
     const sd=standingsData(h,wk), wsz={}, fin={};
@@ -954,7 +1043,7 @@
     Array.from(new Set(h.games.map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&k.split('|')[0]===wk.split('|')[0]&&fin[k]===((h.weekGames||{})[k]||wsz[k])).forEach(k=>{
       const kg=h.games.filter(g=>wkKey(g)===k); ids.forEach(id=>{ const all=kg.every(g=>((by[g.id]||{})[id]||{}).r==='W'); if(all&&kg.length) perf[id]++; }); });
     if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
-      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${esc(x.id===me?'You':x.name)}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
+      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${esc(x.id===me?'You':x.name)}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
     // notable (only what happened, everyone involved)
     const only=[], none=[]; let all=0, allN=0;
@@ -1035,7 +1124,7 @@
     const done=h.games.filter(g=>wkKey(g)===wk).every(g=>g.status==='final');
     return {wk, label:wkName(wk).replace(/^Wk /,'Week '), season:wk.split('|')[0], group:grp, wkRows, seRows, done};
   }
-  function drawStandings(d){
+  function drawStandings(d,imgs){
     const css=getComputedStyle(document.documentElement);
     const bar=(css.getPropertyValue('--bar')||'#0b1f3a').trim()||'#0b1f3a', ink=(css.getPropertyValue('--bar-ink')||'#fff').trim()||'#fff';
     const acc=(css.getPropertyValue('--accent')||'#0b5cff').trim();
@@ -1053,7 +1142,8 @@
     const sec=(t)=>{ x.fillStyle=acc; x.font=F(800,40); x.fillText(t,pad+24,y); y+=24; x.fillStyle='#e5e7eb'; x.fillRect(pad+24,y,Wd-2*pad-48,3); y+=58; };
     const row=(r,right,me,extra)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
       x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
-      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?300:560)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+100,y);
+      drawAv(r.id,r.name,pad+124,y-13,24);
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?250:500)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+160,y);
       x.textAlign='right';
       if(extra){   // season columns: ▲▼ · W-L · Pct · 👑 · 💩
         if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),COL.mv,y); }
@@ -1062,6 +1152,15 @@
         x.font=F(800,36); x.fillText(r.c?String(r.c):'–',COL.c,y); x.fillText(r.p?String(r.p):'–',COL.p,y);
       } else { x.fillStyle='#111827'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); }
       x.textAlign='left'; y+=rowH; };
+    const drawAv=(id,name,X,Y,R)=>{
+      const v=AVS.map[id]||'', im=imgs&&imgs[id];
+      x.save(); x.beginPath(); x.arc(X,Y,R,0,Math.PI*2); x.closePath();
+      if(im&&v.indexOf('t:')===0){ x.fillStyle='#fff'; x.fill(); x.clip(); x.drawImage(im,X-R*.78,Y-R*.78,R*1.56,R*1.56); x.restore(); x.save(); x.beginPath(); x.arc(X,Y,R,0,Math.PI*2); x.strokeStyle='#e5e7eb'; x.lineWidth=2; x.stroke(); }
+      else if(im){ x.clip(); x.drawImage(im,X-R,Y-R,2*R,2*R); }
+      else if(v.indexOf('e:')===0){ x.fillStyle='#f3f4f6'; x.fill(); x.font=F(400,R*1.25); x.textAlign='center'; x.textBaseline='middle'; x.fillStyle='#111827'; x.fillText(v.slice(2),X,Y+2); }
+      else { x.fillStyle=avColor(id); x.fill(); x.fillStyle='#fff'; x.font=F(800,R); x.textAlign='center'; x.textBaseline='middle'; x.fillText(avInitial(id,name),X,Y+2); }
+      x.restore();
+    };
     const COL={p:Wd-pad-28, c:Wd-pad-118, pct:Wd-pad-210, wl:Wd-pad-340, mv:Wd-pad-480};
     if(d.wkRows.length){ sec(d.label+(d.done?'':' so far')); d.wkRows.forEach(r=>row(r,r.W+'-'+r.L,false)); y+=40; }
     sec(d.season+' season');
@@ -1074,7 +1173,7 @@
     const season=wk.split('|')[0];
     let h=hist[season]; if(!h){ const pr=loadHistory(); if(pr&&pr.then) await pr; h=hist[season]; }
     if(!h){ toast('Couldn\'t load the standings. Try again.'); return; }
-    const d=standingsData(h,wk), cv=drawStandings(d);
+    const d=standingsData(h,wk), cv=drawStandings(d,await avImages(Array.from(new Set(d.wkRows.concat(d.seRows).map(r=>r.id)))));
     const name=('greco-picks-'+d.label+'-'+d.season).toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.png';
     const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
     const file=new File([blob],name,{type:'image/png'});
@@ -1235,8 +1334,8 @@
         grp=[lk?`🔒 ${lk} locked in`:'', drafting?`✏️ ${drafting} still picking`:'', none?`⬜ ${none} not picked`:''].filter(Boolean).join(' · ')+`<br><small>${g.mine?'Lock your pick to see theirs.':'Pick and lock to see theirs.'}</small>`;
       } else {
         const by={};
-        picked.forEach(p=>{ const x=all[p.id]; if(x.h) return; (by[x.p]=by[x.p]||[]).push({name:p.name,result:x.r,override:x.o}); });
-        const parts=Object.keys(by).map(k=>`<b>${esc(pickLabel(g,k))}:</b> ${by[k].map(o=>esc(o.name)+res(o.result)+ov(o)).join(', ')}`);
+        picked.forEach(p=>{ const x=all[p.id]; if(x.h) return; (by[x.p]=by[x.p]||[]).push({id:p.id,name:p.name,result:x.r,override:x.o}); });
+        const parts=Object.keys(by).map(k=>`<b>${esc(pickLabel(g,k))}:</b> ${by[k].map(o=>av(o.id,'sm',o.name)+esc(o.name)+res(o.result)+ov(o)).join(', ')}`);
         const left=shown.length-picked.length;
         if(left) parts.push(locked?`${left} no pick`:`${left} still to pick`);
         grp=parts.join('<br>');
@@ -1254,7 +1353,7 @@
       const opts=[['', 'No pick'],[g.away.abbr,g.away.name],[g.home.abbr,g.home.name]];
       if(g.canTie) opts.push(['TIE','Tie']);
       opts.push(['MISSED','Missed (counts as loss)']);
-      const row=a=>`<div class="admrow"><span>${esc(a.name)}</span>
+      const row=a=>`<div class="admrow"><span>${av(a.id,'sm',a.name)}${esc(a.name)}</span>
           <select>${opts.map(o=>`<option value="${esc(o[0])}"${a.pick===o[0]?' selected':''}>${esc(o[1])}</option>`).join('')}</select>
           <button data-act="adm" data-g="${esc(g.id)}" data-pl="${esc(a.id)}">Save</button></div>`;
       admin=`<details class="adm"><summary>Admin override</summary>${g.admin.map(row).join('')}</details>`;
@@ -1573,7 +1672,7 @@
     const el=document.getElementById('ptr'), ball=el.querySelector('.ball span'), label=el.querySelector('small');
     const hdr=document.querySelector('header');
     let y0=null, dist=0, busy=false;
-    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on');
+    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on');
     const place=d=>{ const top=hdr.getBoundingClientRect().bottom; el.style.transform=`translate(-50%,${Math.round(top-50+d)}px)`; };
     const hide=()=>{ el.className=''; el.style.transform='translate(-50%,-70px)'; };
     window.addEventListener('touchstart',e=>{
@@ -1680,7 +1779,7 @@
     const el=document.getElementById('teamThemes'); if(!el) return;
     let cur=''; try{ cur=localStorage.getItem('nflpicks_tteam')||''; }catch(e){}
     const sw=t=>`<button class="tsw${(t?t.id:'')===cur?' on':''}" data-team="${t?esc(t.id):''}"><i><b style="background:${t?t.bar:'#0b1f3a'}"></b><em style="background:${t?(t.al===t.bar?t.ad:t.al):'#0b5cff'}"></em></i><span class="tn">${t&&t.logo?`<img src="${esc(t.logo)}" alt="" loading="lazy">`:(t?`<em class="nl">${t.icon||'🏈'}</em>`:'<em class="nl">🏈</em>')}${esc(t?t.name:'Greco Picks')}${t&&t.approx?' *':''}</span></button>`;
-    el.innerHTML=`<div class="tgrid">${sw(null)}</div><div class="tset">🦅 Eagles</div><div class="tgrid">${THEMES.filter(t=>t.set==='Eagles').map(sw).join('')}</div><div class="tset">All teams</div><div class="tgrid">${THEMES.filter(t=>t.set==='NFL').map(sw).join('')}</div><p style="font-size:12px;color:var(--muted);margin:4px 0 0">Colors are each team's published color codes. * No official code exists for these throwbacks, so they're matched as closely as possible.</p>`;
+    el.innerHTML=`<div class="tgrid">${sw(null)}</div><div class="tset">🦅 Eagles</div><div class="tgrid">${THEMES.filter(t=>t.set==='Eagles').map(sw).join('')}</div><div class="tset">All teams</div><div class="tgrid">${[{id:'PHI',name:'Eagles'}].concat(THEMES.filter(t=>t.set==='NFL')).map(sw).join('')}</div><p style="font-size:12px;color:var(--muted);margin:4px 0 0">Colors are each team's published color codes. * No official code exists for these throwbacks, so they're matched as closely as possible.</p>`;
   }
   document.getElementById('teamThemes').addEventListener('click',e=>{ const b=e.target.closest('[data-team]'); if(!b) return; applyTeam(b.dataset.team); try{ if(navigator.vibrate) navigator.vibrate(8); }catch(x){} });
   try{ if(localStorage.getItem('nflpicks_tteam')==='eagles-1934') applyTeam('frankford'); }catch(e){}
@@ -1721,6 +1820,7 @@
     const groups=p.groups||[];
     document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
     document.getElementById('pBody').innerHTML=`
+      <div class="avhead">${av(id,'xl',p.name)}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change picture':'Add a picture'}</button>`:''}</div>
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
@@ -1739,6 +1839,113 @@
     b.disabled=true;
     api('groups',{pl:id,groups:v}).then(d=>{ people=d; toast('Groups saved.'); return load(state&&state.selected,false); })
       .then(()=>openProfile(id)).catch(err=>{ toast(err.message); b.disabled=false; });
+  });
+
+  // ---------- Picture picker (upload a photo, or pick an emoji or team logo) ----------
+  const AV_EMOJI=['🏈','🦅','🐐','🔥','😎','🤓','🥳','😈','🤠','👻','🤖','👑','🐶','🐱','🦊','🐻','🐼','🦁','🐯','🐸','🐝','🦄','🍕','🍺','☕','🌮','🎸','⭐','🏆','💪','🍀','🎯'];
+  function setAvUI(){
+    if(!state) return;
+    const el=document.getElementById('setAv'); if(el) el.innerHTML=av(state.me.id,'md',state.me.name);
+    const b=document.getElementById('setAvBtn'); if(b) b.textContent=AVS.map[state.me.id]?'Change picture':'Add a picture';
+  }
+  function avPickerUI(){
+    const mine=AVS.map[state.me.id]||'';
+    document.getElementById('avCur').innerHTML=av(state.me.id,'xl',state.me.name);
+    document.getElementById('avEmo').innerHTML=AV_EMOJI.map(e=>`<button data-avset="e:${esc(e)}" class="${mine==='e:'+e?'on':''}" aria-label="${esc(e)}">${esc(e)}</button>`).join('');
+    document.getElementById('avTeams').innerHTML=[{id:'PHI',name:'Eagles'}].concat(THEMES.filter(t=>t.set==='NFL')).map(t=>`<button data-avset="t:${esc(t.id)}" class="${mine==='t:'+t.id?'on':''}" aria-label="${esc(t.name)}"><img src="${esc(teamLogo(t.id))}" alt="" loading="lazy"></button>`).join('');
+    document.getElementById('avRemove').hidden=!mine;
+  }
+  function openAvPicker(){
+    if(!state) return;
+    document.getElementById('avMain').hidden=false; document.getElementById('avCrop').hidden=true;
+    avPickerUI(); document.getElementById('avSheet').classList.add('on');
+  }
+  function closeAvPicker(){ document.getElementById('avSheet').classList.remove('on'); }
+  let avBusy=false;
+  function saveMyAv(v){
+    if(avBusy) return Promise.resolve(); avBusy=true;
+    const me=state.me.id, before=AVS.map[me];
+    return apiPost('avatar',{av:v}).then(()=>{
+      if(v) AVS.map[me]=v; else delete AVS.map[me];
+      AVS.stamps[me]='?';   // re-check with everyone's on the next refresh
+      saveAvs(); render(); setAvUI();
+      if(document.getElementById('profile').classList.contains('on')) openProfile(me);
+      closeAvPicker(); toast(v?'Picture saved. Everyone will see it.':'Picture removed.');
+      try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}
+    }).catch(err=>{ if(before) AVS.map[me]=before; toast(err.message); }).finally(()=>{ avBusy=false; });
+  }
+  document.addEventListener('click',e=>{ if(e.target.closest('[data-avopen]')) openAvPicker(); });
+  document.getElementById('avClose').addEventListener('click',closeAvPicker);
+  document.getElementById('avSheet').addEventListener('click',e=>{
+    if(e.target.id==='avSheet'){ closeAvPicker(); return; }
+    const b=e.target.closest('[data-avset]'); if(b) saveMyAv(b.dataset.avset);
+  });
+  document.getElementById('avRemove').addEventListener('click',()=>saveMyAv(''));
+  document.getElementById('avUpload').addEventListener('click',()=>document.getElementById('avFile').click());
+
+  // Crop: the photo fills a square; drag to move, slider (or pinch / scroll) to zoom. Saved as a 128x128 JPEG (~5-10 KB).
+  const crop={img:null,z:1,x:0,y:0};
+  const cv=document.getElementById('avCv'), cx=cv.getContext('2d'), CW=cv.width;
+  function cropBase(){ const im=crop.img; return CW/Math.min(im.width,im.height); }
+  function clampCrop(){
+    const im=crop.img, k=cropBase()*crop.z, w=im.width*k, h=im.height*k;
+    crop.x=Math.min(0,Math.max(CW-w,crop.x)); crop.y=Math.min(0,Math.max(CW-h,crop.y));
+  }
+  function drawCrop(){
+    const im=crop.img; if(!im) return; clampCrop();
+    const k=cropBase()*crop.z;
+    cx.clearRect(0,0,CW,CW); cx.drawImage(im,crop.x,crop.y,im.width*k,im.height*k);
+    cx.save(); cx.fillStyle='rgba(0,0,0,.55)'; cx.beginPath(); cx.rect(0,0,CW,CW); cx.arc(CW/2,CW/2,CW/2-4,0,Math.PI*2,true); cx.fill('evenodd');
+    cx.strokeStyle='rgba(255,255,255,.9)'; cx.lineWidth=4; cx.beginPath(); cx.arc(CW/2,CW/2,CW/2-4,0,Math.PI*2); cx.stroke(); cx.restore();
+  }
+  function zoomTo(z,fx,fy){
+    const old=crop.z; z=Math.max(1,Math.min(4,z)); if(fx==null){ fx=CW/2; fy=CW/2; }
+    crop.x=fx-(fx-crop.x)*z/old; crop.y=fy-(fy-crop.y)*z/old; crop.z=z;
+    document.getElementById('avZoom').value=z; drawCrop();
+  }
+  document.getElementById('avFile').addEventListener('change',e=>{
+    const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+    const url=URL.createObjectURL(f), im=new Image();
+    im.onload=()=>{
+      crop.img=im; crop.z=1; const k=cropBase();
+      crop.x=(CW-im.width*k)/2; crop.y=(CW-im.height*k)/2;
+      document.getElementById('avZoom').value=1;
+      document.getElementById('avMain').hidden=true; document.getElementById('avCrop').hidden=false; drawCrop();
+    };
+    im.onerror=()=>{ URL.revokeObjectURL(url); toast('That photo couldn\'t be opened. Try another one.'); };
+    im.src=url;
+  });
+  document.getElementById('avZoom').addEventListener('input',e=>zoomTo(parseFloat(e.target.value)));
+  (()=>{
+    const box=document.getElementById('avBox'), pts=new Map(); let pinch=0;
+    const scale=()=>CW/box.getBoundingClientRect().width;
+    const pos=e=>{ const r=box.getBoundingClientRect(), k=scale(); return [(e.clientX-r.left)*k,(e.clientY-r.top)*k]; };
+    box.addEventListener('pointerdown',e=>{ box.setPointerCapture(e.pointerId); pts.set(e.pointerId,pos(e)); });
+    box.addEventListener('pointermove',e=>{
+      if(!pts.has(e.pointerId)||!crop.img) return;
+      const p=pos(e), prev=pts.get(e.pointerId);
+      if(pts.size===1){ crop.x+=p[0]-prev[0]; crop.y+=p[1]-prev[1]; pts.set(e.pointerId,p); drawCrop(); return; }
+      pts.set(e.pointerId,p);
+      const [a,b]=[...pts.values()], d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+      if(pinch) zoomTo(crop.z*d/pinch,(a[0]+b[0])/2,(a[1]+b[1])/2); pinch=d;
+    });
+    const up=e=>{ pts.delete(e.pointerId); pinch=0; };
+    box.addEventListener('pointerup',up); box.addEventListener('pointercancel',up);
+    box.addEventListener('wheel',e=>{ e.preventDefault(); const p=pos(e); zoomTo(crop.z*(e.deltaY<0?1.1:1/1.1),p[0],p[1]); },{passive:false});
+  })();
+  document.getElementById('avBack').addEventListener('click',()=>{ document.getElementById('avMain').hidden=false; document.getElementById('avCrop').hidden=true; });
+  document.getElementById('avSave').addEventListener('click',()=>{
+    const im=crop.img; if(!im) return;
+    const S=128, o=document.createElement('canvas'); o.width=S; o.height=S; const x=o.getContext('2d');
+    const k=cropBase()*crop.z*S/CW;
+    x.fillStyle='#fff'; x.fillRect(0,0,S,S);
+    x.imageSmoothingQuality='high'; x.drawImage(im,crop.x*S/CW,crop.y*S/CW,im.width*k,im.height*k);
+    let q=.85, data=o.toDataURL('image/jpeg',q);
+    while(data.length>40000&&q>.4){ q-=.15; data=o.toDataURL('image/jpeg',q); }
+    const b64=data.replace(/^data:image\/jpeg;base64,/,'');
+    if(!/^[A-Za-z0-9+/]+=*$/.test(b64)){ toast('That photo couldn\'t be saved. Try another one.'); return; }
+    const btn=document.getElementById('avSave'); btn.disabled=true; btn.textContent='Saving…';
+    saveMyAv('p:'+b64).finally(()=>{ btn.disabled=false; btn.textContent='Save picture'; });
   });
   document.getElementById('hi').addEventListener('click',()=>state&&openProfile(state.me.id));
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
@@ -1760,7 +1967,7 @@
     const hid=hiddenSet(), q=(document.getElementById('hSearch').value||'').trim().toLowerCase();
     const others=(state.players||[]).filter(p=>p.id!==state.me.id).filter(p=>!q||p.name.toLowerCase().indexOf(q)>=0||(p.groups||[]).some(g=>g.toLowerCase().indexOf(q)>=0))
       .sort((a,b)=>(hid.has(b.id)-hid.has(a.id))||a.name.localeCompare(b.name));
-    el.innerHTML=others.length?others.map(p=>`<label class="tog"><span>${esc(p.name)}${(p.groups||[]).length?`<small>${esc(p.groups.join(', '))}</small>`:''}</span><input type="checkbox" data-hide="${esc(p.id)}"${hid.has(p.id)?' checked':''}></label>`).join(''):'<p>No one else yet.</p>';
+    el.innerHTML=others.length?others.map(p=>`<label class="tog"><span>${av(p.id,'sm',p.name)}${esc(p.name)}${(p.groups||[]).length?`<small>${esc(p.groups.join(', '))}</small>`:''}</span><input type="checkbox" data-hide="${esc(p.id)}"${hid.has(p.id)?' checked':''}></label>`).join(''):'<p>No one else yet.</p>';
   }
   document.getElementById('hideList').addEventListener('change',e=>{
     const id=e.target.dataset&&e.target.dataset.hide; if(!id) return;
@@ -1770,7 +1977,7 @@
   });
 
   // ---------- People (admin) ----------
-  let people=null, armedLink='', armedRetire='';
+  let people=null, armedLink='', armedRetire='', armedAv='';
   function shareLink(name,link){
     const text='Here\'s your Greco Picks link, '+name+'. Open it on your phone, then add it to your home screen: '+link;
     if(navigator.share) navigator.share({title:'Greco Picks',text:text}).catch(()=>{});
@@ -1811,11 +2018,11 @@
       const tags=p.id===people.adminId?'Every group':((p.groups||[]).join(', ')||'No group');
       const open=openPerson===p.id;
       return `<div class="person">
-        <div class="phead" data-pexp="${esc(p.id)}"><span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
+        <div class="phead" data-pexp="${esc(p.id)}"><span style="display:flex;align-items:center;gap:10px">${av(p.id,'md',p.name)}<span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
-          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
+          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove picture':'Remove picture'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
         </div>`:''}
       </div>`;
     }).join('')||'<p>No one matches.</p>';
@@ -1860,7 +2067,7 @@
   }
   function loadPeople(){
     if(!state||!state.me.isAdmin) return;
-    api('people',{}).then(d=>{ people=d; renderPeople(); }).catch(e=>{ document.getElementById('people').innerHTML='<p>'+esc(e.message)+'</p>'; });
+    api('people',{}).then(d=>{ people=d; noteNames(d.people); renderPeople(); }).catch(e=>{ document.getElementById('people').innerHTML='<p>'+esc(e.message)+'</p>'; });
   }
   document.getElementById('people').addEventListener('click',e=>{
     const h=e.target.closest('[data-pexp]');
@@ -1869,6 +2076,11 @@
     const p=people.people.find(x=>x.id===b.dataset.id); if(!p) return;
     if(b.dataset.pp==='share') shareLink(p.name,p.link);
     if(b.dataset.pp==='copy') copyText(p.link,'Link copied.');
+    if(b.dataset.pp==='rmav'){
+      if(armedAv!==p.id){ armedAv=p.id; renderPeople(); setTimeout(()=>{ if(armedAv===p.id){ armedAv=''; renderPeople(); } },4000); return; }
+      armedAv=''; b.disabled=true;
+      apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s picture removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; });
+    }
     if(b.dataset.pp==='groups'){
       const v=(document.querySelector(`[data-gin="${p.id}"]`)||{}).value||'';
       b.disabled=true;
@@ -2019,7 +2231,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     updateVer();
-    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
