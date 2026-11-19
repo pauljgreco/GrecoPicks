@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.26.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.26.1';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -271,6 +271,7 @@ function api_(p) {
     else if (p.api === 'groups') data = setGroups_(p.k, p.pl, p.groups);
     else if (p.api === 'hide') data = setHidden_(p.k, p.pl, p.on);
     else if (p.api === 'active') data = setActive_(p.k, p.pl, p.on);
+    else if (p.api === 'delete') data = deletePerson_(p.k, p.pl);
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
     else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
@@ -1320,6 +1321,7 @@ function createPerson_(name, groups) {
     const sh = playersSheet_();
     let maxId = 0;
     players_().forEach(p => { const m = /^P(\d+)$/.exec(p.id); if (m) maxId = Math.max(maxId, Number(m[1])); });
+    maxId = Math.max(maxId, Number(PropertiesService.getScriptProperties().getProperty('MAX_ID') || 0));   // never reuse a deleted person's ID
     const id = 'P' + (maxId + 1), k = newKey_();
     sh.getRange('C:D').setNumberFormat('@');
     const row = [id, name, k, appBase_() + '?k=' + k, true, '', '', '', '', (groups || []).join(', ')];
@@ -1562,6 +1564,38 @@ function setActive_(key, playerId, on) {
   if (!found) throw new Error('Unknown player.');
   PLAYERS_ = null;
   return people_(key);
+}
+
+/**
+ * Admin: permanently delete a RETIRED person: their Players row, picks (current + archive) and tiebreaker guesses.
+ * Their ID number is never reused (so old phones signed up under it can't receive someone else's notifications).
+ */
+function deletePerson_(key, playerId) {
+  const me = requireAdmin_(key);
+  playerId = String(playerId || '').toUpperCase();
+  if (playerId === me.id) throw new Error('You can\'t delete yourself.');
+  const p = players_().find(x => x.id === playerId);
+  if (!p) throw new Error('Unknown player.');
+  if (p.active) throw new Error('Retire them first, then delete.');
+  const lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const n = Number((/^P(\d+)$/.exec(playerId) || [])[1] || 0);
+    props.setProperty('MAX_ID', String(Math.max(n, Number(props.getProperty('MAX_ID') || 0))));
+    const dropRows = (sh, col) => {
+      if (!sh || sh.getLastRow() < 2) return 0;
+      const vals = sh.getDataRange().getValues(); let gone = 0;
+      for (let i = vals.length - 1; i >= 1; i--) if (String(vals[i][col]).trim().toUpperCase() === playerId) { sh.deleteRow(i + 1); gone++; }
+      return gone;
+    };
+    const picks = dropRows(ss_().getSheetByName(TABS.PICKS), P.Player) + dropRows(ss_().getSheetByName(TABS.PICKS_ARCH), P.Player);
+    dropRows(ss_().getSheetByName(TABS.TIEBREAK), 1);
+    dropRows(playersSheet_(), 0);
+    PLAYERS_ = null;
+    try { rebuildRecords_(readPicks_().vals); } catch (e) { Logger.log('rebuildRecords after delete: ' + e.message); }
+    const out = people_(key); out.deleted = { name: p.name, picks: picks };
+    return out;
+  } finally { lock.releaseLock(); }
 }
 
 /** Anyone: hide or show someone on your own screens. */

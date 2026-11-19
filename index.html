@@ -644,7 +644,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.26.0';
+  const APP_VERSION = '2.26.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -2356,7 +2356,7 @@
   });
 
   // ---------- People (admin) ----------
-  let people=null, armedLink='', armedRetire='', armedAv='';
+  let people=null, armedLink='', armedRetire='', armedAv='', armedDel='';
   function shareLink(name,link){
     const text='Here\'s your Greco Picks link, '+name+'. Open it on your phone, then add it to your home screen: '+link;
     if(navigator.share) navigator.share({title:'Greco Picks',text:text}).catch(()=>{});
@@ -2401,7 +2401,7 @@
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
-          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove avatar':'Remove avatar'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
+          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove avatar':'Remove avatar'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button><button class="warn" data-pp="delete" data-id="${esc(p.id)}">${armedDel===p.id?'Tap again: delete forever':'Delete permanently'}</button>`)}</div>
         </div>`:''}
       </div>`;
     }).join('')||'<p>No one matches.</p>';
@@ -2504,6 +2504,11 @@
       if(armedRetire!==p.id){ armedRetire=p.id; renderPeople(); setTimeout(()=>{ if(armedRetire===p.id){ armedRetire=''; renderPeople(); } },4000); return; }
       armedRetire=''; b.disabled=true;
       api('active',{pl:p.id,on:'0'}).then(d=>{ people=d; renderPeople(); toast(p.name+' retired. Their picks stay in Stats.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
+    }
+    if(b.dataset.pp==='delete'){
+      if(armedDel!==p.id){ armedDel=p.id; renderPeople(); toast('This removes '+p.name+' and all their picks for good.'); setTimeout(()=>{ if(armedDel===p.id){ armedDel=''; renderPeople(); } },5000); return; }
+      armedDel=''; b.disabled=true;
+      api('delete',{pl:p.id}).then(d=>{ people=d; delete AVS.map[p.id]; saveAvs(); renderPeople(); toast(p.name+' deleted'+(d.deleted&&d.deleted.picks?' (with '+d.deleted.picks+' picks)':'')+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
     }
     if(b.dataset.pp==='return'){
       b.disabled=true;
