@@ -333,6 +333,23 @@
   #avZoom{width:100%;margin:14px 0 4px}
   .avrow{display:flex;gap:10px;margin-top:12px}.avrow button{flex:1}
   .avlink{display:block;margin:18px auto 4px;background:none;border:0;color:var(--muted);font:inherit;font-size:14px;text-decoration:underline;cursor:pointer}
+  /* Invite links */
+  .invbox{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .invbox small{display:block;color:var(--muted);margin-top:6px;font-size:12px}
+  .invbox select{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .invrow{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 0;border-top:1px solid var(--line)}
+  .invrow span{flex:1;min-width:0}.invrow small{margin:0}
+  .invrow .sbtn{padding:6px 10px;font-size:13px}
+  /* Join screen */
+  body.joining .tabs, body.joining header .right, body.joining #mine{display:none}
+  .join{max-width:420px;margin:24px auto;padding:22px;border-radius:18px;background:var(--card);border:1px solid var(--line);text-align:center}
+  .join .big{font-size:44px;line-height:1}
+  .join h2{margin:10px 0 6px;font-size:22px}
+  .join p{color:var(--muted);margin:0 0 14px;line-height:1.45}
+  .join input{width:100%;box-sizing:border-box;font:inherit;font-size:18px;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg,#fff);color:var(--ink);text-align:center}
+  .join label{display:block;text-align:left;font-weight:700;margin:4px 0 6px}
+  .join .hint{font-size:13px;color:var(--muted);margin:6px 0 14px;text-align:left}
+  .join .err{color:#dc2626;font-size:14px;margin:-6px 0 12px;text-align:left}
 </style>
 </head>
 <body>
@@ -456,6 +473,12 @@
     <div id="reqList"></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
+    <div class="invbox" id="invBox">
+      <b>🔗 Invite links</b>
+      <div id="invList"></div>
+      <div class="namerow" style="margin-top:8px"><select id="invGroup" aria-label="Group for the invite link"></select><input id="invNew" maxlength="30" autocomplete="off" placeholder="New group name" aria-label="New group name" hidden><button class="nbtn" id="invMake">Make link</button></div>
+      <small>Anyone with the link can join that group for 7 days. You get a 🔔 when someone joins.</small>
+    </div>
     <button class="sbtn" id="updNotice" style="width:100%;margin-top:8px" hidden></button>
     <button class="sbtn" id="avPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the avatar popup (just you)</button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
@@ -549,7 +572,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.22.2';
+  const APP_VERSION = '2.23.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -2145,8 +2168,42 @@
     if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; const rq=(people.requests||[]).length; document.getElementById('pplCount').textContent=(rq?'🔔 '+rq+' request'+(rq>1?'s':'')+' · ':'')+act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }
     if(state){ const n=((state.me&&state.me.hidden)||[]).length; document.getElementById('hideCount').textContent=n?n+' hidden on your screens':'Only affects your screens'; }
   }
+  // ---------- Invite links (admin) ----------
+  let invites=[];
+  function renderInvites(){
+    const fmt=d=>new Date(d).toLocaleDateString([], {weekday:'short',month:'short',day:'numeric'});
+    document.getElementById('invList').innerHTML=invites.length?invites.map(x=>`<div class="invrow"><span><b>${esc(x.group)}</b><small>Works until ${esc(fmt(x.expires))} · ${x.uses} joined</small></span><button class="sbtn" data-inv="share" data-code="${esc(x.code)}">Share</button><button class="sbtn" data-inv="off" data-code="${esc(x.code)}">Turn off</button></div>`).join(''):'<small>No active links.</small>';
+    const gs=(state.me.groups||[]), sel=document.getElementById('invGroup'), cur=sel.value;
+    sel.innerHTML=gs.map(g=>`<option value="${esc(g)}">${esc(g)}</option>`).join('')+'<option value="__new">+ New group…</option>';
+    if(cur&&[...sel.options].some(o=>o.value===cur)) sel.value=cur;
+    document.getElementById('invNew').hidden=sel.value!=='__new';
+  }
+  function loadInvites(){ api('invites').then(d=>{ invites=d||[]; renderInvites(); }).catch(()=>{}); }
+  function shareInvite(x){
+    const text=`Join our NFL pick'em on Greco Picks! Pick the winner of every game each week, ${x.group} group. Tap to join:`;
+    if(navigator.share) navigator.share({title:'Greco Picks',text,url:x.link}).catch(()=>{});
+    else copyText(text+' '+x.link,'Invite copied. Paste it in the group chat.');
+  }
+  document.getElementById('invGroup').addEventListener('change',e=>{ document.getElementById('invNew').hidden=e.target.value!=='__new'; });
+  document.getElementById('invMake').addEventListener('click',e=>{
+    const sel=document.getElementById('invGroup'), g=sel.value==='__new'?document.getElementById('invNew').value.trim():sel.value;
+    if(!g){ toast('Type a group name.'); return; }
+    if(invites.some(x=>x.group.toLowerCase()===g.toLowerCase())&&!confirmInv(g)) return;
+    e.target.disabled=true;
+    api('invite',{action:'create',group:g}).then(d=>{ invites=d||[]; renderInvites(); const x=invites.find(i=>i.group.toLowerCase()===g.toLowerCase()); if(x) shareInvite(x); })
+      .catch(err=>toast(err.message)).finally(()=>{ e.target.disabled=false; });
+  });
+  let invArm='';
+  function confirmInv(g){ if(invArm===g){ invArm=''; return true; } invArm=g; toast(g+' already has a link. Tap Make link again to replace it (the old one stops working).'); setTimeout(()=>{ if(invArm===g) invArm=''; },5000); return false; }
+  document.getElementById('invList').addEventListener('click',e=>{
+    const b=e.target.closest('[data-inv]'); if(!b) return; const x=invites.find(i=>i.code===b.dataset.code); if(!x) return;
+    if(b.dataset.inv==='share') shareInvite(x);
+    if(b.dataset.inv==='off'){ b.disabled=true; api('invite',{action:'off',code:x.code}).then(d=>{ invites=d||[]; renderInvites(); toast('Link turned off.'); }).catch(err=>{ toast(err.message); b.disabled=false; }); }
+  });
+
   function loadPeople(){
     if(!state||!state.me.isAdmin) return;
+    loadInvites();
     api('people',{}).then(d=>{ people=d; noteNames(d.people); renderPeople(); }).catch(e=>{ document.getElementById('people').innerHTML='<p>'+esc(e.message)+'</p>'; });
   }
   document.getElementById('people').addEventListener('click',e=>{
@@ -2320,12 +2377,46 @@
   help.addEventListener('click',e=>{if(e.target===help) help.classList.remove('on');});
   document.addEventListener('visibilitychange',()=>{ if(document.hidden) return; if(state) load(state.selected,false); try{ navigator.serviceWorker&&navigator.serviceWorker.getRegistration('/GrecoPicks/').then(r=>r&&r.update()).catch(()=>{}); }catch(e){} });
 
+  // ---------- Join with an invite link (no personal link yet) ----------
+  function showJoin(code){
+    document.body.classList.add('joining');
+    document.getElementById('hi').textContent='Greco Picks';
+    const main=document.getElementById('main');
+    main.innerHTML='<div class="empty">Loading your invite…</div>';
+    api('joininfo',{code}).then(d=>{
+      if(!d.valid){ main.innerHTML=`<div class="join"><div class="big">🔗</div><h2>This invite link isn't active anymore</h2><p>Ask ${esc(d.admin||'Paul')} for a new one.</p></div>`; return; }
+      main.innerHTML=`<div class="join"><div class="big">🏈</div>
+        <h2>You're invited to the ${esc(d.group)} group</h2>
+        <p>Pick the winner of every NFL game each week. Compete with your group for the weekly 👑 (and try to avoid the 💩).${d.count?` <b>${d.count} ${d.count===1?'person is':'people are'} already in.</b>`:''}</p>
+        <label for="joinName">Your name</label>
+        <input id="joinName" maxlength="20" autocomplete="name" placeholder="e.g. Mike R">
+        <div class="hint">What the group will see. You can change it later.</div>
+        <div class="err" id="joinErr" hidden></div>
+        <button class="avup" id="joinGo">Join</button></div>`;
+      const go=document.getElementById('joinGo'), inp=document.getElementById('joinName'), err=document.getElementById('joinErr');
+      const submit=()=>{
+        const name=inp.value.trim(); if(!name){ inp.focus(); return; }
+        go.disabled=true; go.textContent='Joining…'; err.hidden=true;
+        api('join',{code,name}).then(r=>{
+          try{ localStorage.setItem('nflpicks_key',r.k); sessionStorage.setItem('nflpicks_welcome',r.name); }catch(e){}
+          // Keep the personal link in the address so "Add to Home Screen" (iPhone) opens signed in.
+          location.replace(location.pathname+'?k='+r.k);
+        }).catch(e=>{ err.textContent=e.message; err.hidden=false; go.disabled=false; go.textContent='Join'; });
+      };
+      go.addEventListener('click',submit); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
+    }).catch(()=>{ main.innerHTML='<div class="empty">Couldn\'t load the invite. Check your connection and try again.</div>'; });
+  }
+  try{ const w=sessionStorage.getItem('nflpicks_welcome'); if(w){ sessionStorage.removeItem('nflpicks_welcome'); setTimeout(()=>toast('Welcome, '+w+'! 🎉 Make your picks below.'),1200); } }catch(e){}
+
   // ---------- Start ----------
   if(!/^https:\/\/script\.google\.com\/.+\/exec$/.test(API)){
     showMsg('This app isn\'t connected yet.<br>Put the script\'s /exec address in <b>config.js</b>.');
+  } else if(!KEY && /^[A-Za-z0-9]{6}$/.test(params.get('join')||'')){
+    showJoin(params.get('join').toUpperCase());
   } else if(!KEY){
     showMsg('Open your personal link once to sign in.<br>Ask Paul for it if you don\'t have it.');
   } else {
+    if(params.get('join')){ try{ const u=new URL(location.href); u.searchParams.delete('join'); history.replaceState(null,'',u.pathname+(u.search||'')); }catch(e){} setTimeout(()=>toast('You\'re already in Greco Picks on this phone.'),1500); }
     try{ const c=localStorage.getItem(CACHE_KEY); if(c){ state=JSON.parse(c); state.weeks=state.weeks||[]; render(); } }catch(e){}
     load('', false);
   }

@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.22.2';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.23.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -277,6 +277,10 @@ function api_(p) {
     else if (p.api === 'pushok') data = pushFixed_(p.k);
     else if (p.api === 'avatars') data = avatars_(p.k);
     else if (p.api === 'avatar') data = setAvatar_(p.k, p.pl, p.av);
+    else if (p.api === 'invite') data = invite_(p.k, p.action, p.group, p.code);
+    else if (p.api === 'invites') data = invitesList_(p.k);
+    else if (p.api === 'joininfo') data = joinInfo_(p.code);
+    else if (p.api === 'join') data = join_(p.code, p.name);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -1219,6 +1223,70 @@ function createPerson_(name, groups) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ---------- Invite links (admin shares one link per group; people join themselves) ----------
+// Invites tab: Code, Group, Created, Expires, Active, Uses. One active link per group; each lasts 7 days.
+const INV_HEADERS = ['Code', 'Group', 'Created', 'Expires', 'Active', 'Uses'];
+const INVITE_DAYS = 7, INVITE_MAX_USES = 60;
+function invSheet_() { const sh = ensureSheet_('Invites', INV_HEADERS); sh.getRange('A:B').setNumberFormat('@'); return sh; }
+
+function invRows_() {
+  const sh = invSheet_(), vals = sh.getDataRange().getValues(), now = Date.now();
+  return vals.slice(1).map((r, i) => ({ row: i + 2, code: String(r[0]).toUpperCase(), group: String(r[1]),
+    expires: r[3] instanceof Date ? r[3] : new Date(r[3]), active: r[4] === true || String(r[4]).toUpperCase() === 'TRUE',
+    uses: Number(r[5]) || 0 })).map(x => Object.assign(x, { live: x.active && x.expires.getTime() > now && x.uses < INVITE_MAX_USES }));
+}
+
+function inviteOut_(x) { return { code: x.code, group: x.group, link: appBase_() + '?join=' + x.code, expires: x.expires.toISOString(), uses: x.uses }; }
+
+/** Admin: action 'create' (new 7-day link for a group, replacing its old one) or 'off' (turn a link off). */
+function invite_(key, action, group, code) {
+  requireAdmin_(key);
+  if (!appBase_()) throw new Error('Put the app address in AppURL on the Settings tab first.');
+  const sh = invSheet_();
+  if (action === 'off') {
+    invRows_().filter(x => x.code === String(code || '').toUpperCase()).forEach(x => sh.getRange(x.row, 5).setValue(false));
+    return invitesList_(key);
+  }
+  group = String(group || '').replace(/\s+/g, ' ').trim();
+  if (!group) throw new Error('Pick a group for the link.');
+  if (group.length > 30 || /[<>,]/.test(group)) throw new Error('Group names: 30 characters max, no commas.');
+  invRows_().filter(x => x.active && x.group.toLowerCase() === group.toLowerCase()).forEach(x => sh.getRange(x.row, 5).setValue(false));
+  const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let c = ''; for (let i = 0; i < 6; i++) c += abc[Math.floor(Math.random() * abc.length)];
+  sh.appendRow([c, group, new Date(), new Date(Date.now() + INVITE_DAYS * 864e5), true, 0]);
+  return invitesList_(key);
+}
+
+function invitesList_(key) {
+  requireAdmin_(key);
+  return invRows_().filter(x => x.live).map(inviteOut_);
+}
+
+/** Public (no personal link needed): what the join screen shows. */
+function joinInfo_(code) {
+  const x = invRows_().find(r => r.code === String(code || '').toUpperCase());
+  if (!x || !x.live) return { valid: false, admin: adminName_() };
+  const count = players_().filter(p => p.active && p.id !== adminId_() && inGroup_(p, x.group)).length;
+  return { valid: true, group: x.group, count: count, admin: adminName_() };
+}
+
+/** Public: join with an invite link. Creates the person in that group and returns their personal key. */
+function join_(code, name) {
+  const cache = CacheService.getScriptCache(), ck = 'JOIN|' + String(code || '').toUpperCase();
+  const n = Number(cache.get(ck) || 0);
+  if (n >= 15) throw new Error('Lots of people are joining right now. Try again in a few minutes.');
+  const x = invRows_().find(r => r.code === String(code || '').toUpperCase());
+  if (!x || !x.live) throw new Error('This invite link isn\'t active anymore. Ask ' + adminName_() + ' for a new one.');
+  name = cleanName_(name);
+  if (nameTaken_(name, '')) throw new Error('Someone already goes by "' + name + '". Try adding a last initial.');
+  cache.put(ck, String(n + 1), 600);
+  const id = createPerson_(name, [x.group]);
+  invSheet_().getRange(x.row, 6).setValue(x.uses + 1);
+  const me = players_().find(p => p.id === id);
+  try { sendPush_([adminId_()], '🎉 ' + name + ' joined', 'They joined the ' + x.group + ' group with your invite link.', ''); } catch (err) { /* never block a join */ }
+  return { k: me.key, name: name, group: x.group };
 }
 
 // ---------- Requests to add someone (anyone asks, only the admin approves) ----------
