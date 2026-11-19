@@ -293,13 +293,15 @@
   .avb.sm{margin-right:4px}.avb.md,.avb.lg,.avb.xl{margin:0}
   .avb.top{display:flex;width:30px;margin:0 auto 5px}
   .st th .avb.top{margin:0 0 5px auto}
+  .pin{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .phint{font-size:12.5px;color:var(--muted);margin:5px 0 4px}
   .avbadge{position:absolute;right:-6px;bottom:-5px;font-size:13px;font-style:normal;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
   .avb.sm .avbadge{font-size:9px;right:-4px;bottom:-3px}
   .avb.xl .avbadge{font-size:34px;right:-4px;bottom:-4px}
   .avb.md .avbadge{font-size:16px}
   h1 .avb{margin-right:9px}h1 .avb .av{width:30px;height:30px}
-  .nmt{display:inline-flex;flex-direction:column;vertical-align:middle;line-height:1.15;white-space:normal}
-  .nmt small{font-size:11.5px;font-weight:500;color:var(--muted);line-height:1.2;max-width:80px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+  .nmt{display:inline-flex;flex-direction:column;justify-content:center;vertical-align:middle;line-height:1.15;min-height:34px}
+  .nmt small{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px}
   .av.sm{width:18px;height:18px;font-size:10px;margin-right:4px}
   .av.md{width:38px;height:38px;font-size:17px;margin:0}
   .av.lg{width:76px;height:76px;font-size:34px;margin:0}
@@ -391,13 +393,8 @@
 <div id="settings" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet">
     <div class="sheet-top"><h2>Settings</h2><button class="x" id="setClose" aria-label="Close">✕</button></div>
-    <h3>Your name &amp; avatar</h3>
-    <div class="nbox">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span id="setAv"></span><button class="sbtn" data-avopen="1" id="setAvBtn">Add an avatar</button></div>
-      <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
-      <div class="namerow" style="margin-top:8px"><input id="myTeam" maxlength="40" autocomplete="off" placeholder="Team name (optional)" aria-label="Team name, optional"><button class="nbtn" id="teamSave">Save</button></div>
-      <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
-    </div>
+    <h3>Your profile</h3>
+    <div class="nbox" style="display:flex;align-items:center;gap:12px"><span id="setAv"></span><span style="flex:1;font-size:14px;color:var(--muted)">Name, team name and avatar</span><button class="sbtn" id="setProfile">👤 Edit</button></div>
     <h3>Appearance</h3>
     <div class="nbox"><div class="seg" id="themeSeg"><button data-theme-set="auto">Auto</button><button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button></div>
       <p style="margin:8px 0 12px;font-size:13px">Auto follows your phone's setting.</p>
@@ -585,7 +582,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.24.0';
+  const APP_VERSION = '2.24.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -606,7 +603,9 @@
   const TEAMN={};
   function noteNames(list){ (list||[]).forEach(p=>{ if(p&&p.id&&p.name){ NAMES[p.id]=p.name; if(p.team!=null) TEAMN[p.id]=p.team; } }); }
   // Name with the optional team name underneath (for roomy spots: standings, recap, people)
-  function nmTeam(id,label){ const t=TEAMN[id]; return t?`<span class="nmt">${esc(label)}<small>${esc(t)}</small></span>`:esc(label); }
+  // uni: true when any row in the table has a team, so every row gets the same height
+  function nmTeam(id,label,uni){ const t=TEAMN[id]; return t?`<span class="nmt">${esc(label)}<small>${esc(t)}</small></span>`:(uni?`<span class="nmt solo">${esc(label)}</span>`:esc(label)); }
+  const anyTeam=ids=>ids.some(id=>TEAMN[id]);
   const teamLogo=a=>'https://a.espncdn.com/i/teamlogos/nfl/500/'+(a==='WAS'?'wsh':String(a).toLowerCase())+'.png';
   function avColor(id){ let h=7; for(const c of String(id)) h=(h*31+c.charCodeAt(0))%360; return 'hsl('+((h*47)%360)+',55%,42%)'; }
   function avInitial(id,name){ const n=String(name||NAMES[id]||'?').trim(); const m=n.match(/\p{L}|\p{N}/u); return (m?m[0]:'?').toUpperCase(); }
@@ -999,7 +998,7 @@
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
     html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
@@ -1118,7 +1117,7 @@
     } else html+=`<div class="rcyou">You didn't have any picks this week.</div>`;
     // week standings
     html+=`<h3>${esc(label)} · ${esc(grp?gname(grp):'Everyone')}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th></tr></thead><tbody>${
-      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id],badgeRc(id))}${nmTeam(id,names[id])}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
+      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id],badgeRc(id))}${nmTeam(id,names[id],anyTeam(played))}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
     }</tbody></table></div>${byTb?`<div class="note">👑 went to ${esc(crown.map(id=>names[id]).join(', '))} on the tiebreaker (closest total-points guess).</div>`:''}`;
     // season standings through this week
     const sd=standingsData(h,wk), wsz={}, fin={};
@@ -1127,7 +1126,7 @@
     Array.from(new Set(h.games.map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&k.split('|')[0]===wk.split('|')[0]&&fin[k]===((h.weekGames||{})[k]||wsz[k])).forEach(k=>{
       const kg=h.games.filter(g=>wkKey(g)===k); ids.forEach(id=>{ const all=kg.every(g=>((by[g.id]||{})[id]||{}).r==='W'); if(all&&kg.length) perf[id]++; }); });
     if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
-      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name)}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
+      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name,anyTeam(sd.seRows.map(q=>q.id)))}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
     // notable (only what happened, everyone involved)
     const only=[], none=[]; let all=0, allN=0;
@@ -1213,7 +1212,7 @@
     const bar=(css.getPropertyValue('--bar')||'#0b1f3a').trim()||'#0b1f3a', ink=(css.getPropertyValue('--bar-ink')||'#fff').trim()||'#fff';
     const acc=(css.getPropertyValue('--accent')||'#0b5cff').trim();
     const Wd=1080, pad=64, rowH=64, n=Math.max(d.wkRows.length,1)+Math.max(d.seRows.length,1);
-    const TX=30, tm=id=>TEAMN[id]||'', extraH=d.wkRows.concat(d.seRows).reduce((a,r)=>a+(tm(r.id)?TX:0),0);   // rows with a team name are taller
+    const tm=id=>TEAMN[id]||'', TX=d.wkRows.concat(d.seRows).some(r=>tm(r.id))?30:0, extraH=(d.wkRows.length+d.seRows.length)*TX;   // same height for every row
     const H=Math.max(1080, 300+ (d.wkRows.length?130:0) + 130 + n*rowH + extraH + 140);
     const cv=document.createElement('canvas'); cv.width=Wd; cv.height=H; const x=cv.getContext('2d');
     const F=(w,sz)=>`${w} ${sz}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
@@ -1225,19 +1224,20 @@
     rr(pad-16,top,Wd-2*pad+32,H-top-110,36); x.fill();
     let y=top+90;
     const sec=(t)=>{ x.fillStyle=acc; x.font=F(800,40); x.fillText(t,pad+24,y); y+=24; x.fillStyle='#e5e7eb'; x.fillRect(pad+24,y,Wd-2*pad-48,3); y+=58; };
-    const row=(r,right,me,extra)=>{ const t=tm(r.id), dy=t?TX:0; if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62+dy,14); x.fill(); }
-      x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
+    const row=(r,right,me,extra)=>{ const t=tm(r.id), dy=TX; if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62+dy,14); x.fill(); }
+      x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y+dy/2);
       drawAv(r.id,r.name,pad+124,y-13+dy/2,24);
       if(r.tag){ x.save(); x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=3; x.shadowOffsetY=1; x.font=F(400,20); x.textAlign='center'; x.textBaseline='middle'; x.fillText(r.tag,pad+143,y+6+dy/2); x.restore(); }
-      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=r.name; while(x.measureText(nm).width>(extra?250:500)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+160,y);
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=r.name; while(x.measureText(nm).width>(extra?250:500)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+160,y+(t?0:dy/2));
       if(t){ x.fillStyle='#6b7280'; x.font=F(500,26); let tt=t; while(x.measureText(tt).width>(extra?300:520)&&tt.length>4) tt=tt.slice(0,-2)+'…'; x.fillText(tt,pad+160,y+dy+2); }
       x.textAlign='right';
       if(extra){   // season columns: ▲▼ · W-L · Pct · 👑 · 💩
+        y+=dy/2;
         if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),COL.mv,y); }
         x.fillStyle='#111827'; x.font=F(800,38); x.fillText(r.W+'-'+r.L,COL.wl,y);
         x.font=F(600,36); x.fillText(r.pct.toFixed(3).replace(/^0/,''),COL.pct,y);
-        x.font=F(800,36); x.fillText(r.c?String(r.c):'–',COL.c,y); x.fillText(r.p?String(r.p):'–',COL.p,y);
-      } else { x.fillStyle='#111827'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y); }
+        x.font=F(800,36); x.fillText(r.c?String(r.c):'–',COL.c,y); x.fillText(r.p?String(r.p):'–',COL.p,y); y-=dy/2;
+      } else { x.fillStyle='#111827'; x.font=F(800,38); x.fillText(right,Wd-pad-28,y+dy/2); }
       x.textAlign='left'; y+=rowH+dy; };
     const drawAv=(id,name,X,Y,R)=>{
       const v=AVS.map[id]||'', im=imgs&&imgs[id];
@@ -1888,20 +1888,19 @@
   });
   themeUI();
 
-  // ---------- Your name ----------
-  document.getElementById('nameSave').addEventListener('click',()=>{
-    const inp=document.getElementById('myName'), btn=document.getElementById('nameSave');
-    const name=inp.value.replace(/\s+/g,' ').trim();
-    if(!name){ toast('Type a name first.'); return; }
-    if(state&&name===state.me.name){ toast('That\'s already your name.'); return; }
-    btn.disabled=true;
-    api('rename',{name:name}).then(st=>{ state=st; save(); render(); toast('Saved. Everyone now sees '+name+'.'); })
-      .catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
-  });
 
-  document.getElementById('teamSave').addEventListener('click',e=>{
-    const t=document.getElementById('myTeam').value.trim(), btn=e.target; btn.disabled=true;
-    api('team',{team:t}).then(st=>{ state=st; save(); noteNames(st.players); render(); toast(t?'Team name saved.':'Team name removed.'); }).catch(err=>toast(err.message)).finally(()=>{ btn.disabled=false; });
+  document.getElementById('setProfile').addEventListener('click',()=>{ if(!state) return; settings.classList.remove('on'); openProfile(state.me.id); });
+
+  document.getElementById('pBody').addEventListener('click',e=>{
+    const btn=e.target.closest('#pSave'); if(!btn||!state) return;
+    const name=document.getElementById('pName').value.trim(), team=document.getElementById('pTeam').value.trim();
+    const meP=(state.players||[]).find(x=>x.id===state.me.id)||{};
+    const jobs=[]; if(name&&name!==state.me.name) jobs.push(()=>api('rename',{name})); if(team!==(meP.team||'')) jobs.push(()=>api('team',{team}));
+    if(!name){ toast('Your name can\'t be blank.'); return; }
+    if(!jobs.length){ toast('Nothing changed.'); return; }
+    btn.disabled=true; btn.textContent='Saving…';
+    jobs.reduce((pr,f)=>pr.then(f),Promise.resolve()).then(st=>{ state=st; save(); noteNames(st.players); render(); openProfile(state.me.id); toast('Saved. Everyone sees the update.'); })
+      .catch(err=>{ toast(err.message); btn.disabled=false; btn.textContent='Save'; });
   });
 
   // ---------- Profile (tap a name) ----------
@@ -1925,7 +1924,14 @@
     })();
     document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
     document.getElementById('pBody').innerHTML=`
-      <div class="avhead">${av(id,'xl',p.name,badgeOf(id))}${p.team?`<div style="color:var(--muted);font-weight:600">${esc(p.team)}</div>`:''}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
+      <div class="avhead">${av(id,'xl',p.name,badgeOf(id))}${p.team&&!me?`<div style="color:var(--muted);font-weight:600">${esc(p.team)}</div>`:''}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
+      ${me?`<h3>Your name</h3>
+      <input class="pin" id="pName" maxlength="20" autocomplete="off" value="${esc(p.name)}" aria-label="Your name">
+      <div class="phint">Short is best. It shows in the narrow Group columns.</div>
+      <h3>Team name <span style="font-weight:500;text-transform:none;letter-spacing:0">(optional)</span></h3>
+      <input class="pin" id="pTeam" maxlength="40" autocomplete="off" value="${esc(p.team||'')}" placeholder="e.g. your fantasy team" aria-label="Team name, optional">
+      <div class="phint">Shows under your name in the standings and recaps.</div>
+      <button class="nbtn" id="pSave" style="width:100%;margin-top:10px">Save</button>`:''}
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
@@ -1934,7 +1940,7 @@
       ${state.me.isAdmin&&!me?(()=>{ const openN=(state.games||[]).filter(g=>!(g.locked||Date.now()>=new Date(g.kickoff).getTime())&&!(g.all||{})[id]).length;
         return `<h3>Nudge</h3><button class="nbtn" data-nudge="${esc(id)}" style="width:100%">🔔 Remind ${esc(p.name)} to pick${openN?' ('+openN+' open)':''}</button><p style="color:var(--muted);font-size:13px;margin-top:6px">Sends them a notification right now with how many picks they still need this week. Only you can do this.</p>`; })():''}
       ${state.me.isAdmin&&id!==state.adminId&&!me?`<h3>Edit groups (only you can)</h3><div class="namerow"><input id="pTags" value="${esc(groups.join(', '))}" placeholder="e.g. Greco's, Friends" maxlength="80"><button class="nbtn" id="pTagSave" data-id="${esc(id)}">Save</button></div><p style="color:var(--muted);font-size:13px;margin-top:6px">Separate with commas.${(state.groups||[]).length?' In use: '+state.groups.map(esc).join(', '):''}</p>`:''}
-      ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}Change your name in Settings.${state.me.isAdmin?'':' Groups are set by Paul.'}</p>`:''}`;
+      ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}${state.me.isAdmin?'':'Groups are set by '+esc(state.adminName||'Paul')+'.'}</p>`:''}`;
     document.getElementById('profile').classList.add('on');
   }
   document.getElementById('main').addEventListener('click',e=>{ const t=e.target.closest('[data-prof]'); if(t) openProfile(t.dataset.prof); });
@@ -1951,7 +1957,6 @@
   function setAvUI(){
     if(!state) return;
     const el=document.getElementById('setAv'); if(el) el.innerHTML=av(state.me.id,'md',state.me.name);
-    const b=document.getElementById('setAvBtn'); if(b) b.textContent=AVS.map[state.me.id]?'Change avatar':'Add an avatar';
   }
   function avPickerUI(){
     const mine=AVS.map[state.me.id]||'';
@@ -2398,7 +2403,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     updateVer();
-    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('myTeam').value=((state.players||[]).find(x=>x.id===state.me.id)||{}).team||''; setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
