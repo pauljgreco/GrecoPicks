@@ -457,6 +457,7 @@
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
     <button class="sbtn" id="updNotice" style="width:100%;margin-top:8px" hidden></button>
+    <button class="sbtn" id="avPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the avatar popup (just you)</button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
     <div id="people"><p>Loading…</p></div>
     <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
@@ -548,7 +549,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.22.0';
+  const APP_VERSION = '2.22.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -684,7 +685,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+av(s.me.id,'',s.me.name)+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
+    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+avMe('',s.me.name)+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
@@ -1520,7 +1521,9 @@
   const WHATS_NEW_ON=true;
   // No picture yet and never opened the picture picker: spotlight the header picture and show the card.
   function myAvStamp(){ const me=state&&(state.players||[]).find(p=>p.id===state.me.id); return (me&&me.av)||AVS.map[state&&state.me.id]||''; }
-  function avSpot(){ return !!state && !myAvStamp() && LS.get('nflpicks_avseen')!=='1'; }
+  let avPreview=false;   // admin preview: show the popup + bubble as someone without an avatar would see them
+  function avMe(cls,name){ if(avPreview){ const id=state.me.id; return `<span class="av${cls?' '+cls:''} ai" style="background:${avColor(id)}" aria-hidden="true">${esc(avInitial(id,name))}</span>`; } return av(state.me.id,cls,name); }
+  function avSpot(){ return !!state && (avPreview || (!myAvStamp() && LS.get('nflpicks_avseen')!=='1')); }
   function whatsNew(){
     if(LS.get('nflpicks_locktip')!=='1') return `<div class="crown" style="border-color:var(--accent)"><b>🔒 New: lock in your picks</b>
       <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Tapping a team is now a <b>draft</b> ✏️ you can change. <b>Lock</b> it 🔒 to make it final and see everyone else's picks. Use <b>Lock in all</b> at the bottom, <b>Lock picks</b> on a time slot, or 🔒 on one game. Forget to lock? Drafts still count and lock at kickoff.</div>
@@ -1899,7 +1902,8 @@
   }
   function openAvPicker(){
     if(!state) return;
-    LS.set('nflpicks_avseen','1'); const w=document.querySelector('#hi .avwrap.spot'); if(w){ w.classList.remove('spot'); const pl=w.querySelector('.avplus'); if(pl) pl.remove(); }
+    avPreview=false;
+    LS.set('nflpicks_avseen','1'); if(document.querySelector('#hi .avwrap.spot')) render();   // drop the spotlight/bubble
     document.getElementById('avMain').hidden=false; document.getElementById('avCrop').hidden=true;
     avPickerUI(); document.getElementById('avSheet').classList.add('on');
   }
@@ -1919,16 +1923,23 @@
   }
   document.addEventListener('click',e=>{ if(e.target.closest('[data-avopen]')) openAvPicker(); });
   // One-time popup for people with no picture (after the state has loaded and nothing else is open).
-  function maybeAvIntro(){
-    if(!state || myAvStamp() || LS.get('nflpicks_avintro')==='1') return;
-    if(document.querySelector('.on[role="dialog"], #settings.on, #profile.on, #help.on')) return;
-    LS.set('nflpicks_avintro','1');
-    document.getElementById('avIntroAv').innerHTML=av(state.me.id,'xl',state.me.name);
+  function maybeAvIntro(force){
+    if(!force){
+      if(!state || myAvStamp() || LS.get('nflpicks_avintro')==='1') return;
+      if(document.querySelector('.on[role="dialog"], #settings.on, #profile.on, #help.on')) return;
+      LS.set('nflpicks_avintro','1');
+    }
+    document.getElementById('avIntroAv').innerHTML=avMe('xl',state.me.name);
     const rec=state.my&&state.my.season;
-    document.getElementById('avIntroSample').innerHTML=av(state.me.id,'md',state.me.name)+esc(state.me.name)+(rec?` <span style="color:var(--muted);font-weight:600">${esc(rec)}</span>`:'');
+    document.getElementById('avIntroSample').innerHTML=avMe('md',state.me.name)+esc(state.me.name)+(rec?` <span style="color:var(--muted);font-weight:600">${esc(rec)}</span>`:'');
     document.getElementById('avIntro').classList.add('on');
   }
   const closeAvIntro=()=>document.getElementById('avIntro').classList.remove('on');
+  document.getElementById('avPreviewBtn').addEventListener('click',()=>{
+    avPreview=true;
+    ['peopleSheet','settings'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('on'); });
+    render(); maybeAvIntro(true);
+  });
   document.getElementById('avIntroX').addEventListener('click',closeAvIntro);
   document.getElementById('avIntroLater').addEventListener('click',closeAvIntro);
   document.getElementById('avIntro').addEventListener('click',e=>{ if(e.target.id==='avIntro') closeAvIntro(); });
