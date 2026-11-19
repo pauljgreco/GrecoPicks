@@ -881,7 +881,8 @@
     const gs=groupList(); if(!gs.length) return '';
     let g=null; try{ g=localStorage.getItem('nflpicks_group'); }catch(e){}
     if(g===null) g=(state.me&&state.me.defaultGroup)||'';
-    return g===''||gs.indexOf(g)>=0 ? g : ((state.me&&state.me.defaultGroup)||'');
+    const adm=!!(state.me&&state.me.isAdmin), def=(state.me&&state.me.defaultGroup)||(adm?'':gs[0]);
+    return (g===''&&adm)||gs.indexOf(g)>=0 ? g : def;   // only the admin gets "Everyone"
   }
   function hiddenSet(){ return new Set(((state&&state.me&&state.me.hidden)||[]).map(x=>String(x).toUpperCase())); }
   function inGrp(p,g){ return !g || (p.groups||[]).indexOf(g)>=0; }
@@ -897,7 +898,7 @@
     const all=mine.concat(rest);
     if(!state.me.isAdmin&&all.length<=1&&cur) return `<div class="gpills one"><span class="gpill on">${gav(cur,'sm')}${esc(cur)}</span></div>`;
     const pill=(v,t)=>`<button class="gpill${v===cur?' on':''}" data-gpill="${esc(v)}">${gav(v,'sm')}${esc(t)}</button>`;
-    return `<div class="gpills" role="tablist" aria-label="Group">${all.map(g=>pill(g,g)).join('')}${pill('','Everyone')}</div>`;
+    return `<div class="gpills" role="tablist" aria-label="Group">${all.map(g=>pill(g,g)).join('')}${state.me.isAdmin?pill('','Everyone'):''}</div>`;
   }
   function betweenWeeks(){ return !!(state&&state.last&&state.last.between); }
   function curCrown(){ const g=curGroup(); return state&&state.crowns ? (state.crowns[g]||null) : (g?null:(state&&state.crown)); }

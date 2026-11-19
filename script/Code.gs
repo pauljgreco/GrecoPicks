@@ -346,11 +346,33 @@ function avValid_(value) {
     /^t:[A-Z]{2,3}$/.test(value);
 }
 
-/** Everyone's pictures (anyone with a valid link). */
+// ---------- Privacy: who can see whom ----------
+// The admin sees everyone. Everyone else only gets data for people who share a group with them
+// (people with no group at all only see others with no group). Group names are limited to their own.
+function myGroups_(me) {
+  const meP = players_().find(p => p.id === me.id) || { groups: [] };
+  return me.isAdmin ? groupNames_() : meP.groups;
+}
+function canSee_(me, p) {
+  if (me.isAdmin || p.id === me.id) return true;
+  const mine = myGroups_(me).map(g => g.toLowerCase());
+  const theirs = groupsOf_(p);   // the admin counts as being in every group
+  if (!mine.length) return p.id === adminId_() || !theirs.length;
+  return theirs.some(g => mine.indexOf(g.toLowerCase()) >= 0);
+}
+function visibleGroupsOf_(me, p) {
+  const all = groupsOf_(p);
+  if (me.isAdmin) return all;
+  const mine = myGroups_(me).map(g => g.toLowerCase());
+  return all.filter(g => mine.indexOf(g.toLowerCase()) >= 0);
+}
+
+/** Pictures of everyone you can see. */
 function avatars_(key) {
-  if (!playerForKey_(key)) throw new Error('This link is no longer valid.');
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
   const out = {};
-  players_().forEach(p => { if (p.avatar) out[p.id] = p.avatar; });
+  players_().forEach(p => { if (p.avatar && canSee_(me, p)) out[p.id] = p.avatar; });
   return out;
 }
 
@@ -383,7 +405,7 @@ function setAvatar_(key, playerId, value) {
 function getState(key, wk) {
   const me = playerForKey_(key);
   if (!me) throw new Error('This link is no longer valid.');
-  const roster = players_().filter(p => p.active);
+  const roster = players_().filter(p => p.active && canSee_(me, p));
 
   const games = readGames_();
   const byWeek = {};
@@ -407,24 +429,24 @@ function getState(key, wk) {
 
   const others = roster.filter(p => p.id !== me.id).sort((a, b) => a.name.localeCompare(b.name));
   const meP = players_().find(p => p.id === me.id) || { groups: [], hidden: [] };
-  const groups = groupNames_();
+  const groups = myGroups_(me);
   return {
     me: { id: me.id, name: me.name, isAdmin: me.isAdmin, pushId: 'gp_' + me.id, prefs: prefsFor_(me.id),
       groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden, pushIssue: meP.notifIssue || '' },
     groups: groups,
-    groupAvs: groupAvs_(),
+    groupAvs: (() => { const all = groupAvs_(), o = {}; groups.forEach(g => { if (all[g]) o[g] = all[g]; }); return o; })(),
     adminId: adminId_(),
     adminName: adminName_(),
     requests: me.isAdmin ? pendingRequests_().length : 0,
     my: { week: mine.week, season: mine.season },
-    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, team: p.team, groups: groupsOf_(p), av: avStamp_(p.avatar) })),
+    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, team: p.team, groups: visibleGroupsOf_(me, p), av: avStamp_(p.avatar) })),
     weeks: weeks,
     selected: sel,
     currentWeek: PropertiesService.getScriptProperties().getProperty('CURRENT_WEEK') || '',
     games: list,
     board: board,
     crown: crown_(games, picks.vals, roster),
-    crowns: crowns_(games, picks.vals, roster),
+    crowns: crowns_(games, picks.vals, roster, groups, me.isAdmin),
     tiebreak: tiebreakView_(weekGames, sel, me, roster, now),
     last: lastWeekFor_(games, picks.vals, me, roster),
     version: SCRIPT_VERSION,
@@ -571,16 +593,18 @@ function history_(key, season) {
   const gs = games.filter(g => (want === 'all' || g.season === want) && now >= g.kickoff.getTime());
   const ids = {};
   gs.forEach(g => { ids[g.id] = true; });
+  const seeIds = {};
+  players_().forEach(p => { if (canSee_(me, p)) seeIds[p.id] = true; });
   const pickRows = readPicks_().vals.slice(1).concat(archivedPickRows_())
-    .filter(r => ids[String(r[P.GameID])])
+    .filter(r => ids[String(r[P.GameID])] && seeIds[String(r[P.Player]).toUpperCase()])
     .map(r => [String(r[P.GameID]), String(r[P.Player]).toUpperCase(), String(r[P.Pick]).toUpperCase(), String(r[P.Result]),
       r[P.PickedAt] instanceof Date ? r[P.PickedAt].toISOString() : '']);
   return {
     me: me.id,
     season: want,
     seasons: seasons,
-    players: players_().map(p => ({ id: p.id, name: p.name, team: p.team, active: p.active, groups: groupsOf_(p) })),
-    groups: groupNames_(),
+    players: players_().filter(p => seeIds[p.id]).map(p => ({ id: p.id, name: p.name, team: p.team, active: p.active, groups: visibleGroupsOf_(me, p) })),
+    groups: myGroups_(me),
     hidden: (players_().find(p => p.id === me.id) || { hidden: [] }).hidden,
     games: gs.map(g => ({
       id: g.id, season: g.season, type: g.seasonType, week: g.week, kickoff: g.kickoff.toISOString(),
@@ -1531,9 +1555,9 @@ function setHidden_(key, playerId, hide) {
 }
 
 /** 👑/💩 for everyone ('') and for each group. */
-function crowns_(games, pickVals, roster) {
-  const out = { '': crown_(games, pickVals, roster) };
-  groupNames_().forEach(g => { out[g] = crown_(games, pickVals, roster.filter(p => inGroup_(p, g))); });
+function crowns_(games, pickVals, roster, groups, withEveryone) {
+  const out = withEveryone !== false ? { '': crown_(games, pickVals, roster) } : {};
+  (groups || groupNames_()).forEach(g => { out[g] = crown_(games, pickVals, roster.filter(p => inGroup_(p, g))); });
   return out;
 }
 
@@ -1937,7 +1961,8 @@ function notifications_(nowMs) {
     const leadFor = {};
     const leadLine = (group, p) => {
       if (!(group in leadFor)) {
-        const gb = group ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => inGroup_(x, group))) : board;
+        const gb = group ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => inGroup_(x, group)))
+          : group === null ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => !x.groups.length)) : board;   // null = no group: only others with no group
         const top = gb.filter(b => b.rank === 1);
         leadFor[group] = { top: top, label: group ? 'the ' + groupPhrase_(group) : 'the season' };
       }
@@ -1950,7 +1975,7 @@ function notifications_(nowMs) {
     roster.filter(p => p.results).forEach(p => {
       const b = board.find(x => x.id === p.id);
       if (!b || b.week === '0-0') return;
-      const group = p.id === adminId_() ? '' : (p.groups[0] || '');
+      const group = p.id === adminId_() ? '' : (p.groups[0] || null);
       sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p) + ' Tap to see your recap.', '?recap=' + encodeURIComponent(wk));
     });
     markSent_(sent, key);
