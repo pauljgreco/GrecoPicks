@@ -298,6 +298,13 @@
   #hi{display:flex;align-items:center;min-width:0;padding:2px 0}
   .top .right{flex:none}
   #hi .hin{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  #hi{overflow:visible}
+  #hi .avwrap{position:relative;display:inline-flex;flex:none;width:30px;height:30px;margin-right:9px;border-radius:50%}
+  #hi .avwrap .av{margin-right:0}
+  #hi .avwrap.spot{animation:avpulse 1.8s ease-out infinite}
+  @keyframes avpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bar-ink,#fff) 75%,transparent)}70%{box-shadow:0 0 0 11px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  #hi .avplus{position:absolute;right:-4px;bottom:-3px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;font-weight:800;line-height:16px;text-align:center;border:2px solid var(--bar)}
+  @media (prefers-reduced-motion:reduce){#hi .avwrap.spot{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--bar-ink,#fff) 60%,transparent)}}
   h1 .av{width:30px;height:30px;top:0;margin-right:9px;font-size:15px}
   h1 .av.ae{font-size:18px}
   .avhead{display:flex;flex-direction:column;align-items:center;gap:10px;margin:4px 0 8px}
@@ -515,7 +522,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.21.2';
+  const APP_VERSION = '2.22.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -651,7 +658,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML=av(s.me.id,'',s.me.name)+'<span class="hin">'+esc(s.me.name)+'</span>';
+    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+av(s.me.id,'',s.me.name)+(avSpot()?'<span class="avplus">+</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
@@ -1485,7 +1492,13 @@
   }
   const WHATS_NEW='2.10';
   const WHATS_NEW_ON=true;
+  // No picture yet and never opened the picture picker: spotlight the header picture and show the card.
+  function myAvStamp(){ const me=state&&(state.players||[]).find(p=>p.id===state.me.id); return (me&&me.av)||AVS.map[state&&state.me.id]||''; }
+  function avSpot(){ return !!state && !myAvStamp() && LS.get('nflpicks_avseen')!=='1'; }
   function whatsNew(){
+    if(!myAvStamp() && LS.get('nflpicks_avtip')!=='1') return `<div class="crown avtip" style="border-color:var(--accent)"><b>📸 New: add your picture</b>
+      <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Upload a photo (or pick an emoji or team logo). It shows in a circle next to your name everywhere.</div>
+      <button class="nbtn" data-push="avtipgo">Add my picture</button> <button class="sbtn" data-push="avtipx">Not now</button></div>`;
     if(LS.get('nflpicks_locktip')!=='1') return `<div class="crown" style="border-color:var(--accent)"><b>🔒 New: lock in your picks</b>
       <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Tapping a team is now a <b>draft</b> ✏️ you can change. <b>Lock</b> it 🔒 to make it final and see everyone else's picks. Use <b>Lock in all</b> at the bottom, <b>Lock picks</b> on a time slot, or 🔒 on one game. Forget to lock? Drafts still count and lock at kickoff.</div>
       <button class="sbtn" data-push="locktip">Got it</button></div>`;
@@ -1662,6 +1675,8 @@
     if(b.dataset.push==='issuex'){ LS.set('nflpicks_issueseen',(state&&state.me&&state.me.pushIssue)||'1'); render(); }
     if(b.dataset.push==='fixit'){ LS.set('nflpicks_issueseen',(state&&state.me&&state.me.pushIssue)||'1'); try{ sessionStorage.setItem('nflpicks_fixing','1'); }catch(e){} resetPush(); }
     if(b.dataset.push==='update'){ b.disabled=true; b.textContent='Updating…'; document.getElementById('appUpdate').click(); }
+    if(b.dataset.push==='avtipgo'){ LS.set('nflpicks_avtip','1'); render(); openAvPicker(); }
+    if(b.dataset.push==='avtipx'){ LS.set('nflpicks_avtip','1'); render(); }
     if(b.dataset.push==='locktip'){ LS.set('nflpicks_locktip','1'); render(); }
     if(b.dataset.push==='whatsnew'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); }
     if(b.dataset.push==='whatsnewhelp'){ LS.set('nflpicks_whatsnew',WHATS_NEW); render(); document.getElementById('help').classList.add('on'); }
@@ -1863,6 +1878,7 @@
   }
   function openAvPicker(){
     if(!state) return;
+    LS.set('nflpicks_avseen','1'); const w=document.querySelector('#hi .avwrap.spot'); if(w){ w.classList.remove('spot'); const pl=w.querySelector('.avplus'); if(pl) pl.remove(); }
     document.getElementById('avMain').hidden=false; document.getElementById('avCrop').hidden=true;
     avPickerUI(); document.getElementById('avSheet').classList.add('on');
   }
@@ -1953,7 +1969,7 @@
     const btn=document.getElementById('avSave'); btn.disabled=true; btn.textContent='Saving…';
     saveMyAv('p:'+b64).finally(()=>{ btn.disabled=false; btn.textContent='Save picture'; });
   });
-  document.getElementById('hi').addEventListener('click',()=>state&&openProfile(state.me.id));
+  document.getElementById('hi').addEventListener('click',()=>{ if(!state) return; if(avSpot()) openAvPicker(); else openProfile(state.me.id); });
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
   document.getElementById('profile').addEventListener('click',e=>{ if(e.target.id==='profile') e.target.classList.remove('on'); });
 
