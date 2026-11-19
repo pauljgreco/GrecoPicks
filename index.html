@@ -362,9 +362,9 @@
 <div id="settings" role="dialog" aria-modal="true" aria-label="Settings">
   <div class="sheet">
     <div class="sheet-top"><h2>Settings</h2><button class="x" id="setClose" aria-label="Close">✕</button></div>
-    <h3>Your name &amp; picture</h3>
+    <h3>Your name &amp; avatar</h3>
     <div class="nbox">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span id="setAv"></span><button class="sbtn" data-avopen="1" id="setAvBtn">Add a picture</button></div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span id="setAv"></span><button class="sbtn" data-avopen="1" id="setAvBtn">Add an avatar</button></div>
       <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
       <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
     </div>
@@ -415,37 +415,37 @@
   </div>
 </div>
 
-<div id="avIntro" role="dialog" aria-modal="true" aria-label="Add your picture">
+<div id="avIntro" role="dialog" aria-modal="true" aria-label="Pick your avatar">
   <div class="sheet">
     <div class="sheet-top"><span></span><button class="x" id="avIntroX" aria-label="Close">✕</button></div>
-    <div class="bigav"><span id="avIntroAv"></span><span class="cam">📷</span></div>
-    <h2>Put a face to your picks</h2>
-    <p>Add a picture and everyone in your group sees it next to your name: picks, standings, and the weekly recap.</p>
+    <div class="bigav"><span id="avIntroAv"></span><span class="cam">🖼️</span></div>
+    <h2>Pick your avatar</h2>
+    <p>Upload any picture (a logo, your favorite band, your dog, whatever) or pick an emoji or team logo. It shows next to your name everywhere: picks, standings, and the weekly recap.</p>
     <div class="sample" id="avIntroSample"></div>
-    <button class="avup" id="avIntroUp">📷 Upload a photo</button>
+    <button class="avup" id="avIntroUp">🖼️ Upload a picture</button>
     <button class="sbtn alt" id="avIntroAlt">Pick an emoji or team logo</button>
     <button class="avlink" id="avIntroLater">Maybe later</button>
   </div>
 </div>
 
-<div id="avSheet" role="dialog" aria-modal="true" aria-label="Your picture">
+<div id="avSheet" role="dialog" aria-modal="true" aria-label="Your avatar">
   <div class="sheet">
-    <div class="sheet-top"><h2>Your picture</h2><button class="x" id="avClose" aria-label="Close">✕</button></div>
+    <div class="sheet-top"><h2>Your avatar</h2><button class="x" id="avClose" aria-label="Close">✕</button></div>
     <div id="avMain">
       <div class="avcur" id="avCur"></div>
-      <button class="avup" id="avUpload">📷 Upload a photo</button>
+      <button class="avup" id="avUpload">🖼️ Upload a picture</button>
       <input type="file" id="avFile" accept="image/*" hidden>
       <h3>Or pick an emoji</h3>
       <div class="avgrid" id="avEmo"></div>
       <h3>Or a team logo</h3>
       <div class="avgrid" id="avTeams"></div>
-      <button class="avlink" id="avRemove" hidden>Remove my picture</button>
+      <button class="avlink" id="avRemove" hidden>Remove my avatar</button>
     </div>
     <div id="avCrop" hidden>
       <div class="cropbox" id="avBox"><canvas id="avCv" width="560" height="560"></canvas></div>
       <input type="range" id="avZoom" min="1" max="4" step="0.01" value="1" aria-label="Zoom">
-      <p style="text-align:center;color:var(--muted);font-size:13px;margin:0">Drag to move · slide to zoom</p>
-      <div class="avrow"><button class="sbtn" id="avBack">Back</button><button class="nbtn" id="avSave">Save picture</button></div>
+      <p style="text-align:center;color:var(--muted);font-size:13px;margin:0">Drag to move · slide to zoom in or out</p>
+      <div class="avrow"><button class="sbtn" id="avBack">Back</button><button class="nbtn" id="avSave">Save avatar</button></div>
     </div>
   </div>
 </div>
@@ -684,7 +684,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+av(s.me.id,'',s.me.name)+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Add your pic!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
+    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+av(s.me.id,'',s.me.name)+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
@@ -1862,7 +1862,7 @@
     const groups=p.groups||[];
     document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
     document.getElementById('pBody').innerHTML=`
-      <div class="avhead">${av(id,'xl',p.name)}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change picture':'Add a picture'}</button>`:''}</div>
+      <div class="avhead">${av(id,'xl',p.name)}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
@@ -1888,7 +1888,7 @@
   function setAvUI(){
     if(!state) return;
     const el=document.getElementById('setAv'); if(el) el.innerHTML=av(state.me.id,'md',state.me.name);
-    const b=document.getElementById('setAvBtn'); if(b) b.textContent=AVS.map[state.me.id]?'Change picture':'Add a picture';
+    const b=document.getElementById('setAvBtn'); if(b) b.textContent=AVS.map[state.me.id]?'Change avatar':'Add an avatar';
   }
   function avPickerUI(){
     const mine=AVS.map[state.me.id]||'';
@@ -1913,7 +1913,7 @@
       AVS.stamps[me]='?';   // re-check with everyone's on the next refresh
       saveAvs(); render(); setAvUI();
       if(document.getElementById('profile').classList.contains('on')) openProfile(me);
-      closeAvPicker(); toast(v?'Picture saved. Everyone will see it.':'Picture removed.');
+      closeAvPicker(); toast(v?'Avatar saved. Everyone will see it.':'Avatar removed.');
       try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}
     }).catch(err=>{ if(before) AVS.map[me]=before; toast(err.message); }).finally(()=>{ avBusy=false; });
   }
@@ -1946,19 +1946,21 @@
   const crop={img:null,z:1,x:0,y:0};
   const cv=document.getElementById('avCv'), cx=cv.getContext('2d'), CW=cv.width;
   function cropBase(){ const im=crop.img; return CW/Math.min(im.width,im.height); }
+  function cropMinZ(){ const im=crop.img; return Math.min(im.width,im.height)/Math.max(im.width,im.height); }   // whole picture fits
   function clampCrop(){
     const im=crop.img, k=cropBase()*crop.z, w=im.width*k, h=im.height*k;
-    crop.x=Math.min(0,Math.max(CW-w,crop.x)); crop.y=Math.min(0,Math.max(CW-h,crop.y));
+    crop.x = w<=CW ? (CW-w)/2 : Math.min(0,Math.max(CW-w,crop.x));
+    crop.y = h<=CW ? (CW-h)/2 : Math.min(0,Math.max(CW-h,crop.y));
   }
   function drawCrop(){
     const im=crop.img; if(!im) return; clampCrop();
     const k=cropBase()*crop.z;
-    cx.clearRect(0,0,CW,CW); cx.drawImage(im,crop.x,crop.y,im.width*k,im.height*k);
+    cx.fillStyle='#fff'; cx.fillRect(0,0,CW,CW); cx.drawImage(im,crop.x,crop.y,im.width*k,im.height*k);
     cx.save(); cx.fillStyle='rgba(0,0,0,.55)'; cx.beginPath(); cx.rect(0,0,CW,CW); cx.arc(CW/2,CW/2,CW/2-4,0,Math.PI*2,true); cx.fill('evenodd');
     cx.strokeStyle='rgba(255,255,255,.9)'; cx.lineWidth=4; cx.beginPath(); cx.arc(CW/2,CW/2,CW/2-4,0,Math.PI*2); cx.stroke(); cx.restore();
   }
   function zoomTo(z,fx,fy){
-    const old=crop.z; z=Math.max(1,Math.min(4,z)); if(fx==null){ fx=CW/2; fy=CW/2; }
+    const old=crop.z; z=Math.max(cropMinZ(),Math.min(4,z)); if(fx==null){ fx=CW/2; fy=CW/2; }
     crop.x=fx-(fx-crop.x)*z/old; crop.y=fy-(fy-crop.y)*z/old; crop.z=z;
     document.getElementById('avZoom').value=z; drawCrop();
   }
@@ -1968,7 +1970,7 @@
     im.onload=()=>{
       crop.img=im; crop.z=1; const k=cropBase();
       crop.x=(CW-im.width*k)/2; crop.y=(CW-im.height*k)/2;
-      document.getElementById('avZoom').value=1;
+      const zs=document.getElementById('avZoom'); zs.min=cropMinZ().toFixed(3); zs.value=1;
       document.getElementById('avMain').hidden=true; document.getElementById('avCrop').hidden=false; drawCrop();
     };
     im.onerror=()=>{ URL.revokeObjectURL(url); toast('That photo couldn\'t be opened. Try another one.'); };
@@ -2004,7 +2006,7 @@
     const b64=data.replace(/^data:image\/jpeg;base64,/,'');
     if(!/^[A-Za-z0-9+/]+=*$/.test(b64)){ toast('That photo couldn\'t be saved. Try another one.'); return; }
     const btn=document.getElementById('avSave'); btn.disabled=true; btn.textContent='Saving…';
-    saveMyAv('p:'+b64).finally(()=>{ btn.disabled=false; btn.textContent='Save picture'; });
+    saveMyAv('p:'+b64).finally(()=>{ btn.disabled=false; btn.textContent='Save avatar'; });
   });
   document.getElementById('hi').addEventListener('click',()=>{ if(!state) return; if(avSpot()) openAvPicker(); else openProfile(state.me.id); });
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
@@ -2081,7 +2083,7 @@
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
-          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove picture':'Remove picture'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
+          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove avatar':'Remove avatar'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button>`)}</div>
         </div>`:''}
       </div>`;
     }).join('')||'<p>No one matches.</p>';
@@ -2138,7 +2140,7 @@
     if(b.dataset.pp==='rmav'){
       if(armedAv!==p.id){ armedAv=p.id; renderPeople(); setTimeout(()=>{ if(armedAv===p.id){ armedAv=''; renderPeople(); } },4000); return; }
       armedAv=''; b.disabled=true;
-      apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s picture removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; });
+      apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s avatar removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; });
     }
     if(b.dataset.pp==='groups'){
       const v=(document.querySelector(`[data-gin="${p.id}"]`)||{}).value||'';
