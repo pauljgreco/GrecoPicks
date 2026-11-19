@@ -378,6 +378,20 @@
   .join label{display:block;text-align:left;font-weight:700;margin:4px 0 6px}
   .join .hint{font-size:13px;color:var(--muted);margin:6px 0 14px;text-align:left}
   .join .err{color:#dc2626;font-size:14px;margin:-6px 0 12px;text-align:left}
+  /* Getting started checklist */
+  .gs{margin:0 0 12px;padding:14px;border-radius:14px;background:var(--card);border:1.5px solid var(--accent)}
+  .gshead{display:flex;align-items:center;gap:8px}.gshead b{font-size:16px}.gshead span{color:var(--muted);font-size:13px;margin-left:auto}
+  .gshead .x2{background:none;border:0;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 4px}
+  .gsbar{height:6px;border-radius:99px;background:var(--sel);margin:10px 0 6px;overflow:hidden}.gsbar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+  .gsi{display:flex;align-items:center;gap:12px;width:100%;padding:11px 2px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+  .gsi:last-of-type{border-bottom:0}
+  .gsck{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff}
+  .gsi.done .gsck{background:#16a34a;border-color:#16a34a}
+  .gsi.done .gsl{color:var(--muted);text-decoration:line-through}
+  .gsl{flex:1;font-size:15px;font-weight:600}.gsl small{display:block;font-weight:500;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .gsgo{color:var(--accent);font-size:22px;font-weight:700;line-height:1}
+  .gssteps{padding:4px 0 10px 36px;font-size:14px}
+  .gsfoot{font-size:13px;color:var(--muted);margin-top:8px}
 </style>
 </head>
 <body>
@@ -505,6 +519,7 @@
     </div>
     <button class="sbtn" id="updNotice" style="width:100%;margin-top:8px" hidden></button>
     <button class="sbtn" id="avPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the avatar popup (just you)</button>
+    <button class="sbtn" id="gsPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the new-player checklist (just you)</button>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
     <div id="people"><p>Loading…</p></div>
     <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
@@ -1605,7 +1620,44 @@
     if((new Date(day)-new Date(last))/864e5>=7){ LS.set('nflpicks_nagday',day); return true; }
     return false;
   }
+  // ---------- Getting started (new players only: joined in the last 14 days) ----------
+  try{ const j=params.get('j'); if(/^\d{4}-\d{2}-\d{2}$/.test(j||'')&&!localStorage.getItem('nflpicks_joined')) localStorage.setItem('nflpicks_joined',new Date(j+'T12:00:00').toDateString()); }catch(e){}
+  let gsPreview=false, gsOpenHome=false;
+  function gsActive(){
+    if(gsPreview) return true;
+    if(LS.get('nflpicks_gsx')==='1') return false;
+    const j=LS.get('nflpicks_joined'); if(!j) return false;
+    return (Date.now()-new Date(j).getTime())/864e5<14;
+  }
+  function gsItems(){
+    const st=pushStatus(), s=state||{games:[]};
+    return [
+      {k:'picks', label:'Make your first picks', done:(s.games||[]).some(g=>g.mine)&&!gsPreview},
+      {k:'home', label:'Add Greco Picks to your home screen', done:standalone&&!gsPreview},
+      {k:'push', label:'Turn on notifications', done:st==='on'&&!gsPreview, note:st==='ios'?'Add to your home screen first (iPhone rule)':st==='blocked'?'Notifications are blocked in your phone settings':''},
+      {k:'avatar', label:'Pick your avatar', done:!!myAvStamp()&&!gsPreview},
+    ];
+  }
+  function gsCard(){
+    const it=gsItems(), n=it.filter(x=>x.done).length;
+    if(n===it.length) return '';
+    return `<div class="gs"><div class="gshead"><b>👋 Getting started</b><span>${n} of ${it.length} done</span><button class="x2" data-gs="x" aria-label="Hide">✕</button></div>
+      <div class="gsbar"><i style="width:${Math.round(100*n/it.length)}%"></i></div>
+      ${it.map(x=>`<button class="gsi${x.done?' done':''}" data-gs="${x.k}"${x.done?' disabled':''}><span class="gsck">${x.done?'✓':''}</span><span class="gsl">${esc(x.label)}${x.note&&!x.done?`<small>${esc(x.note)}</small>`:''}</span>${x.done?'':'<span class="gsgo">›</span>'}</button>${x.k==='home'&&gsOpenHome&&!x.done?`<div class="gssteps">${installSteps()}</div>`:''}`).join('')}
+      <div class="gsfoot">New here? Tap <b>?</b> up top for how it all works: 👑, 💩, recaps and groups.</div></div>`;
+  }
+  document.getElementById('main').addEventListener('click',e=>{
+    const b=e.target.closest('[data-gs]'); if(!b) return;
+    const k=b.dataset.gs;
+    if(k==='x'){ LS.set('nflpicks_gsx','1'); gsPreview=false; render(); return; }
+    if(k==='picks'){ const g=document.querySelector('.slot, .game, .card.g'); (g||document.querySelector('.gs')).scrollIntoView({behavior:'smooth',block:'start'}); toast('Tap a team on each game to pick it 👇'); return; }
+    if(k==='home'){ gsOpenHome=!gsOpenHome; render(); return; }
+    if(k==='push'){ if(pushStatus()==='ios'){ gsOpenHome=true; render(); toast('On iPhone, add it to your home screen first.'); } else turnOnPush(); return; }
+    if(k==='avatar'){ openAvPicker(); }
+  });
+
   function pushBanner(){
+    if(gsActive()){ const c=gsCard(); if(c) return c; }
     const st=pushStatus();
     const issue=state&&state.me&&state.me.pushIssue;
     if(issue && LS.get('nflpicks_pushoptout')!=='1' && st!=='blocked' && LS.get('nflpicks_issueseen')!==issue)
@@ -1623,7 +1675,7 @@
   function myAvStamp(){ const me=state&&(state.players||[]).find(p=>p.id===state.me.id); return (me&&me.av)||AVS.map[state&&state.me.id]||''; }
   let avPreview=false;   // admin preview: show the popup + bubble as someone without an avatar would see them
   function avMe(cls,name){ if(avPreview){ const id=state.me.id; return `<span class="av${cls?' '+cls:''} ai" style="background:${avColor(id)}" aria-hidden="true">${esc(avInitial(id,name))}</span>`; } return av(state.me.id,cls,name); }
-  function avSpot(){ return !!state && (avPreview || (!myAvStamp() && LS.get('nflpicks_avseen')!=='1')); }
+  function avSpot(){ return !!state && (avPreview || (!gsActive() && !myAvStamp() && LS.get('nflpicks_avseen')!=='1')); }
   function whatsNew(){
     if(LS.get('nflpicks_locktip')!=='1') return `<div class="crown" style="border-color:var(--accent)"><b>🔒 New: lock in your picks</b>
       <div style="font-size:14px;margin:6px 0 8px;line-height:1.45">Tapping a team is now a <b>draft</b> ✏️ you can change. <b>Lock</b> it 🔒 to make it final and see everyone else's picks. Use <b>Lock in all</b> at the bottom, <b>Lock picks</b> on a time slot, or 🔒 on one game. Forget to lock? Drafts still count and lock at kickoff.</div>
@@ -2059,7 +2111,7 @@
   function maybeAvIntro(force){
     if(!force){
       if(!state || myAvStamp() || LS.get('nflpicks_avintro')==='1') return;
-      if(LS.get('nflpicks_joined')===new Date().toDateString()) return;   // brand new today: let them just make picks first
+      if(gsActive()) return;   // new players get the Getting started checklist instead
       if(document.querySelector('.on[role="dialog"], #settings.on, #profile.on, #help.on')) return;
       LS.set('nflpicks_avintro','1');
     }
@@ -2069,6 +2121,10 @@
     document.getElementById('avIntro').classList.add('on');
   }
   const closeAvIntro=()=>document.getElementById('avIntro').classList.remove('on');
+  document.getElementById('gsPreviewBtn').addEventListener('click',()=>{
+    gsPreview=true; ['peopleSheet','settings'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('on'); });
+    view='picks'; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view==='picks')); render(); window.scrollTo(0,0);
+  });
   document.getElementById('avPreviewBtn').addEventListener('click',()=>{
     avPreview=true;
     ['peopleSheet','settings'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('on'); });
@@ -2506,7 +2562,7 @@
         api('join',{code,name,team:(document.getElementById('joinTeam').value||'').trim()}).then(r=>{
           try{ localStorage.setItem('nflpicks_joined',new Date().toDateString()); localStorage.setItem('nflpicks_key',r.k); sessionStorage.setItem('nflpicks_welcome',r.name); }catch(e){}
           // Keep the personal link in the address so "Add to Home Screen" (iPhone) opens signed in.
-          location.replace(location.pathname+'?k='+r.k);
+          location.replace(location.pathname+'?k='+r.k+'&j='+new Date().toLocaleDateString('en-CA'));   // j = join date, so the iPhone home-screen app knows they're new too
         }).catch(e=>{ err.textContent=e.message; err.hidden=false; go.disabled=false; go.textContent='Join'; });
       };
       go.addEventListener('click',submit); inp.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
