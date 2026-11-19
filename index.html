@@ -549,7 +549,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.22.1';
+  const APP_VERSION = '2.22.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1863,13 +1863,21 @@
       if(c.poop&&c.poop.ids.indexOf(id)>=0) badges.push('💩 '+c.label+' · '+gl); });
     const me=id===state.me.id, wk=(state.weeks.find(w=>w.key===state.selected)||{}).label||'This week';
     const groups=p.groups||[];
+    // Rank within the group selected at the top (the person is always counted), same order as Stats: win % then wins.
+    const gr=(()=>{
+      const g=curGroup(), inG=x=>x.id===id||!g||(x.groups||[]).indexOf(g)>=0;
+      const rows=(state.players||[]).filter(inG).map(x=>{ const r=(state.board||[]).find(y=>y.id===x.id)||{}; const m=String(r.season||'0-0').match(/(\d+)-(\d+)/)||[0,0,0]; const W=+m[1], L=+m[2]; return {id:x.id,W,L,pct:W+L?W/(W+L):null}; })
+        .filter(x=>x.pct!=null).sort((a,b)=>b.pct-a.pct||b.W-a.W);
+      let rank=0, prev=null, mine=0; rows.forEach((x,i)=>{ const k=x.pct+'|'+x.W; if(k!==prev){ rank=i+1; prev=k; } if(x.id===id) mine=rank; });
+      return {rank:mine, label:rows.length>1?'of '+rows.length+(g?' · '+esc(g):' · everyone'):(g?esc(g)+' rank':'Overall rank')};
+    })();
     document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
     document.getElementById('pBody').innerHTML=`
       <div class="avhead">${av(id,'xl',p.name)}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
-      <div class="pstats"><div><b>${esc(b.week)}</b><small>${esc(wk.split(' · ')[0])}</small></div><div><b>${esc(b.season)}</b><small>Season</small></div><div><b>${b.rank?'#'+esc(b.rank):'—'}</b><small>Overall rank</small></div></div>
+      <div class="pstats"><div><b>${esc(b.week)}</b><small>${esc(wk.split(' · ')[0])}</small></div><div><b>${esc(b.season)}</b><small>Season</small></div><div><b>${gr.rank?'#'+gr.rank:'—'}</b><small>${gr.label}</small></div></div>
       ${badges.length?`<h3>Right now</h3><p>${badges.map(esc).join('<br>')}</p>`:''}
       ${state.me.isAdmin&&!me?(()=>{ const openN=(state.games||[]).filter(g=>!(g.locked||Date.now()>=new Date(g.kickoff).getTime())&&!(g.all||{})[id]).length;
         return `<h3>Nudge</h3><button class="nbtn" data-nudge="${esc(id)}" style="width:100%">🔔 Remind ${esc(p.name)} to pick${openN?' ('+openN+' open)':''}</button><p style="color:var(--muted);font-size:13px;margin-top:6px">Sends them a notification right now with how many picks they still need this week. Only you can do this.</p>`; })():''}
