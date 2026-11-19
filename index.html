@@ -42,7 +42,8 @@
   .wsum a{color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
   .wsum .sbtn{flex:none}
   .mut{color:var(--muted);font-size:13px}
-  .mv{font-size:12px;font-weight:800;white-space:nowrap}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
+  .mv{font-size:11px;font-weight:800;white-space:nowrap}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
+  td.rk .mv{display:block;font-size:10.5px;line-height:1.1;margin-top:1px}
   .hw{font-size:12px;color:var(--muted);margin-left:4px;white-space:nowrap}
   .slot{margin-bottom:8px}
   .shead{display:flex;align-items:center;gap:8px;padding:9px 4px;cursor:pointer;border-bottom:2px solid var(--line);margin-bottom:8px;user-select:none;-webkit-user-select:none}
@@ -190,8 +191,8 @@
   .hl b{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .hl span{font-size:13px;color:var(--muted)}
   table.st{width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums;font-size:15px}
-  .st th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:9px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
-  .st td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .st th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600;padding:9px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  .st td{padding:10px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
   .st tr:last-child td{border-bottom:0}
   .st .n{text-align:left;font-weight:600;position:sticky;left:0;background:var(--card);z-index:1}
   .st th.n{font-weight:600}
@@ -301,7 +302,7 @@
   .avb.md .avbadge{font-size:16px}
   h1 .avb{margin-right:9px}h1 .avb .av{width:30px;height:30px}
   .nmt{display:inline-flex;flex-direction:column;justify-content:center;vertical-align:middle;line-height:1.15;min-height:34px}
-  .nmt small{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px}
+  .nmt small{font-size:11.5px;font-weight:500;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:96px}
   .av.sm{width:18px;height:18px;font-size:10px;margin-right:4px}
   .av.md{width:38px;height:38px;font-size:17px;margin:0}
   .av.lg{width:76px;height:76px;font-size:34px;margin:0}
@@ -997,8 +998,8 @@
     const ex=(lastWk&&season!=='all')?seasonExtras(h,lastWk,P.map(s=>s.id)):{crowns:{},poops:{},move:{}};
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
-    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}${moveTxt(ex.move[s.id])}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
@@ -1125,8 +1126,8 @@
     const perf={}; ids.forEach(id=>perf[id]=0);
     Array.from(new Set(h.games.map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&k.split('|')[0]===wk.split('|')[0]&&fin[k]===((h.weekGames||{})[k]||wsz[k])).forEach(k=>{
       const kg=h.games.filter(g=>wkKey(g)===k); ids.forEach(id=>{ const all=kg.every(g=>((by[g.id]||{})[id]||{}).r==='W'); if(all&&kg.length) perf[id]++; }); });
-    if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
-      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name,anyTeam(sd.seRows.map(q=>q.id)))}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
+    if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
+      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}${moveTxt(x.move)}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name,anyTeam(sd.seRows.map(q=>q.id)))}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
     // notable (only what happened, everyone involved)
     const only=[], none=[]; let all=0, allN=0;
