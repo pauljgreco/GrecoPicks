@@ -294,6 +294,19 @@
   .avb.sm{margin-right:4px}.avb.md,.avb.lg,.avb.xl{margin:0}
   .avb.top{display:flex;width:30px;margin:0 auto 5px}
   .st th .avb.top{margin:0 0 5px auto}
+  .phero{display:flex;flex-direction:column;align-items:center;text-align:center;margin:2px 0 6px}
+  .phero .pnm{font-size:24px;font-weight:800;margin-top:12px;line-height:1.2}
+  .phero .ptm{color:var(--muted);font-weight:600;margin-top:2px}
+  .pbtns{display:flex;gap:10px;justify-content:center;margin-top:14px;width:100%}
+  .pbtns .sbtn,.pbtns .nbtn{flex:1;max-width:170px;padding:10px 12px;border-radius:999px;font-weight:700}
+  .pavbtn{position:relative;border:0;background:none;padding:0;cursor:pointer;border-radius:50%}
+  .pavcam{position:absolute;right:2px;bottom:2px;width:34px;height:34px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 0 3px var(--card)}
+  .plink{background:none;border:0;color:var(--accent);font:inherit;font-weight:700;margin-top:10px;cursor:pointer}
+  .pedit{margin-top:8px}
+  .pedit label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin:14px 0 6px}
+  .pedit label span{font-weight:500;opacity:.8}
+  .pedit input{width:100%;box-sizing:border-box;font:inherit;font-size:17px;padding:12px 14px;border-radius:12px;border:0;background:var(--sel);color:var(--ink);outline:none}
+  .pedit input:focus{box-shadow:0 0 0 2px var(--accent)}
   .pin{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
   .phint{font-size:12.5px;color:var(--muted);margin:5px 0 4px}
   .avbadge{position:absolute;right:-6px;bottom:-5px;font-size:13px;font-style:normal;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
@@ -1257,6 +1270,45 @@
     x.fillStyle=ink; x.globalAlpha=.75; x.font=F(500,30); x.fillText(new Date().toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'}),pad,H-46); x.globalAlpha=1;
     return cv;
   }
+  // Profile card picture: avatar, name, team, season record, rank and 👑/💩/💯 counts
+  async function shareProfile(){
+    const id=state.me.id, p=(state.players||[]).find(x=>x.id===id)||{name:state.me.name};
+    const b=(state.board||[]).find(x=>x.id===id)||{season:'0-0'};
+    const m=String(b.season||'0-0').match(/(\d+)-(\d+)/)||[0,0,0], W=+m[1], L=+m[2];
+    let crowns=0, poops=0, perfect=0;
+    try{ const season=curSeason(); let h=hist[season]; if(!h){ const pr=loadHistory(); if(pr&&pr.then) await pr; h=hist[season]; }
+      if(h){ const st=computeStats(h), me=st.people.find(x=>x.id===id)||{}; perfect=me.perfect||0;
+        const lw=st.weeks.length?st.weeks[st.weeks.length-1]:''; if(lw){ const ex=seasonExtras(h,lw,st.people.map(x=>x.id)); crowns=ex.crowns[id]||0; poops=ex.poops[id]||0; } } }catch(e){}
+    const css=getComputedStyle(document.documentElement);
+    const bar=(css.getPropertyValue('--bar')||'#0b1f3a').trim()||'#0b1f3a', ink=(css.getPropertyValue('--bar-ink')||'#fff').trim()||'#fff', acc=(css.getPropertyValue('--accent')||'#0b5cff').trim();
+    const S=1080, cv=document.createElement('canvas'); cv.width=S; cv.height=S; const x=cv.getContext('2d');
+    const F=(w,sz)=>`${w} ${sz}px -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+    x.fillStyle=bar; x.fillRect(0,0,S,S);
+    // avatar
+    const imgs=await avImages([id]), im=imgs[id], v=AVS.map[id]||'', X=S/2, Y=300, R=170;
+    x.save(); x.beginPath(); x.arc(X,Y,R+10,0,Math.PI*2); x.fillStyle=ink; x.globalAlpha=.18; x.fill(); x.restore();
+    x.save(); x.beginPath(); x.arc(X,Y,R,0,Math.PI*2); x.closePath();
+    if(im&&v.indexOf('t:')===0){ x.fillStyle='#fff'; x.fill(); x.clip(); x.drawImage(im,X-R*.75,Y-R*.75,R*1.5,R*1.5); }
+    else if(im){ x.clip(); x.drawImage(im,X-R,Y-R,2*R,2*R); }
+    else if(v.indexOf('e:')===0){ x.fillStyle='#f3f4f6'; x.fill(); x.font=F(400,R*1.2); x.textAlign='center'; x.textBaseline='middle'; x.fillText(v.slice(2),X,Y+8); }
+    else { x.fillStyle=avColor(id); x.fill(); x.fillStyle='#fff'; x.font=F(800,R); x.textAlign='center'; x.textBaseline='middle'; x.fillText(avInitial(id,p.name),X,Y+10); }
+    x.restore();
+    const bd=badgeOf(id); if(bd){ x.save(); x.font=F(400,96); x.textAlign='center'; x.textBaseline='middle'; x.shadowColor='rgba(0,0,0,.35)'; x.shadowBlur=8; x.fillText(bd,X+R*.72,Y+R*.72); x.restore(); }
+    // name + team
+    x.textAlign='center'; x.fillStyle=ink; x.font=F(800,76); x.fillText(p.name,X,Y+R+110);
+    if(p.team){ x.globalAlpha=.75; x.font=F(500,40); x.fillText(p.team,X,Y+R+165); x.globalAlpha=1; }
+    // stat tiles
+    const g=curGroup(), gr=profGr||{rank:0,label:''};
+    const tiles=[[W+'-'+L,'Season'],[gr.rank?'#'+gr.rank:'—',(gr.label||'').replace(/&#39;/g,"'").replace(/&amp;/g,'&')],['👑'+crowns+'  💩'+poops+'  💯'+perfect,'Won · last · perfect']];
+    const ty=Y+R+(p.team?220:185), tw=290, gap=30, th=170, x0=(S-(tw*3+gap*2))/2;
+    tiles.forEach((t,i)=>{ const tx=x0+i*(tw+gap); x.fillStyle='#ffffff'; x.beginPath(); x.roundRect?x.roundRect(tx,ty,tw,th,28):x.rect(tx,ty,tw,th); x.fill();
+      x.fillStyle='#111827'; x.font=F(800,i===2?40:58); let tv=t[0]; while(x.measureText(tv).width>tw-24&&x.font) { x.font=F(800,parseInt(x.font.match(/\d+(?=px)/)[0])-2); } x.fillText(tv,tx+tw/2,ty+88); x.fillStyle='#6b7280'; x.font=F(600,28); x.fillText(t[1],tx+tw/2,ty+136); });
+    x.fillStyle=ink; x.globalAlpha=.8; x.font=F(700,34); x.fillText('🏈 Greco Picks · '+curSeason()+' season'+(g?' · '+gname(g):''),X,S-60); x.globalAlpha=1;
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png')), name=('greco-picks-'+p.name).toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.png';
+    const file=new File([blob],name,{type:'image/png'});
+    try{ if(navigator.canShare&&navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'Greco Picks · '+p.name}); return; } }catch(e){ if(e&&e.name==='AbortError') return; }
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); toast('Saved the picture.');
+  }
   async function shareStandings(wk){
     const season=wk.split('|')[0];
     let h=hist[season]; if(!h){ const pr=loadHistory(); if(pr&&pr.then) await pr; h=hist[season]; }
@@ -1890,22 +1942,27 @@
   themeUI();
 
 
-  document.getElementById('setProfile').addEventListener('click',()=>{ if(!state) return; settings.classList.remove('on'); openProfile(state.me.id); });
+  document.getElementById('setProfile').addEventListener('click',()=>{ if(!state) return; settings.classList.remove('on'); openProfile(state.me.id,true); });
 
   document.getElementById('pBody').addEventListener('click',e=>{
-    const btn=e.target.closest('#pSave'); if(!btn||!state) return;
+    if(!state) return;
+    if(e.target.closest('#pEdit')){ openProfile(state.me.id,true); return; }
+    if(e.target.closest('#pCancel')){ openProfile(state.me.id,false); return; }
+    const sh=e.target.closest('#pShare'); if(sh){ sh.disabled=true; shareProfile().finally(()=>{ sh.disabled=false; }); return; }
+    const btn=e.target.closest('#pSave'); if(!btn) return;
     const name=document.getElementById('pName').value.trim(), team=document.getElementById('pTeam').value.trim();
     const meP=(state.players||[]).find(x=>x.id===state.me.id)||{};
     const jobs=[]; if(name&&name!==state.me.name) jobs.push(()=>api('rename',{name})); if(team!==(meP.team||'')) jobs.push(()=>api('team',{team}));
     if(!name){ toast('Your name can\'t be blank.'); return; }
-    if(!jobs.length){ toast('Nothing changed.'); return; }
+    if(!jobs.length){ openProfile(state.me.id,false); return; }
     btn.disabled=true; btn.textContent='Saving…';
-    jobs.reduce((pr,f)=>pr.then(f),Promise.resolve()).then(st=>{ state=st; save(); noteNames(st.players); render(); openProfile(state.me.id); toast('Saved. Everyone sees the update.'); })
+    jobs.reduce((pr,f)=>pr.then(f),Promise.resolve()).then(st=>{ state=st; save(); noteNames(st.players); render(); openProfile(state.me.id,false); toast('Saved. Everyone sees the update.'); })
       .catch(err=>{ toast(err.message); btn.disabled=false; btn.textContent='Save'; });
   });
 
   // ---------- Profile (tap a name) ----------
-  function openProfile(id){
+  let profGr=null;
+  function openProfile(id,edit){
     if(!state) return;
     const p=(state.players||[]).find(x=>x.id===id); if(!p) return;
     const b=(state.board||[]).find(x=>x.id===id)||{week:'0-0',season:'0-0',rank:''};
@@ -1923,16 +1980,25 @@
       let rank=0, prev=null, mine=0; rows.forEach((x,i)=>{ const k=x.pct+'|'+x.W; if(k!==prev){ rank=i+1; prev=k; } if(x.id===id) mine=rank; });
       return {rank:mine, label:rows.length>1?'of '+rows.length+(g?' · '+esc(g):' · everyone'):(g?esc(g)+' rank':'Overall rank')};
     })();
-    document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
-    document.getElementById('pBody').innerHTML=`
-      <div class="avhead">${av(id,'xl',p.name,badgeOf(id))}${p.team&&!me?`<div style="color:var(--muted);font-weight:600">${esc(p.team)}</div>`:''}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
-      ${me?`<h3>Your name</h3>
-      <input class="pin" id="pName" maxlength="20" autocomplete="off" value="${esc(p.name)}" aria-label="Your name">
-      <div class="phint">Short is best. It shows in the narrow Group columns.</div>
-      <h3>Team name <span style="font-weight:500;text-transform:none;letter-spacing:0">(optional)</span></h3>
-      <input class="pin" id="pTeam" maxlength="40" autocomplete="off" value="${esc(p.team||'')}" placeholder="e.g. your fantasy team" aria-label="Team name, optional">
-      <div class="phint">Shows under your name in the standings and recaps.</div>
-      <button class="nbtn" id="pSave" style="width:100%;margin-top:10px">Save</button>`:''}
+    document.getElementById('pTitle').textContent=me?'Your profile':'Profile';
+    const hero=me&&edit?`<div class="phero">
+        <button class="pavbtn" data-avopen="1" aria-label="Change avatar">${av(id,'xl',p.name)}<span class="pavcam">✏️</span></button>
+        <button class="plink" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>
+      </div>
+      <div class="pedit">
+        <label for="pName">Name</label>
+        <input id="pName" maxlength="20" autocomplete="off" value="${esc(p.name)}">
+        <div class="phint">Short is best. It shows in the narrow Group columns.</div>
+        <label for="pTeam">Team name <span>optional</span></label>
+        <input id="pTeam" maxlength="40" autocomplete="off" value="${esc(p.team||'')}" placeholder="e.g. your fantasy team">
+        <div class="phint">Shows under your name in standings, recaps and shared pictures.</div>
+      </div>
+      <div class="pbtns"><button class="sbtn" id="pCancel">Cancel</button><button class="nbtn" id="pSave">Save</button></div>`
+      :`<div class="phero">${av(id,'xl',p.name,badgeOf(id))}
+        <div class="pnm">${esc(p.name)}</div>${p.team?`<div class="ptm">${esc(p.team)}</div>`:''}
+        ${me?`<div class="pbtns"><button class="sbtn" id="pEdit">✏️ Edit profile</button><button class="sbtn" id="pShare">↗ Share</button></div>`:''}
+      </div>`;
+    document.getElementById('pBody').innerHTML=hero+(me&&edit?'':`
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
@@ -1941,8 +2007,9 @@
       ${state.me.isAdmin&&!me?(()=>{ const openN=(state.games||[]).filter(g=>!(g.locked||Date.now()>=new Date(g.kickoff).getTime())&&!(g.all||{})[id]).length;
         return `<h3>Nudge</h3><button class="nbtn" data-nudge="${esc(id)}" style="width:100%">🔔 Remind ${esc(p.name)} to pick${openN?' ('+openN+' open)':''}</button><p style="color:var(--muted);font-size:13px;margin-top:6px">Sends them a notification right now with how many picks they still need this week. Only you can do this.</p>`; })():''}
       ${state.me.isAdmin&&id!==state.adminId&&!me?`<h3>Edit groups (only you can)</h3><div class="namerow"><input id="pTags" value="${esc(groups.join(', '))}" placeholder="e.g. Greco's, Friends" maxlength="80"><button class="nbtn" id="pTagSave" data-id="${esc(id)}">Save</button></div><p style="color:var(--muted);font-size:13px;margin-top:6px">Separate with commas.${(state.groups||[]).length?' In use: '+state.groups.map(esc).join(', '):''}</p>`:''}
-      ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}${state.me.isAdmin?'':'Groups are set by '+esc(state.adminName||'Paul')+'.'}</p>`:''}`;
-    document.getElementById('profile').classList.add('on');
+      ${me?`<p style="color:var(--muted);font-size:14px">${state.me.isAdmin?'You\'re in every group. ':''}${state.me.isAdmin?'':'Groups are set by '+esc(state.adminName||'Paul')+'.'}</p>`:''}`);
+    profGr=gr; document.getElementById('profile').classList.add('on');
+    if(me&&edit) setTimeout(()=>{ const i=document.getElementById('pName'); if(i) i.focus(); },250);
   }
   document.getElementById('main').addEventListener('click',e=>{ const t=e.target.closest('[data-prof]'); if(t) openProfile(t.dataset.prof); });
   document.getElementById('pBody').addEventListener('click',e=>{
