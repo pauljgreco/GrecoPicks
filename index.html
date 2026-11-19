@@ -292,7 +292,10 @@
   .av.sm.ae{font-size:11px}.av.md.ae{font-size:24px}.av.lg.ae{font-size:46px}.av.xl.ae{font-size:72px}
   .av.at{background:#fff;padding:2px;object-fit:contain;border:1px solid var(--line)}
   .av.md.at{padding:4px}.av.lg.at,.av.xl.at{padding:9px}
-  h1 .av{width:30px;height:30px;top:-2px;margin-right:9px;font-size:15px}
+  #hi{display:flex;align-items:center;min-width:0;padding:2px 0}
+  .top .right{flex:none}
+  #hi .hin{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  h1 .av{width:30px;height:30px;top:0;margin-right:9px;font-size:15px}
   h1 .av.ae{font-size:18px}
   .avhead{display:flex;flex-direction:column;align-items:center;gap:10px;margin:4px 0 8px}
   .avhead .sbtn{font-size:14px}
@@ -509,7 +512,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.21.0';
+  const APP_VERSION = '2.21.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -645,7 +648,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML=av(s.me.id,'',s.me.name)+esc(s.me.name);
+    noteNames(s.players); document.getElementById('hi').innerHTML=av(s.me.id,'',s.me.name)+'<span class="hin">'+esc(s.me.name)+'</span>';
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
