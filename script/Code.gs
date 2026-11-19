@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.24.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.25.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -278,6 +278,7 @@ function api_(p) {
     else if (p.api === 'pushok') data = pushFixed_(p.k);
     else if (p.api === 'avatars') data = avatars_(p.k);
     else if (p.api === 'avatar') data = setAvatar_(p.k, p.pl, p.av);
+    else if (p.api === 'groupav') data = setGroupAv_(p.k, p.group, p.av);
     else if (p.api === 'invite') data = invite_(p.k, p.action, p.group, p.code);
     else if (p.api === 'invites') data = invitesList_(p.k);
     else if (p.api === 'joininfo') data = joinInfo_(p.code);
@@ -299,7 +300,7 @@ function api_(p) {
 function doPost(e) {
   let p = {};
   try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { p = {}; }
-  if (p.api !== 'avatar') p = { api: 'bad' };   // only big requests come this way
+  if (p.api !== 'avatar' && p.api !== 'groupav') p = { api: 'bad' };   // only big requests come this way
   return api_(p);
 }
 
@@ -316,6 +317,33 @@ function avStamp_(v) {
   if (v.indexOf('p:') !== 0) return v;   // emoji / team: the value itself is tiny
   const d = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, v);
   return 'p' + d.slice(0, 5).map(b => ((b + 256) % 256).toString(16)).join('');
+}
+
+// Group photos: Groups tab (Group, Avatar). Same formats as people's pictures. Only the admin sets them.
+function groupAvs_() {
+  const sh = ss_().getSheetByName('Groups');
+  if (!sh || sh.getLastRow() < 2) return {};
+  const out = {};
+  sh.getDataRange().getValues().slice(1).forEach(r => { if (String(r[0]).trim() && String(r[1] || '')) out[String(r[0]).trim()] = String(r[1]); });
+  return out;
+}
+function setGroupAv_(key, group, value) {
+  requireAdmin_(key);
+  group = String(group || '').trim();
+  if (!group || groupNames_().map(g => g.toLowerCase()).indexOf(group.toLowerCase()) < 0) throw new Error('Couldn\'t find that group.');
+  value = String(value || '').trim();
+  if (value && !avValid_(value)) throw new Error('That picture didn\'t work. Try a different one.');
+  const sh = ensureSheet_('Groups', ['Group', 'Avatar']), vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toLowerCase() === group.toLowerCase()) { sh.getRange(i + 1, 2).setNumberFormat('@').setValue(value); return groupAvs_(); }
+  }
+  sh.appendRow([group, '']); sh.getRange(sh.getLastRow(), 2).setNumberFormat('@').setValue(value);
+  return groupAvs_();
+}
+function avValid_(value) {
+  return (/^p:[A-Za-z0-9+/]+={0,2}$/.test(value) && value.length >= 200 && value.length <= 45000) ||
+    (/^e:[^<>&"'\s]{1,16}$/.test(value) && !/[A-Za-z0-9]/.test(value.slice(2))) ||
+    /^t:[A-Z]{2,3}$/.test(value);
 }
 
 /** Everyone's pictures (anyone with a valid link). */
@@ -384,6 +412,7 @@ function getState(key, wk) {
     me: { id: me.id, name: me.name, isAdmin: me.isAdmin, pushId: 'gp_' + me.id, prefs: prefsFor_(me.id),
       groups: groupsOf_(meP), defaultGroup: me.isAdmin ? '' : (meP.groups[0] || ''), hidden: meP.hidden, pushIssue: meP.notifIssue || '' },
     groups: groups,
+    groupAvs: groupAvs_(),
     adminId: adminId_(),
     adminName: adminName_(),
     requests: me.isAdmin ? pendingRequests_().length : 0,
@@ -391,6 +420,7 @@ function getState(key, wk) {
     players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, team: p.team, groups: groupsOf_(p), av: avStamp_(p.avatar) })),
     weeks: weeks,
     selected: sel,
+    currentWeek: PropertiesService.getScriptProperties().getProperty('CURRENT_WEEK') || '',
     games: list,
     board: board,
     crown: crown_(games, picks.vals, roster),
@@ -1292,7 +1322,7 @@ function joinInfo_(code) {
   const x = invRows_().find(r => r.code === String(code || '').toUpperCase());
   if (!x || !x.live) return { valid: false, admin: adminName_() };
   const count = players_().filter(p => p.active && p.id !== adminId_() && inGroup_(p, x.group)).length;
-  return { valid: true, group: x.group, count: count, admin: adminName_() };
+  return { valid: true, group: x.group, count: count, admin: adminName_(), groupAv: groupAvs_()[x.group] || '' };
 }
 
 /** Public: join with an invite link. Creates the person in that group and returns their personal key. */

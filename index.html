@@ -229,8 +229,8 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet,#avSheet,#avIntro{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on,#avSheet.on,#avIntro.on{display:flex}
+  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet,#avSheet,#avIntro,#wkSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on{display:flex}
   #avSheet{z-index:30}
   #avIntro{z-index:29}
   #recapSheet .sheet{max-height:94vh}
@@ -366,7 +366,7 @@
   .invbox small{display:block;color:var(--muted);margin-top:6px;font-size:12px}
   .invbox select{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
   .invrow{display:flex;align-items:center;gap:8px;margin-top:8px;padding:8px 0;border-top:1px solid var(--line)}
-  .invrow span{flex:1;min-width:0}.invrow small{margin:0}
+  .invrow>span:not(.av){flex:1;min-width:0}.invrow small{margin:0}
   .invrow .sbtn{padding:6px 10px;font-size:13px}
   /* Join screen */
   body.joining .tabs, body.joining header .right, body.joining #mine{display:none}
@@ -392,6 +392,24 @@
   .gsgo{color:var(--accent);font-size:22px;font-weight:700;line-height:1}
   .gssteps{padding:4px 0 10px 36px;font-size:14px}
   .gsfoot{font-size:13px;color:var(--muted);margin-top:8px}
+  /* Pills: group selector, week picker, filters */
+  .gpills{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px}
+  .gpills::-webkit-scrollbar{display:none}
+  .gpill{flex:none;display:inline-flex;align-items:center;gap:7px;padding:6px 14px 6px 6px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .gpill .av{margin:0;width:26px;height:26px;font-size:12px;top:0}
+  .gpill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .gpill.on .av.ai{box-shadow:0 0 0 2px rgba(255,255,255,.7)}
+  .gpills.one .gpill{cursor:default}
+  .wkpill{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:16px;font-weight:800;padding:8px 12px 8px 14px;border-radius:999px;border:0;background:color-mix(in srgb,var(--bar-ink,#fff) 16%,transparent);color:var(--bar-ink,#fff);cursor:pointer;white-space:nowrap}
+  .wkseason{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:14px 2px 6px}
+  .wkrow{display:flex;align-items:center;gap:10px;width:100%;padding:13px 14px;margin-bottom:6px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+  .wkrow.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--card))}
+  .wkn{flex:1;font-weight:700;font-size:16px}.wkn i{font-style:normal;font-size:11px;font-weight:800;color:#fff;background:var(--accent);border-radius:99px;padding:2px 8px;margin-left:8px;vertical-align:2px}
+  .wkr{color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}.wkck{color:var(--accent);font-weight:900}
+  .filters select,.gbar select,.invbox select{appearance:none;-webkit-appearance:none;font:inherit;font-size:15px;font-weight:700;padding:9px 34px 9px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 9l6 6 6-6' fill='none' stroke='%23888' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center/14px;color:var(--ink)}
+  .spbtn{border-radius:999px!important;font-weight:700}
+  h3.rch{display:flex;align-items:center;gap:8px}h3.rch .av{margin:0}
+  .join .big .av{margin:0 auto}
 </style>
 </head>
 <body>
@@ -400,7 +418,7 @@
     <div class="top">
       <h1 id="hi" style="cursor:pointer">Greco Picks</h1>
       <div class="right">
-        <select id="week" aria-label="Week"></select>
+        <select id="week" aria-label="Week" hidden></select><button class="wkpill" id="wkBtn" aria-label="Choose week"><span id="wkLbl">Week</span><svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="icon" id="reload" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
         <button class="icon" id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button>
         <button class="icon" id="helpBtn" aria-label="Help"><svg viewBox="0 0 24 24"><path d="M8.5 8.8a3.6 3.6 0 0 1 7 1.1c0 2.4-3.5 2.9-3.5 5.2"/><circle cx="12" cy="19" r=".9" fill="currentColor"/></svg></button>
@@ -470,6 +488,13 @@
   </div>
 </div>
 
+<div id="wkSheet" role="dialog" aria-modal="true" aria-label="Choose a week">
+  <div class="sheet">
+    <div class="sheet-top"><h2>Pick a week</h2><button class="x" id="wkClose" aria-label="Close">✕</button></div>
+    <div id="wkList"></div>
+  </div>
+</div>
+
 <div id="avIntro" role="dialog" aria-modal="true" aria-label="Pick your avatar">
   <div class="sheet">
     <div class="sheet-top"><span></span><button class="x" id="avIntroX" aria-label="Close">✕</button></div>
@@ -511,6 +536,7 @@
     <div id="reqList"></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
+    <div class="invbox"><b>🖼️ Group photos</b><div id="gavList"></div><small>Only you can set these. They show on the group pills, recaps, shared pictures and invite links.</small></div>
     <div class="invbox" id="invBox">
       <b>🔗 Invite links</b>
       <div id="invList"></div>
@@ -611,7 +637,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.24.1';
+  const APP_VERSION = '2.25.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -646,6 +672,15 @@
     if(v.indexOf('e:')===0) return `<span class="${c} ae" aria-hidden="true">${esc(v.slice(2))}</span>`;
     if(v.indexOf('t:')===0) return `<img class="${c} at" src="${esc(teamLogo(v.slice(2)))}" alt="">`;
     return `<span class="${c} ai" style="background:${avColor(id)}" aria-hidden="true">${esc(avInitial(id,nameHint))}</span>`;
+  }
+  // Group photo (admin sets). Same look as people's circles; fallback = colored circle with the group's first letter.
+  function gav(name,cls){
+    if(!name) return `<span class="av${cls?' '+cls:''} ae" aria-hidden="true">👥</span>`;
+    const v=((state&&state.groupAvs)||{})[name]||'', c='av'+(cls?' '+cls:'');
+    if(v.indexOf('p:')===0) return `<img class="${c}" src="data:image/jpeg;base64,${v.slice(2)}" alt="">`;
+    if(v.indexOf('e:')===0) return `<span class="${c} ae" aria-hidden="true">${esc(v.slice(2))}</span>`;
+    if(v.indexOf('t:')===0) return `<img class="${c} at" src="${esc(teamLogo(v.slice(2)))}" alt="">`;
+    return `<span class="${c} ai" style="background:${avColor('G:'+name)}" aria-hidden="true">${esc(avInitial('',name))}</span>`;
   }
   function saveAvs(){ try{ localStorage.setItem('nflpicks_avatars',JSON.stringify(AVS)); }catch(e){} }
   let avSyncing=false;
@@ -762,6 +797,7 @@
     const openN=s.games.filter(g=>!g.mine && !(g.locked||Date.now()>=new Date(g.kickoff).getTime())).length;
     document.querySelector('.tab[data-view="picks"]').innerHTML='Picks'+(openN?`<span class="badge" aria-label="${openN} open">${openN}</span>`:'');
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
+    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?w.label.split(' · ')[0]:'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
@@ -858,7 +894,10 @@
     const gs=groupList(); if(!gs.length) return '';
     const mine=(state.me.groups||[]).filter(g=>gs.indexOf(g)>=0), rest=gs.filter(g=>mine.indexOf(g)<0), cur=curGroup();
     const o=(v,t)=>`<option value="${esc(v)}"${v===cur?' selected':''}>${esc(t)}</option>`;
-    return `<div class="gbar"><span>Group</span><select data-group="1">${mine.map(g=>o(g,g)).join('')}${rest.map(g=>o(g,g)).join('')}${o('','Everyone')}</select></div>`;
+    const all=mine.concat(rest);
+    if(!state.me.isAdmin&&all.length<=1&&cur) return `<div class="gpills one"><span class="gpill on">${gav(cur,'sm')}${esc(cur)}</span></div>`;
+    const pill=(v,t)=>`<button class="gpill${v===cur?' on':''}" data-gpill="${esc(v)}">${gav(v,'sm')}${esc(t)}</button>`;
+    return `<div class="gpills" role="tablist" aria-label="Group">${all.map(g=>pill(g,g)).join('')}${pill('','Everyone')}</div>`;
   }
   function betweenWeeks(){ return !!(state&&state.last&&state.last.between); }
   function curCrown(){ const g=curGroup(); return state&&state.crowns ? (state.crowns[g]||null) : (g?null:(state&&state.crown)); }
@@ -1145,7 +1184,7 @@
       html+=`<div class="rcyou">You went <b>${rec[me].W}-${rec[me].L}</b>${played.length>1?` · ${tied(me)?'tied for ':''}${ord(rk[me])} of ${played.length}`:''}${crown.indexOf(me)>=0?' · 👑':''}${poop.indexOf(me)>=0?' · 💩':''}</div>`;
     } else html+=`<div class="rcyou">You didn't have any picks this week.</div>`;
     // week standings
-    html+=`<h3>${esc(label)} · ${esc(grp?gname(grp):'Everyone')}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th></tr></thead><tbody>${
+    html+=`<h3 class="rch">${gav(grp,'sm')}${esc(label)} · ${esc(grp?gname(grp):'Everyone')}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th></tr></thead><tbody>${
       played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id],badgeRc(id))}${nmTeam(id,names[id],anyTeam(played))}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
     }</tbody></table></div>${byTb?`<div class="note">👑 went to ${esc(crown.map(id=>names[id]).join(', '))} on the tiebreaker (closest total-points guess).</div>`:''}`;
     // season standings through this week
@@ -1248,6 +1287,14 @@
     x.fillStyle=bar; x.fillRect(0,0,Wd,H);
     x.fillStyle=ink; x.font=F(800,64); x.textBaseline='alphabetic'; x.fillText('🏈 Greco Picks',pad,128);
     x.globalAlpha=.85; x.font=F(500,36); x.fillText(d.label+' · '+d.season+(d.group?' · '+gname(d.group):'')+(d.done?'':' (in progress)'),pad,184); x.globalAlpha=1;
+    // group photo, top right
+    if(d.group){ const v=((state.groupAvs)||{})[d.group]||'', im=imgs&&imgs.__g, X=Wd-pad-56, Y=132, R=56;
+      x.save(); x.beginPath(); x.arc(X,Y,R,0,Math.PI*2); x.closePath();
+      if(im&&v.indexOf('t:')===0){ x.fillStyle='#fff'; x.fill(); x.clip(); x.drawImage(im,X-R*.78,Y-R*.78,R*1.56,R*1.56); }
+      else if(im){ x.clip(); x.drawImage(im,X-R,Y-R,2*R,2*R); }
+      else if(v.indexOf('e:')===0){ x.fillStyle='#f3f4f6'; x.fill(); x.font=F(400,R*1.2); x.textAlign='center'; x.textBaseline='middle'; x.fillText(v.slice(2),X,Y+4); }
+      else { x.fillStyle=avColor('G:'+d.group); x.fill(); x.fillStyle='#fff'; x.font=F(800,R); x.textAlign='center'; x.textBaseline='middle'; x.fillText(avInitial('',d.group),X,Y+4); }
+      x.restore(); x.textAlign='left'; x.textBaseline='alphabetic'; }
     // white panel
     const top=230; x.fillStyle='#ffffff'; const rr=(X,Y,w,h,r)=>{ x.beginPath(); x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r); x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); };
     rr(pad-16,top,Wd-2*pad+32,H-top-110,36); x.fill();
@@ -1328,7 +1375,10 @@
     const season=wk.split('|')[0];
     let h=hist[season]; if(!h){ const pr=loadHistory(); if(pr&&pr.then) await pr; h=hist[season]; }
     if(!h){ toast('Couldn\'t load the standings. Try again.'); return; }
-    const d=standingsData(h,wk), cv=drawStandings(d,await avImages(Array.from(new Set(d.wkRows.concat(d.seRows).map(r=>r.id)))));
+    const d=standingsData(h,wk), imgs=await avImages(Array.from(new Set(d.wkRows.concat(d.seRows).map(r=>r.id))));
+    const gv=d.group&&((state.groupAvs||{})[d.group]||'');
+    if(gv&&(gv.indexOf('p:')===0||gv.indexOf('t:')===0)) await new Promise(res=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>{ imgs.__g=im; res(); }; im.onerror=()=>res(); setTimeout(res,4000); im.src=gv.indexOf('p:')===0?'data:image/jpeg;base64,'+gv.slice(2):teamLogo(gv.slice(2)); });
+    const cv=drawStandings(d,imgs);
     const name=('greco-picks-'+d.label+'-'+d.season).toLowerCase().replace(/[^a-z0-9]+/g,'-')+'.png';
     const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
     const file=new File([blob],name,{type:'image/png'});
@@ -1869,7 +1919,7 @@
     const el=document.getElementById('ptr'), ball=el.querySelector('.ball span'), label=el.querySelector('small');
     const hdr=document.querySelector('header');
     let y0=null, dist=0, busy=false;
-    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on');
+    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on');
     const place=d=>{ const top=hdr.getBoundingClientRect().bottom; el.style.transform=`translate(-50%,${Math.round(top-50+d)}px)`; };
     const hide=()=>{ el.className=''; el.style.transform='translate(-50%,-70px)'; };
     window.addEventListener('touchstart',e=>{
@@ -2078,24 +2128,32 @@
     if(!state) return;
     const el=document.getElementById('setAv'); if(el) el.innerHTML=av(state.me.id,'md',state.me.name);
   }
+  let avTarget=null;   // null = your own avatar; {group:'Name'} = that group's photo (admin)
   function avPickerUI(){
-    const mine=AVS.map[state.me.id]||'';
-    document.getElementById('avCur').innerHTML=av(state.me.id,'xl',state.me.name);
+    const g=avTarget&&avTarget.group, mine=g?(((state.groupAvs||{})[g])||''):(AVS.map[state.me.id]||'');
+    document.querySelector('#avSheet h2').textContent=g?g+' group photo':'Your avatar';
+    document.getElementById('avCur').innerHTML=g?gav(g,'xl'):av(state.me.id,'xl',state.me.name);
     document.getElementById('avEmo').innerHTML=AV_EMOJI.map(e=>`<button data-avset="e:${esc(e)}" class="${mine==='e:'+e?'on':''}" aria-label="${esc(e)}">${esc(e)}</button>`).join('');
     document.getElementById('avTeams').innerHTML=[{id:'PHI',name:'Eagles'}].concat(THEMES.filter(t=>t.set==='NFL')).map(t=>`<button data-avset="t:${esc(t.id)}" class="${mine==='t:'+t.id?'on':''}" aria-label="${esc(t.name)}"><img src="${esc(teamLogo(t.id))}" alt="" loading="lazy"></button>`).join('');
     document.getElementById('avRemove').hidden=!mine;
+    document.getElementById('avRemove').textContent=g?'Remove group photo':'Remove my avatar';
   }
-  function openAvPicker(){
+  function openAvPicker(target){
     if(!state) return;
+    avTarget=target&&target.group?target:null;
     avPreview=false;
-    LS.set('nflpicks_avseen','1'); if(document.querySelector('#hi .avwrap.spot')) render();   // drop the spotlight/bubble
+    if(!avTarget){ LS.set('nflpicks_avseen','1'); if(document.querySelector('#hi .avwrap.spot')) render(); }   // drop the spotlight/bubble
     document.getElementById('avMain').hidden=false; document.getElementById('avCrop').hidden=true;
     avPickerUI(); document.getElementById('avSheet').classList.add('on');
   }
   function closeAvPicker(){ document.getElementById('avSheet').classList.remove('on'); }
   let avBusy=false;
   function saveMyAv(v){
-    if(avBusy) return Promise.resolve(); avBusy=true;
+    if(avBusy) return Promise.resolve();
+    if(avTarget){ const g=avTarget.group; avBusy=true;
+      return apiPost('groupav',{group:g,av:v}).then(m=>{ state.groupAvs=m||{}; save(); render(); if(people) renderPeople(); closeAvPicker(); toast(v?g+' group photo saved.':g+' group photo removed.'); })
+        .catch(err=>toast(err.message)).finally(()=>{ avBusy=false; }); }
+    avBusy=true;
     const me=state.me.id, before=AVS.map[me];
     return apiPost('avatar',{av:v}).then(()=>{
       if(v) AVS.map[me]=v; else delete AVS.map[me];
@@ -2106,7 +2164,7 @@
       try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}
     }).catch(err=>{ if(before) AVS.map[me]=before; toast(err.message); }).finally(()=>{ avBusy=false; });
   }
-  document.addEventListener('click',e=>{ if(e.target.closest('[data-avopen]')) openAvPicker(); });
+  document.addEventListener('click',e=>{ if(e.target.closest('[data-avopen]')) openAvPicker(); const g=e.target.closest('[data-gavset]'); if(g) openAvPicker({group:g.dataset.gavset}); });
   // One-time popup for people with no picture (after the state has loaded and nothing else is open).
   function maybeAvIntro(force){
     if(!force){
@@ -2337,7 +2395,8 @@
     if(cur&&[...sel.options].some(o=>o.value===cur)) sel.value=cur;
     document.getElementById('invNew').hidden=sel.value!=='__new';
   }
-  function loadInvites(){ api('invites').then(d=>{ invites=d||[]; renderInvites(); }).catch(()=>{}); }
+  function renderGavs(){ const el=document.getElementById('gavList'); if(!el||!state) return; el.innerHTML=(state.groups||[]).map(g=>`<div class="invrow">${gav(g,'md')}<span><b>${esc(g)}</b></span><button class="sbtn" data-gavset="${esc(g)}">${(state.groupAvs||{})[g]?'Change':'Add photo'}</button></div>`).join('')||'<small>No groups yet.</small>'; }
+  function loadInvites(){ renderGavs(); api('invites').then(d=>{ invites=d||[]; renderInvites(); }).catch(()=>{}); }
   function shareInvite(x){
     const text=`Join our NFL pick'em on Greco Picks! Pick the winner of every game each week, ${x.group} group. Tap to join:`;
     if(navigator.share) navigator.share({title:'Greco Picks',text,url:x.link}).catch(()=>{});
@@ -2514,12 +2573,42 @@
       setSp(cur);
     });
   })();
+  document.getElementById('main').addEventListener('click',e=>{
+    const b=e.target.closest('[data-gpill]'); if(!b) return;
+    try{ localStorage.setItem('nflpicks_group',b.dataset.gpill); }catch(x){}
+    sf.people=null; saveSf(); render();
+  });
   document.getElementById('main').addEventListener('change',e=>{
     if(!e.target.dataset||!e.target.dataset.group) return;
     try{ localStorage.setItem('nflpicks_group',e.target.value); }catch(x){}
     sf.people=null; saveSf(); render();
   });
   document.getElementById('week').addEventListener('change',e=>load(e.target.value,true));
+  // Week picker: newest first, your record per week (when the season's history is loaded), current week marked.
+  function myWeekRec(k){
+    const h=hist[k.split('|')[0]]; if(!h) return null;
+    const gw={}; h.games.forEach(g=>{ gw[g.id]=wkKey(g); }); let W=0,L=0;
+    h.picks.forEach(x=>{ if(x[1]===state.me.id&&gw[x[0]]===k){ if(x[3]==='W') W++; else if(x[3]==='L') L++; } });
+    return W+L?W+'-'+L:null;
+  }
+  function openWeeks(){
+    if(!state) return;
+    const cur=state.currentWeek, bySeason={};
+    state.weeks.forEach(w=>{ const se=w.season||w.key.split('|')[0]; (bySeason[se]=bySeason[se]||[]).push(w); });
+    document.getElementById('wkList').innerHTML=Object.keys(bySeason).sort((a,b)=>b-a).map(se=>`<div class="wkseason">${esc(se)} season</div>`+bySeason[se].map(w=>{
+      const r=myWeekRec(w.key), nm=w.label.split(' · ')[0];
+      return `<button class="wkrow${w.key===state.selected?' on':''}" data-wk="${esc(w.key)}"><span class="wkn">${esc(nm)}${w.key===cur?'<i>This week</i>':''}</span><span class="wkr">${r?esc(r):''}</span>${w.key===state.selected?'<span class="wkck">✓</span>':''}</button>`; }).join('')).join('');
+    document.getElementById('wkSheet').classList.add('on');
+    const on=document.querySelector('#wkList .wkrow.on'); if(on) on.scrollIntoView({block:'center'});
+    if(!hist[curSeason()]){ const pr=loadHistory(); if(pr&&pr.then) pr.then(()=>{ if(document.getElementById('wkSheet').classList.contains('on')) openWeeks(); }); }
+  }
+  document.getElementById('wkBtn').addEventListener('click',openWeeks);
+  document.getElementById('wkClose').addEventListener('click',()=>document.getElementById('wkSheet').classList.remove('on'));
+  document.getElementById('wkSheet').addEventListener('click',e=>{
+    if(e.target.id==='wkSheet'){ e.target.classList.remove('on'); return; }
+    const b=e.target.closest('[data-wk]'); if(!b) return;
+    document.getElementById('wkSheet').classList.remove('on'); load(b.dataset.wk,true);
+  });
   document.getElementById('reload').addEventListener('click',()=>{ if(window.footballRefresh) window.footballRefresh(); else { load(state&&state.selected,false); if(view==='stats') loadHistory(true); } });
   const help=document.getElementById('help');
   document.getElementById('helpBtn').addEventListener('click',()=>help.classList.add('on'));
@@ -2544,7 +2633,8 @@
     main.innerHTML='<div class="empty">Loading your invite…</div>';
     api('joininfo',{code}).then(d=>{
       if(!d.valid){ main.innerHTML=`<div class="join"><div class="big">🔗</div><h2>This invite link isn't active anymore</h2><p>Ask ${esc(d.admin||'Paul')} for a new one.</p></div>`; return; }
-      main.innerHTML=`<div class="join"><div class="big">🏈</div>
+      if(d.groupAv){ state=state||{}; state.groupAvs={[d.group]:d.groupAv}; }
+      main.innerHTML=`<div class="join"><div class="big">${d.groupAv?gav(d.group,'lg'):'🏈'}</div>
         <h2>You're invited to the ${esc(d.group)} group</h2>
         <p>Pick the winner of every NFL game each week. Compete with your group for the weekly 👑 (and try to avoid the 💩).${d.count?` <b>${d.count} ${d.count===1?'person is':'people are'} already in.</b>`:''}</p>
         <label for="joinName">Your name</label>
