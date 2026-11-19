@@ -288,6 +288,18 @@
   .av.top{display:flex;width:30px;height:30px;font-size:14px;top:0;margin:0 auto 5px}
   .av.top.ae{font-size:18px}
   .st th .av.top{margin:0 0 5px auto}
+  .avb{position:relative;display:inline-flex;vertical-align:middle;margin-right:11px;flex:none}
+  .avb>.av{margin:0;top:0}
+  .avb.sm{margin-right:4px}.avb.md,.avb.lg,.avb.xl{margin:0}
+  .avb.top{display:flex;width:30px;margin:0 auto 5px}
+  .st th .avb.top{margin:0 0 5px auto}
+  .avbadge{position:absolute;right:-6px;bottom:-5px;width:17px;height:17px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:11px;font-style:normal;line-height:1;box-shadow:0 0 0 1.5px var(--card),0 1px 3px rgba(0,0,0,.25)}
+  .avb.sm .avbadge{width:13px;height:13px;font-size:8px;right:-4px;bottom:-4px}
+  .avb.xl .avbadge{width:38px;height:38px;font-size:24px;right:-2px;bottom:-2px}
+  .avb.md .avbadge{width:19px;height:19px;font-size:12px}
+  h1 .avb{margin-right:9px}h1 .avb .av{width:30px;height:30px}
+  .nmt{display:inline-flex;flex-direction:column;vertical-align:middle;line-height:1.15;white-space:normal}
+  .nmt small{font-size:11.5px;font-weight:500;color:var(--muted);line-height:1.2;max-width:80px;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
   .av.sm{width:18px;height:18px;font-size:10px;margin-right:4px}
   .av.md{width:38px;height:38px;font-size:17px;margin:0}
   .av.lg{width:76px;height:76px;font-size:34px;margin:0}
@@ -383,6 +395,7 @@
     <div class="nbox">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><span id="setAv"></span><button class="sbtn" data-avopen="1" id="setAvBtn">Add an avatar</button></div>
       <div class="namerow"><input id="myName" maxlength="20" autocomplete="off" aria-label="Your name"><button class="nbtn" id="nameSave">Save</button></div>
+      <div class="namerow" style="margin-top:8px"><input id="myTeam" maxlength="40" autocomplete="off" placeholder="Team name (optional)" aria-label="Team name, optional"><button class="nbtn" id="teamSave">Save</button></div>
       <p style="margin:8px 0 0;font-size:13px">This is what everyone sees. Your picks and records stay with you.</p>
     </div>
     <h3>Appearance</h3>
@@ -572,7 +585,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.23.0';
+  const APP_VERSION = '2.24.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -590,11 +603,16 @@
   let AVS={stamps:{},map:{}};
   try{ const c=JSON.parse(localStorage.getItem('nflpicks_avatars')||'null'); if(c&&c.map) AVS=c; }catch(e){}
   const NAMES={};
-  function noteNames(list){ (list||[]).forEach(p=>{ if(p&&p.id&&p.name) NAMES[p.id]=p.name; }); }
+  const TEAMN={};
+  function noteNames(list){ (list||[]).forEach(p=>{ if(p&&p.id&&p.name){ NAMES[p.id]=p.name; if(p.team!=null) TEAMN[p.id]=p.team; } }); }
+  // Name with the optional team name underneath (for roomy spots: standings, recap, people)
+  function nmTeam(id,label){ const t=TEAMN[id]; return t?`<span class="nmt">${esc(label)}<small>${esc(t)}</small></span>`:esc(label); }
   const teamLogo=a=>'https://a.espncdn.com/i/teamlogos/nfl/500/'+(a==='WAS'?'wsh':String(a).toLowerCase())+'.png';
   function avColor(id){ let h=7; for(const c of String(id)) h=(h*31+c.charCodeAt(0))%360; return 'hsl('+((h*47)%360)+',55%,42%)'; }
   function avInitial(id,name){ const n=String(name||NAMES[id]||'?').trim(); const m=n.match(/\p{L}|\p{N}/u); return (m?m[0]:'?').toUpperCase(); }
-  function av(id,cls,nameHint){
+  // badge: '👑' | '💩' | '💯' shown in the avatar's corner
+  function av(id,cls,nameHint,badge){
+    if(badge) return `<span class="avb${cls?' '+cls:''}">${av(id,cls,nameHint)}<i class="avbadge">${badge}</i></span>`;
     const v=AVS.map[id]||'', c='av'+(cls?' '+cls:'');
     if(v.indexOf('p:')===0) return `<img class="${c}" src="data:image/jpeg;base64,${v.slice(2)}" alt="">`;
     if(v.indexOf('e:')===0) return `<span class="${c} ae" aria-hidden="true">${esc(v.slice(2))}</span>`;
@@ -708,7 +726,7 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+avMe('',s.me.name)+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
+    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+(avSpot()?avMe('',s.me.name):av(s.me.id,'',s.me.name,badgeOf(s.me.id)))+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · season <b>${esc(s.my.season)}</b>`;
@@ -819,6 +837,8 @@
   function crowned(id){ if(!betweenWeeks()) return false; const c=curCrown(); return !!(c&&c.ids.indexOf(id)>=0); }
   function pooped(id){ if(!betweenWeeks()) return false; const c=curCrown(); return !!(c&&c.poop&&c.poop.ids.indexOf(id)>=0); }
   function tag(id){ return (crowned(id)?'👑 ':'')+(pooped(id)?'💩 ':''); }
+  // Last week's badge for the avatar corner: 💯 perfect week, 👑 top, 💩 bottom
+  function badgeOf(id){ if(crowned(id)){ const c=curCrown(); return c&&/-0$/.test(String(c.rec||''))?'💯':'👑'; } return pooped(id)?'💩':''; }
   function crownLine(){
     if(!betweenWeeks()) return '';
     const c=curCrown(); if(!c) return '';
@@ -835,7 +855,7 @@
     if(!s.games.length) return groupBar()+'<div class="empty">No games loaded yet.</div>';
     const players=shownPlayers();
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${av(p.id,'top',p.name)}${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${av(p.id,'top',p.name,badgeOf(p.id))}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -979,7 +999,7 @@
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
     html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name)}</td><td>${moveTxt(ex.move[s.id])}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
@@ -1089,6 +1109,7 @@
     if(c&&c.key===wk&&c.tb&&c.ids.some(id=>crown.indexOf(id)>=0)&&c.ids.length<crown.length){ crown=crown.filter(id=>c.ids.indexOf(id)>=0); byTb=true; }   // tiebreaker, when it decided the week
     const poop=played.length>1&&low<top?played.filter(id=>rec[id].W===low):[];
     const tagOf=id=>crown.indexOf(id)>=0?'👑 ':poop.indexOf(id)>=0?'💩 ':'';
+    const badgeRc=id=>crown.indexOf(id)>=0?(rec[id].L===0?'💯':'👑'):poop.indexOf(id)>=0?'💩':'';
     const ord=n=>n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]);
     let html='';
     // your line
@@ -1097,7 +1118,7 @@
     } else html+=`<div class="rcyou">You didn't have any picks this week.</div>`;
     // week standings
     html+=`<h3>${esc(label)} · ${esc(grp?gname(grp):'Everyone')}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th></tr></thead><tbody>${
-      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id])}${tagOf(id)}${esc(names[id])}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
+      played.map(id=>`<tr class="${id===me?'me':''}"><td class="rk">${tied(id)?'T-':''}${rk[id]}</td><td class="n">${av(id,'',names[id],badgeRc(id))}${nmTeam(id,names[id])}</td><td>${rec[id].W}-${rec[id].L}</td></tr>`).join('')||'<tr><td colspan="3">No picks this week.</td></tr>'
     }</tbody></table></div>${byTb?`<div class="note">👑 went to ${esc(crown.map(id=>names[id]).join(', '))} on the tiebreaker (closest total-points guess).</div>`:''}`;
     // season standings through this week
     const sd=standingsData(h,wk), wsz={}, fin={};
@@ -1106,7 +1127,7 @@
     Array.from(new Set(h.games.map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&k.split('|')[0]===wk.split('|')[0]&&fin[k]===((h.weekGames||{})[k]||wsz[k])).forEach(k=>{
       const kg=h.games.filter(g=>wkKey(g)===k); ids.forEach(id=>{ const all=kg.every(g=>((by[g.id]||{})[id]||{}).r==='W'); if(all&&kg.length) perf[id]++; }); });
     if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th></th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
-      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${esc(x.id===me?'You':x.name)}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
+      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name)}</td><td>${moveTxt(x.move)}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
     // notable (only what happened, everyone involved)
     const only=[], none=[]; let all=0, allN=0;
@@ -1178,7 +1199,7 @@
     // 👑 / 💩: server's (knows the tiebreaker) when it's the same week, else most / fewest wins
     let c=curCrown(); if(!c||c.key!==wk){ const top=wkRows.length?wkRows[0].W:0, low=wkRows.length?wkRows[wkRows.length-1].W:0;
       c={ids:wkRows.filter(r=>r.W===top&&top>0).map(r=>r.id),poop:low<top?{ids:wkRows.filter(r=>r.W===low).map(r=>r.id)}:null}; }
-    wkRows.forEach(r=>{ r.tag=c.ids.indexOf(r.id)>=0?'👑':(c.poop&&c.poop.ids.indexOf(r.id)>=0?'💩':''); });
+    wkRows.forEach(r=>{ r.tag=c.ids.indexOf(r.id)>=0?(r.L===0?'💯':'👑'):(c.poop&&c.poop.ids.indexOf(r.id)>=0?'💩':''); });
     const seRows=members.filter(p=>S[p.id].W+S[p.id].L>0).map(p=>({id:p.id,name:p.name,W:S[p.id].W,L:S[p.id].L,pct:S[p.id].W/(S[p.id].W+S[p.id].L)}))
       .sort((a,b)=>b.pct-a.pct||b.W-a.W||a.name.localeCompare(b.name));
     const rank=rows=>{ let r=0,prev=null; rows.forEach((x,i)=>{ const k=x.pct!=null?x.pct+'|'+x.W:x.W+'|'+x.L; if(k!==prev){ r=i+1; prev=k; } x.rank=r; }); };
@@ -1206,7 +1227,8 @@
     const row=(r,right,me,extra)=>{ if(me){ x.fillStyle='#f3f4f6'; rr(pad+8,y-46,Wd-2*pad-16,62,14); x.fill(); }
       x.fillStyle='#6b7280'; x.font=F(700,34); x.fillText(String(r.rank)+'.',pad+28,y);
       drawAv(r.id,r.name,pad+124,y-13,24);
-      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=(r.tag?r.tag+' ':'')+r.name; while(x.measureText(nm).width>(extra?250:500)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+160,y);
+      if(r.tag){ x.save(); x.beginPath(); x.arc(pad+143,y+5,14,0,Math.PI*2); x.fillStyle='#fff'; x.fill(); x.strokeStyle='#e5e7eb'; x.lineWidth=2; x.stroke(); x.font=F(400,17); x.textAlign='center'; x.textBaseline='middle'; x.fillText(r.tag,pad+143,y+6); x.restore(); }
+      x.fillStyle='#111827'; x.font=F(me?800:600,38); let nm=r.name; while(x.measureText(nm).width>(extra?250:500)&&nm.length>4) nm=nm.slice(0,-2)+'…'; x.fillText(nm,pad+160,y);
       x.textAlign='right';
       if(extra){   // season columns: ▲▼ · W-L · Pct · 👑 · 💩
         if(r.move){ x.font=F(800,30); x.fillStyle=r.move>0?'#16a34a':'#dc2626'; x.fillText((r.move>0?'▲':'▼')+Math.abs(r.move),COL.mv,y); }
@@ -1875,6 +1897,11 @@
       .catch(e=>toast(e.message)).finally(()=>{ btn.disabled=false; });
   });
 
+  document.getElementById('teamSave').addEventListener('click',e=>{
+    const t=document.getElementById('myTeam').value.trim(), btn=e.target; btn.disabled=true;
+    api('team',{team:t}).then(st=>{ state=st; save(); noteNames(st.players); render(); toast(t?'Team name saved.':'Team name removed.'); }).catch(err=>toast(err.message)).finally(()=>{ btn.disabled=false; });
+  });
+
   // ---------- Profile (tap a name) ----------
   function openProfile(id){
     if(!state) return;
@@ -1896,7 +1923,7 @@
     })();
     document.getElementById('pTitle').textContent=me?'You ('+p.name+')':p.name;
     document.getElementById('pBody').innerHTML=`
-      <div class="avhead">${av(id,'xl',p.name)}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
+      <div class="avhead">${av(id,'xl',p.name,badgeOf(id))}${p.team?`<div style="color:var(--muted);font-weight:600">${esc(p.team)}</div>`:''}${me?`<button class="sbtn" data-avopen="1">${AVS.map[id]?'Change avatar':'Add an avatar'}</button>`:''}</div>
       <h3>Groups</h3>
       <div class="pchips">${groups.length?groups.map(g=>`<span>${esc(g)}</span>`).join(''):'<span>No group</span>'}</div>
       <h3>Record</h3>
@@ -1957,6 +1984,7 @@
   function maybeAvIntro(force){
     if(!force){
       if(!state || myAvStamp() || LS.get('nflpicks_avintro')==='1') return;
+      if(LS.get('nflpicks_joined')===new Date().toDateString()) return;   // brand new today: let them just make picks first
       if(document.querySelector('.on[role="dialog"], #settings.on, #profile.on, #help.on')) return;
       LS.set('nflpicks_avintro','1');
     }
@@ -2121,7 +2149,7 @@
       const tags=p.id===people.adminId?'Every group':((p.groups||[]).join(', ')||'No group');
       const open=openPerson===p.id;
       return `<div class="person">
-        <div class="phead" data-pexp="${esc(p.id)}"><span style="display:flex;align-items:center;gap:10px">${av(p.id,'md',p.name)}<span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
+        <div class="phead" data-pexp="${esc(p.id)}"><span style="display:flex;align-items:center;gap:10px">${av(p.id,'md',p.name)}<span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.team?` <small>· ${esc(p.team)}</small>`:''}${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
@@ -2368,7 +2396,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     updateVer();
-    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); document.getElementById('myName').value=state.me.name; document.getElementById('myTeam').value=((state.players||[]).find(x=>x.id===state.me.id)||{}).team||''; setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
@@ -2390,15 +2418,18 @@
         <p>Pick the winner of every NFL game each week. Compete with your group for the weekly 👑 (and try to avoid the 💩).${d.count?` <b>${d.count} ${d.count===1?'person is':'people are'} already in.</b>`:''}</p>
         <label for="joinName">Your name</label>
         <input id="joinName" maxlength="20" autocomplete="name" placeholder="e.g. Mike R">
-        <div class="hint">What the group will see. You can change it later.</div>
+        <div class="hint">What the group will see. Short is best (e.g. Mike R). You can change it later.</div>
+        <label for="joinTeam">Team name <span style="font-weight:500;color:var(--muted)">(optional)</span></label>
+        <input id="joinTeam" maxlength="40" autocomplete="off" placeholder="e.g. your fantasy team">
+        <div class="hint">Shows under your name in the standings.</div>
         <div class="err" id="joinErr" hidden></div>
         <button class="avup" id="joinGo">Join</button></div>`;
       const go=document.getElementById('joinGo'), inp=document.getElementById('joinName'), err=document.getElementById('joinErr');
       const submit=()=>{
         const name=inp.value.trim(); if(!name){ inp.focus(); return; }
         go.disabled=true; go.textContent='Joining…'; err.hidden=true;
-        api('join',{code,name}).then(r=>{
-          try{ localStorage.setItem('nflpicks_key',r.k); sessionStorage.setItem('nflpicks_welcome',r.name); }catch(e){}
+        api('join',{code,name,team:(document.getElementById('joinTeam').value||'').trim()}).then(r=>{
+          try{ localStorage.setItem('nflpicks_joined',new Date().toDateString()); localStorage.setItem('nflpicks_key',r.k); sessionStorage.setItem('nflpicks_welcome',r.name); }catch(e){}
           // Keep the personal link in the address so "Add to Home Screen" (iPhone) opens signed in.
           location.replace(location.pathname+'?k='+r.k);
         }).catch(e=>{ err.textContent=e.message; err.hidden=false; go.disabled=false; go.textContent='Join'; });

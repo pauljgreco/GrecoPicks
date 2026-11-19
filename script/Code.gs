@@ -24,11 +24,11 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.23.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.24.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
-const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications', 'NotifIssue', 'Avatar'];
+const PLAYER_HEADERS = ['ID', 'Name', 'Key', 'Link', 'Active', 'Remind', 'NewWeek', 'Results', 'Evening', 'Groups', 'Hidden', 'Upsets', 'LastSeen', 'AppVersion', 'Device', 'Notifications', 'NotifIssue', 'Avatar', 'Team'];
 const EVENING_HOUR = 20;   // night-before reminder, 8 PM Eastern
 const ONESIGNAL_APP_ID = 'e0fe6864-f2ca-4b41-8c87-00586a7634e4';
 const REMIND_HOURS = 2;
@@ -264,6 +264,7 @@ function api_(p) {
     else if (p.api === 'testme') data = testMe_(p.k);
     else if (p.api === 'report') data = report_(p.k, p.text, p.info);
     else if (p.api === 'rename') data = rename_(p.k, p.name);
+    else if (p.api === 'team') data = setTeam_(p.k, p.team);
     else if (p.api === 'people') data = people_(p.k);
     else if (p.api === 'addperson') data = addPerson_(p.k, p.name);
     else if (p.api === 'newlink') data = newLink_(p.k, p.pl);
@@ -280,7 +281,7 @@ function api_(p) {
     else if (p.api === 'invite') data = invite_(p.k, p.action, p.group, p.code);
     else if (p.api === 'invites') data = invitesList_(p.k);
     else if (p.api === 'joininfo') data = joinInfo_(p.code);
-    else if (p.api === 'join') data = join_(p.code, p.name);
+    else if (p.api === 'join') data = join_(p.code, p.name, p.team);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -387,7 +388,7 @@ function getState(key, wk) {
     adminName: adminName_(),
     requests: me.isAdmin ? pendingRequests_().length : 0,
     my: { week: mine.week, season: mine.season },
-    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, groups: groupsOf_(p), av: avStamp_(p.avatar) })),
+    players: [meP].concat(others).map(p => ({ id: p.id, name: p.name, team: p.team, groups: groupsOf_(p), av: avStamp_(p.avatar) })),
     weeks: weeks,
     selected: sel,
     games: list,
@@ -548,7 +549,7 @@ function history_(key, season) {
     me: me.id,
     season: want,
     seasons: seasons,
-    players: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: groupsOf_(p) })),
+    players: players_().map(p => ({ id: p.id, name: p.name, team: p.team, active: p.active, groups: groupsOf_(p) })),
     groups: groupNames_(),
     hidden: (players_().find(p => p.id === me.id) || { hidden: [] }).hidden,
     games: gs.map(g => ({
@@ -771,6 +772,7 @@ function players_() {
       appVersion: String(r[13] || ''), device: String(r[14] || ''), notifs: String(r[15] || ''),
       notifIssue: r[16] instanceof Date ? r[16].toISOString() : (r[16] ? String(r[16]) : ''),
       avatar: String(r[17] || ''),
+      team: String(r[18] || '').trim(),
     }));
   return PLAYERS_;
 }
@@ -1175,6 +1177,27 @@ function rename_(key, name) {
   return getState(key, '');
 }
 
+/** Optional team name (e.g. their fantasy team), shown under their name where there's room. Blank clears it. */
+function cleanTeam_(t) {
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  if (t.length > 40) throw new Error('Keep team names to 40 characters or less.');
+  if (/[<>]/.test(t)) throw new Error('Team names can\'t use < or >.');
+  return t;
+}
+function setTeamCell_(id, team) {
+  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() === id) { sh.getRange(i + 1, 19).setNumberFormat('@').setValue(team); break; }
+  }
+  PLAYERS_ = null;
+}
+function setTeam_(key, team) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  setTeamCell_(me.id, cleanTeam_(team));
+  return getState(key, '');
+}
+
 function requireAdmin_(key) {
   const me = playerForKey_(key);
   if (!me || !me.isAdmin) throw new Error('Not allowed.');
@@ -1189,7 +1212,7 @@ function people_(key) {
     base: base,
     groups: groupNames_(),
     adminId: adminId_(),
-    people: players_().map(p => ({ id: p.id, name: p.name, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '',
+    people: players_().map(p => ({ id: p.id, name: p.name, team: p.team, active: p.active, groups: p.groups, link: base && p.key ? base + '?k=' + p.key : '',
       lastSeen: p.lastSeen, appVersion: p.appVersion, device: p.device, notifs: p.notifs, notifIssue: p.notifIssue, av: avStamp_(p.avatar) })),
     current: SCRIPT_VERSION,
     requests: pendingRequests_(),
@@ -1273,16 +1296,18 @@ function joinInfo_(code) {
 }
 
 /** Public: join with an invite link. Creates the person in that group and returns their personal key. */
-function join_(code, name) {
+function join_(code, name, team) {
   const cache = CacheService.getScriptCache(), ck = 'JOIN|' + String(code || '').toUpperCase();
   const n = Number(cache.get(ck) || 0);
   if (n >= 15) throw new Error('Lots of people are joining right now. Try again in a few minutes.');
   const x = invRows_().find(r => r.code === String(code || '').toUpperCase());
   if (!x || !x.live) throw new Error('This invite link isn\'t active anymore. Ask ' + adminName_() + ' for a new one.');
   name = cleanName_(name);
+  team = cleanTeam_(team);
   if (nameTaken_(name, '')) throw new Error('Someone already goes by "' + name + '". Try adding a last initial.');
   cache.put(ck, String(n + 1), 600);
   const id = createPerson_(name, [x.group]);
+  if (team) setTeamCell_(id, team);
   invSheet_().getRange(x.row, 6).setValue(x.uses + 1);
   const me = players_().find(p => p.id === id);
   try { sendPush_([adminId_()], '🎉 ' + name + ' joined', 'They joined the ' + x.group + ' group with your invite link.', ''); } catch (err) { /* never block a join */ }
