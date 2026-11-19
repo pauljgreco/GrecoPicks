@@ -414,6 +414,9 @@
   .spbtn{border-radius:999px!important;font-weight:700}
   h3.rch{display:flex;align-items:center;gap:8px}h3.rch .av{margin:0}
   .join .big .av{margin:0 auto}
+  .phoneqr{display:flex;gap:14px;align-items:center;font-size:14px;line-height:1.4;margin:8px 0}
+  .phoneqr .qr{flex:none;width:132px;height:132px;background:#fff;border-radius:10px;padding:4px;box-sizing:border-box}
+  .phoneqr .qr svg{width:100%;height:100%;display:block}
 </style>
 </head>
 <body>
@@ -641,7 +644,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.25.2';
+  const APP_VERSION = '2.26.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -735,7 +738,7 @@
   let sentN='';
   function load(wk, busy){
     spin(true); if(busy) document.body.classList.add('busy');
-    sentN=pushReady?pushStatus():'';
+    sentN=pushReady&&!isDesktop?pushStatus():'';   // computers don't report (keeps the phone's status)
     return api('state', {wk: wk||'', v: APP_VERSION, d: deviceLabel(), n: sentN})
       .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); setTimeout(maybeAvIntro,900); linkUser(); setTimeout(dailyLinkCheck,4000); if(openRecapFromLink()) return; setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
@@ -1585,6 +1588,22 @@
   let OS=null, pushReady=false, pushErr='';
   setTimeout(()=>{ if(!pushReady && !pushErr){ pushErr='OneSignal didn\'t load (timed out).'; refreshPushUI(); } }, 12000);
   const isIOS=/iPhone|iPad|iPod/.test(navigator.userAgent);
+  // Computers (not phones/tablets): notifications are phone-only, so no prompts and no sign-up here.
+  const isDesktop=(()=>{ const ua=navigator.userAgent; if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return false; if(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1) return false; return true; })();
+  if(isDesktop){
+    // Undo any sign-up this computer made before (so pushes only go to phones). Keeps the app's offline helper.
+    navigator.serviceWorker&&navigator.serviceWorker.getRegistrations&&navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.pushManager&&r.pushManager.getSubscription().then(sub=>sub&&sub.unsubscribe()).catch(()=>{}))).catch(()=>{});
+  }
+  // Personal link as a QR code, to open the app on your phone from a computer.
+  function myLink(){ return location.origin+location.pathname+'?k='+KEY; }
+  function qrInto(el){
+    const draw=()=>{ try{ const q=qrcode(0,'M'); q.addData(myLink()); q.make(); el.innerHTML=q.createSvgTag({cellSize:5,margin:2,scalable:true}); }catch(e){ el.textContent=''; } };
+    if(window.qrcode) return draw();
+    const sc=document.createElement('script'); sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; sc.onload=draw; document.head.appendChild(sc);
+  }
+  function phoneBlock(){ return `<div class="phoneqr"><div class="qr" data-qr="1"></div><div><b>Scan with your phone's camera</b><br>It opens Greco Picks signed in as you. Then add it to your home screen and turn on notifications there.<br><button class="sbtn" data-copylink="1" style="margin-top:8px">Copy my link</button></div></div>`; }
+  function fillQrs(){ document.querySelectorAll('[data-qr]:not([data-done])').forEach(el=>{ el.dataset.done='1'; qrInto(el); }); }
+  document.addEventListener('click',e=>{ if(e.target.closest('[data-copylink]')) copyText(myLink(),'Link copied. Send it to your phone.'); });
   const standalone=window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   // ---------- Add to home screen help ----------
   const isAndroid=/Android/.test(navigator.userAgent), isPhone=isIOS||isAndroid;
@@ -1602,7 +1621,7 @@
   }
   document.addEventListener('click',e=>{ if(!e.target.closest('[data-install]')||!installEvt) return; installEvt.prompt(); installEvt.userChoice.finally(()=>{ installEvt=null; try{ render(); refreshPushUI(); }catch(x){} }); });
   window.OneSignalDeferred=window.OneSignalDeferred||[];
-  OneSignalDeferred.push(async function(OneSignal){
+  if(!isDesktop) OneSignalDeferred.push(async function(OneSignal){
     try{
       // OneSignal now shares sw.js with the app again (sw.js imports OneSignal's push code).
       // Remove the separate push/ worker from the earlier setup; it kept OneSignal from getting a token.
@@ -1675,6 +1694,7 @@
     }catch(e){ plog('Link error: '+((e&&e.message)||e)); }
   }
   function pushStatus(){
+    if(isDesktop) return 'desktop';
     if(isIOS && !standalone) return 'ios';
     if(!('Notification' in window)) return 'unsupported';
     if(Notification.permission==='denied') return 'blocked';
@@ -1713,8 +1733,9 @@
     const st=pushStatus(), s=state||{games:[]};
     return [
       {k:'picks', label:'Make your first picks', done:(s.games||[]).some(g=>g.mine)&&!gsPreview},
+      ...(isDesktop?[{k:'phone', label:'Get Greco Picks on your phone', done:false, note:'Notifications and the home screen app are phone-only'}]:[
       {k:'home', label:'Add Greco Picks to your home screen', done:standalone&&!gsPreview},
-      {k:'push', label:'Turn on notifications', done:st==='on'&&!gsPreview, note:st==='ios'?'Add to your home screen first (iPhone rule)':st==='blocked'?'Notifications are blocked in your phone settings':''},
+      {k:'push', label:'Turn on notifications', done:st==='on'&&!gsPreview, note:st==='ios'?'Add to your home screen first (iPhone rule)':st==='blocked'?'Notifications are blocked in your phone settings':''}]),
       {k:'avatar', label:'Pick your avatar', done:!!myAvStamp()&&!gsPreview},
     ];
   }
@@ -1723,7 +1744,7 @@
     if(n===it.length) return '';
     return `<div class="gs"><div class="gshead"><b>👋 Getting started</b><span>${n} of ${it.length} done</span><button class="x2" data-gs="x" aria-label="Hide">✕</button></div>
       <div class="gsbar"><i style="width:${Math.round(100*n/it.length)}%"></i></div>
-      ${it.map(x=>`<button class="gsi${x.done?' done':''}" data-gs="${x.k}"${x.done?' disabled':''}><span class="gsck">${x.done?'✓':''}</span><span class="gsl">${esc(x.label)}${x.note&&!x.done?`<small>${esc(x.note)}</small>`:''}</span>${x.done?'':'<span class="gsgo">›</span>'}</button>${x.k==='home'&&gsOpenHome&&!x.done?`<div class="gssteps">${installSteps()}</div>`:''}`).join('')}
+      ${it.map(x=>`<button class="gsi${x.done?' done':''}" data-gs="${x.k}"${x.done?' disabled':''}><span class="gsck">${x.done?'✓':''}</span><span class="gsl">${esc(x.label)}${x.note&&!x.done?`<small>${esc(x.note)}</small>`:''}</span>${x.done?'':'<span class="gsgo">›</span>'}</button>${x.k==='home'&&gsOpenHome&&!x.done?`<div class="gssteps">${installSteps()}</div>`:''}${x.k==='phone'&&gsOpenHome?`<div class="gssteps">${phoneBlock()}</div>`:''}`).join('')}
       <div class="gsfoot">New here? Tap <b>?</b> up top for how it all works: 👑, 💩, recaps and groups.</div></div>`;
   }
   document.getElementById('main').addEventListener('click',e=>{
@@ -1731,7 +1752,7 @@
     const k=b.dataset.gs;
     if(k==='x'){ LS.set('nflpicks_gsx','1'); gsPreview=false; render(); return; }
     if(k==='picks'){ const g=document.querySelector('.slot, .game, .card.g'); (g||document.querySelector('.gs')).scrollIntoView({behavior:'smooth',block:'start'}); toast('Tap a team on each game to pick it 👇'); return; }
-    if(k==='home'){ gsOpenHome=!gsOpenHome; render(); return; }
+    if(k==='home'||k==='phone'){ gsOpenHome=!gsOpenHome; render(); fillQrs(); return; }
     if(k==='push'){ if(pushStatus()==='ios'){ gsOpenHome=true; render(); toast('On iPhone, add it to your home screen first.'); } else turnOnPush(); return; }
     if(k==='avatar'){ openAvPicker(); }
   });
@@ -1739,6 +1760,7 @@
   function pushBanner(){
     if(gsActive()){ const c=gsCard(); if(c) return c; }
     const st=pushStatus();
+    if(st==='desktop') return whatsNew();
     const issue=state&&state.me&&state.me.pushIssue;
     if(issue && LS.get('nflpicks_pushoptout')!=='1' && st!=='blocked' && LS.get('nflpicks_issueseen')!==issue)
       return `<div class="banner"><span>🔔 <b>Your notifications stopped working.</b> It happens sometimes after phone updates.</span><button class="go" data-push="fixit">Fix it</button><button class="x2" data-push="issuex" aria-label="Dismiss">✕</button></div>`;
@@ -1780,6 +1802,7 @@
     if(st==='ios') top=PITCH_LIST+'<p style="margin:0 0 6px"><b>On iPhone, notifications only work from the home-screen app.</b> Add it first:</p>'+installSteps()+'<p style="font-size:13px;margin:6px 0 0">Then open it from your home screen and come back here to turn notifications on.</p>';
     else if(st==='unsupported') top='<p>This browser can\'t do notifications. Try Chrome on Android, or the home-screen app on iPhone.</p>';
     else if(st==='blocked') top='<p>Notifications are blocked for this app. Turn them on in your phone\'s settings for Greco Picks (or Chrome → Site settings → Notifications), then come back.</p>';
+    else if(st==='desktop') top='<p>🔔 Notifications are <b>phone-only</b>. Open Greco Picks on your phone to turn them on.</p>'+phoneBlock();
     else if(st==='loading') top='<p>Getting notifications ready…</p>';
     else if(st==='error') top='<p>Notifications couldn\'t start: <b>'+esc(pushErr)+'</b></p>';
     else if(st==='off') top='<ul class="pitch"><li>📊 Your <b>results &amp; weekly recap</b> the moment Monday\'s game ends</li><li>⏰ A heads-up <b>before picks lock</b>, only if you still have picks to make</li><li>🗓️ A ping when the <b>next week\'s games are up</b></li></ul><p style="font-size:13px;margin:0 0 10px">You pick which ones you get, and you can turn them off any time.</p><button class="nbtn" data-push="on">Turn on notifications</button>';
@@ -1797,6 +1820,7 @@
     const reset=(st==='on'||st==='off'||st==='error')?'<button class="nbtn" data-push="reset" style="margin-top:12px;background:none;color:var(--muted);border:1px dashed var(--line)">Reset notifications on this phone</button><p style="font-size:12px;color:var(--muted);margin:6px 0 0">Not getting them, or the button won\'t turn on? Reset clears this phone\'s sign-up and starts fresh.</p>':'';
     const log=showDiag?'<pre id="plog" style="font-size:11px;white-space:pre-wrap;color:var(--muted);margin:10px 0 0">'+esc(pushLog.join('\n'))+'</pre>':'';
     const diagTog='<label class="tog" style="margin-top:14px"><span>Show troubleshooting details<small>Only needed if Paul asks for a screenshot</small></span><input type="checkbox" id="diagTog"'+(showDiag?' checked':'')+'></label>';
+    if(st==='desktop'){ box.innerHTML=top; fillQrs(); return; }
     box.innerHTML=top+(st==='on'?tog('remind','Pick reminders','2 hours before your first open game of the day (one per day)')+tog('newweek','New week','When the next week\'s games are up (skipped if you\'ve already picked)')+tog('results','Weekly results','Your record once the week is final')+tog('evening','Night-before reminder','8 PM the night before game day, only if you have open picks')+tog('upsets','Upset alerts','One roundup after each game day, when only one person in your group picked the winner')+testBtn+off:'')+reset+diagTog+diag+log;
     if(view==='picks' && state) render();
   }
