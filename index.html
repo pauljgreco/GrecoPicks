@@ -38,9 +38,13 @@
   .seg button.on{background:var(--accent);color:var(--on-accent,#fff);font-weight:600}
   /* time slots + locking */
   .wsum{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:10px;font-size:14px}
-  .wsum div{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
-  .wsum a{color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-  .wsum .sbtn{flex:none}
+  .wsum div{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .wsum div b{margin-right:4px;font-size:16px}
+  .wsum .tg{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:700;background:var(--sel);color:var(--ink);white-space:nowrap;text-decoration:none}
+  .wsum a.tg{cursor:pointer}
+  .wsum .tg.warn{background:color-mix(in srgb,#f59e0b 18%,var(--card));color:color-mix(in srgb,#d97706 80%,var(--ink))}
+  .wsum .tg.mut{background:none;color:var(--muted);font-weight:600;padding-left:2px}
+  .wsum .sbtn{flex:none;border-radius:999px;font-weight:700}
   .mut{color:var(--muted);font-size:13px}
   .mv{font-size:11px;font-weight:800;white-space:nowrap}.mv.up{color:#16a34a}.mv.dn{color:#dc2626}
   td.rk .mv{display:block;font-size:10.5px;line-height:1.1;margin-top:1px}
@@ -841,7 +845,7 @@
     const T={open:0,picked:0,locked:0,started:0}; slots.forEach(sl=>Object.keys(T).forEach(k=>T[k]+=sl.c[k]));
     const anyOpen=slots.some(slotOpen);
     const head=`<div class="wsum"><div><b>${esc(((s.weeks||[]).find(w=>w.key===s.selected)||{}).label||'').split(' · ')[0]}</b>
-        ${T.locked?`<span>🔒 ${T.locked} locked</span>`:''}${T.picked?`<a data-jump="picked">✏️ ${T.picked} picked, not locked</a>`:''}${T.open?`<a data-jump="open">⬜ ${T.open} to pick</a>`:''}${T.started?`<span class="mut">${T.started} started</span>`:''}</div>
+        ${T.locked?`<span class="tg">🔒 ${T.locked} locked</span>`:''}${T.picked?`<a class="tg warn" data-jump="picked">✏️ ${T.picked} not locked</a>`:''}${T.open?`<a class="tg warn" data-jump="open">⬜ ${T.open} to pick</a>`:''}${T.started?`<span class="tg mut">${T.started} started</span>`:''}</div>
         <button class="sbtn" data-slots="${anyOpen?'collapse':'expand'}">${anyOpen?'Collapse all':'Expand all'}</button></div>`;
     return head+slots.map(sl=>{
       const op=slotOpen(sl), done=sl.c.open+sl.c.picked===0;
