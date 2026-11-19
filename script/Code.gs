@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.25.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.25.2';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -1110,7 +1110,13 @@ function trackDelivery_(playerIds, code, raw) {
   const changes = [];
   playerIds.forEach(id => {
     const p = ps.find(x => x.id === id); if (!p) return;
-    const bounced = bad.indexOf(id) >= 0 || (failedAll && playerIds.length === 1);
+    let bounced = bad.indexOf(id) >= 0 || (failedAll && playerIds.length === 1);
+    // OneSignal's send reply can say "not linked" for people who DO get notifications. Double-check before flagging.
+    if (bounced && !p.notifIssue && p.notifs === 'on') {
+      const chk = pushLinked_(id);
+      if (chk.code === 200 && chk.linked) bounced = false;
+      else if (chk.code !== 200 && chk.code !== 404) bounced = false;   // couldn't ask: don't cry wolf
+    }
     if (bounced && !p.notifIssue && p.notifs === 'on') changes.push([id, new Date()]);
     else if (!bounced && j.id && p.notifIssue) changes.push([id, '']);
   });
@@ -1120,6 +1126,23 @@ function trackDelivery_(playerIds, code, raw) {
   PLAYERS_ = null;
 }
 
+/** Does OneSignal have a working push sign-up for this person? { linked, subs, code } (code 0 = couldn't ask). */
+function pushLinked_(id) {
+  const rest = String(settings_().OneSignalKey || '').trim();
+  let subs = 0, code = 0;
+  try {
+    const res = UrlFetchApp.fetch('https://api.onesignal.com/apps/' + ONESIGNAL_APP_ID + '/users/by/external_id/' + encodeURIComponent('gp_' + id), {
+      headers: rest ? { Authorization: (rest.indexOf('os_v2_') === 0 ? 'Key ' : 'Basic ') + rest } : {}, muteHttpExceptions: true });
+    code = res.getResponseCode();
+    if (code === 200) {
+      const j = JSON.parse(res.getContentText() || '{}');
+      subs = (j.subscriptions || []).filter(x => /push/i.test(String(x.type || '')) && x.enabled !== false &&
+        !(typeof x.notification_types === 'number' && x.notification_types < 0)).length;
+    }
+  } catch (e) { Logger.log('pushLinked_: ' + e.message); }
+  return { linked: subs > 0, subs: subs, code: code };
+}
+
 /**
  * App: "is my phone really linked to me?" Asks OneSignal whether this person (external id gp_<ID>) has a working
  * push sign-up. Only then is the "needs a fix" flag cleared. Returns { linked, subs }.
@@ -1127,19 +1150,7 @@ function trackDelivery_(playerIds, code, raw) {
 function pushFixed_(key) {
   const me = playerForKey_(key);
   if (!me) throw new Error('This link is no longer valid.');
-  const rest = String(settings_().OneSignalKey || '').trim();
-  let linked = false, subs = 0, code = 0;
-  try {
-    const res = UrlFetchApp.fetch('https://api.onesignal.com/apps/' + ONESIGNAL_APP_ID + '/users/by/external_id/' + encodeURIComponent('gp_' + me.id), {
-      headers: rest ? { Authorization: (rest.indexOf('os_v2_') === 0 ? 'Key ' : 'Basic ') + rest } : {}, muteHttpExceptions: true });
-    code = res.getResponseCode();
-    if (code === 200) {
-      const j = JSON.parse(res.getContentText() || '{}');
-      subs = (j.subscriptions || []).filter(x => /push/i.test(String(x.type || '')) && x.enabled !== false &&
-        !(typeof x.notification_types === 'number' && x.notification_types < 0)).length;
-      linked = subs > 0;
-    }
-  } catch (e) { Logger.log('pushFixed_: ' + e.message); }
+  const chk = pushLinked_(me.id), linked = chk.linked, subs = chk.subs, code = chk.code;
   if (linked) {
     const sh = playersSheet_(), vals = sh.getDataRange().getValues();
     for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === me.id) { if (vals[i][16]) sh.getRange(i + 1, 17).setValue(''); break; }
