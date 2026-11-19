@@ -284,6 +284,9 @@
   .faq ol{margin:6px 0 0;padding-left:20px}
   /* Profile pictures */
   .av{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;object-fit:cover;vertical-align:middle;position:relative;top:-1px;margin-right:7px;flex:none;font-size:12px;font-weight:700;color:#fff;line-height:1;background:var(--line);overflow:hidden;font-style:normal;letter-spacing:0;text-transform:none;box-sizing:border-box}
+  .av.top{display:flex;width:30px;height:30px;font-size:14px;top:0;margin:0 auto 5px}
+  .av.top.ae{font-size:18px}
+  .st th .av.top{margin:0 0 5px auto}
   .av.sm{width:18px;height:18px;font-size:10px;margin-right:4px}
   .av.md{width:38px;height:38px;font-size:17px;margin:0}
   .av.lg{width:76px;height:76px;font-size:34px;margin:0}
@@ -512,7 +515,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.21.1';
+  const APP_VERSION = '2.21.2';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -775,7 +778,7 @@
     if(!s.games.length) return groupBar()+'<div class="empty">No games loaded yet.</div>';
     const players=shownPlayers();
     const wk={}; (s.board||[]).forEach(b=>{wk[b.id]=b.week;});
-    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${av(p.id,'sm',p.name)}${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
+    const head=players.map(p=>`<th class="pname ${p.id===s.me.id?'me':''}" data-prof="${esc(p.id)}"><b>${av(p.id,'top',p.name)}${tag(p.id)}${esc(p.id===s.me.id?'You':p.name)}</b>${esc(wk[p.id]||'0-0')}</th>`).join('');
     const rows=s.games.map(g=>{
       const locked=g.locked||Date.now()>=new Date(g.kickoff).getTime();
       let sub;
@@ -924,7 +927,7 @@
 
     // Week by week
     if(st.weeks.length>1 || sf.range!=='week'){
-      html+=`<div class="sec">Week by week</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Week</th>${P.map(s=>`<th>${av(s.id,'sm',s.name)}${esc(s.id===me?'You':s.name)}</th>`).join('')}</tr></thead><tbody>${
+      html+=`<div class="sec">Week by week</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Week</th>${P.map(s=>`<th>${av(s.id,'top',s.name)}${esc(s.id===me?'You':s.name)}</th>`).join('')}</tr></thead><tbody>${
         st.weeks.slice().reverse().map(k=>{
           const top=Math.max(...P.map(s=>(s.weeks[k]||{W:0}).W));
           return `<tr><td class="n">${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</td>${P.map(s=>{const w=s.weeks[k]; return w?`<td class="${w.W===top&&top>0&&P.length>1?'best':''}">${w.W}-${w.L}</td>`:'<td>—</td>';}).join('')}</tr>`;
