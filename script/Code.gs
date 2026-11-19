@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.25.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.25.1';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -1120,14 +1120,32 @@ function trackDelivery_(playerIds, code, raw) {
   PLAYERS_ = null;
 }
 
-/** App: this phone just got notifications working again; clear the "needs a fix" flag. */
+/**
+ * App: "is my phone really linked to me?" Asks OneSignal whether this person (external id gp_<ID>) has a working
+ * push sign-up. Only then is the "needs a fix" flag cleared. Returns { linked, subs }.
+ */
 function pushFixed_(key) {
   const me = playerForKey_(key);
   if (!me) throw new Error('This link is no longer valid.');
-  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
-  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === me.id) { if (vals[i][16]) sh.getRange(i + 1, 17).setValue(''); break; }
-  PLAYERS_ = null;
-  return { ok: true };
+  const rest = String(settings_().OneSignalKey || '').trim();
+  let linked = false, subs = 0, code = 0;
+  try {
+    const res = UrlFetchApp.fetch('https://api.onesignal.com/apps/' + ONESIGNAL_APP_ID + '/users/by/external_id/' + encodeURIComponent('gp_' + me.id), {
+      headers: rest ? { Authorization: (rest.indexOf('os_v2_') === 0 ? 'Key ' : 'Basic ') + rest } : {}, muteHttpExceptions: true });
+    code = res.getResponseCode();
+    if (code === 200) {
+      const j = JSON.parse(res.getContentText() || '{}');
+      subs = (j.subscriptions || []).filter(x => /push/i.test(String(x.type || '')) && x.enabled !== false &&
+        !(typeof x.notification_types === 'number' && x.notification_types < 0)).length;
+      linked = subs > 0;
+    }
+  } catch (e) { Logger.log('pushFixed_: ' + e.message); }
+  if (linked) {
+    const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+    for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === me.id) { if (vals[i][16]) sh.getRange(i + 1, 17).setValue(''); break; }
+    PLAYERS_ = null;
+  }
+  return { ok: true, linked: linked, subs: subs, code: code };
 }
 
 function logNotice_(to, message, result) {

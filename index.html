@@ -641,7 +641,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.25.0';
+  const APP_VERSION = '2.25.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -737,7 +737,7 @@
     spin(true); if(busy) document.body.classList.add('busy');
     sentN=pushReady?pushStatus():'';
     return api('state', {wk: wk||'', v: APP_VERSION, d: deviceLabel(), n: sentN})
-      .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); setTimeout(maybeAvIntro,900); linkUser(); if(openRecapFromLink()) return; setTimeout(party,400); } })
+      .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); setTimeout(maybeAvIntro,900); linkUser(); setTimeout(dailyLinkCheck,4000); if(openRecapFromLink()) return; setTimeout(party,400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -1628,6 +1628,7 @@
       plog('Ready: '+subInfo()+', user '+((OneSignal.User.onesignalId||'none')+'').slice(0,8));
       setTimeout(()=>{ try{ const n=pushStatus(); if(n!==sentN&&state){ sentN=n; api('state',{wk:state.selected,v:APP_VERSION,d:deviceLabel(),n:n}).catch(()=>{}); } }catch(e){} },2500);
       linkUser(); refreshPushUI();
+      setTimeout(dailyLinkCheck,6000);
       let wasReset=false; try{ wasReset=sessionStorage.getItem('nflpicks_pushreset')==='1'; sessionStorage.removeItem('nflpicks_pushreset'); }catch(e){}
       if(wasReset){
         plog('Reset finished');
@@ -1639,6 +1640,30 @@
   // Link this phone to your name only once it has a delivery token. Signing in first (to an old or deleted
   // OneSignal user) can stall OneSignal before it ever creates the phone's subscription.
   let linkedAs='';
+  // Ask the script whether OneSignal has a working sign-up for you; if not, re-link this phone and ask again.
+  async function verifyLink(tries){
+    for(let i=0;i<tries;i++){
+      try{
+        const want=state&&state.me&&state.me.pushId;
+        if(want&&OS&&OS.User&&OS.User.externalId!==want){ plog('Re-linking to '+want+' (was '+(OS.User.externalId||'none')+')'); try{ await OS.login(want); linkedAs=want; }catch(e){ plog('Link error: '+((e&&e.message)||e)); } }
+        await wait(i?4000:2500);
+        const r=await api('pushok',{});
+        plog('Link check: '+(r&&r.linked?'linked ✓ ('+r.subs+')':'not linked (code '+(r&&r.code)+')'));
+        if(r&&r.linked) return true;
+        if(OS){ try{ linkedAs=''; await OS.logout(); await wait(800); await OS.login(want); linkedAs=want; plog('Signed out and back in as '+want); }catch(e){ plog('Re-link error: '+((e&&e.message)||e)); } }
+      }catch(e){ plog('Link check error: '+((e&&e.message)||e)); }
+    }
+    return false;
+  }
+  // Once a day, quietly make sure this phone is still linked to you (fixes most problems before anyone notices).
+  function dailyLinkCheck(){
+    try{
+      if(!state||!OS||pushStatus()!=='on') return;
+      const today=new Date().toDateString(); if(LS.get('nflpicks_pushchk')===today&&!(state.me&&state.me.pushIssue)) return;
+      LS.set('nflpicks_pushchk',today);
+      verifyLink(2).then(ok=>{ if(ok&&state.me&&state.me.pushIssue){ state.me.pushIssue=''; render(); } });
+    }catch(e){}
+  }
   function linkUser(){
     try{
       if(!OS||!state||!state.me||!state.me.pushId) return;
@@ -1850,9 +1875,14 @@
       linkUser();
       const ok=await waitForToken(10000);
       plog(ok?'Done: '+subInfo():'No token after 10s: '+subInfo());
-      if(ok&&state&&state.me&&state.me.pushIssue){ state.me.pushIssue=''; api('pushok',{}).catch(()=>{}); }
       let fixing=false; try{ fixing=sessionStorage.getItem('nflpicks_fixing')==='1'; sessionStorage.removeItem('nflpicks_fixing'); }catch(e){}
-      if(fixing&&ok){ toast('✅ Fixed. You\'re all set.'); render(); return; }
+      if(ok){
+        // Don't trust the phone alone: ask OneSignal (through our script) whether this phone is linked to YOU.
+        toast('Checking with the notification service…');
+        const linked=await verifyLink(3);
+        if(linked){ if(state&&state.me) state.me.pushIssue=''; toast(fixing?'✅ Fixed. You\'re all set.':'Notifications are on.'); render(); return; }
+        toast('Your phone is set up, but it didn\'t link to your name yet. Try again in a minute.'); return;
+      }
       if(!ok){ plog('Checking the phone\'s push service…'); await rawPushTest(); }
       toast(ok?'Notifications are on.':'Still not working. Screenshot the log under Notifications.');
     }catch(e){ plog('Error: '+((e&&e.message)||e)); toast('Couldn\'t turn on notifications: '+((e&&e.message)||e)); }
