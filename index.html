@@ -331,6 +331,8 @@
   .champ b{display:block;font-size:16px;margin:2px 0}
   .champ div>span{font-size:13px;color:var(--muted)}
   .partseg{margin-bottom:10px}
+  .st.h2h th:not(.n),.st.h2h td:not(.n){width:62px;text-align:center;padding-left:4px;padding-right:4px}
+  .st.bdn th:not(.n),.st.bdn td:not(.n){width:96px}
   .st th.fsh{font-size:18px;text-align:center;line-height:1.1}
   .st th.fsh small{display:block;font-size:10px;letter-spacing:.03em;margin-top:2px}
   .st th.fsh~td{text-align:center}
@@ -1309,16 +1311,16 @@
     if(P.length>1){
       const l4=st.last4.length>1&&sf.range!=='week';
       const rec=(w,l)=>w+l?`${w}-${l}`:'—';
-      html+=`<div class="sec">Breakdown</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th>${l4?`<th>Last ${st.last4.length} wks</th>`:''}<th>Split games</th></tr></thead><tbody>${
+      html+=`<div class="sec">Breakdown</div><div class="gridwrap"><table class="st h2h bdn"><thead><tr><th class="n">Name</th>${l4?`<th>Last ${st.last4.length} wks</th>`:''}<th>Split games</th></tr></thead><tbody>${
         P.slice().sort((a,b)=>l4?((b.l4W/(b.l4W+b.l4L||1))-(a.l4W/(a.l4W+a.l4L||1))||b.l4W-a.l4W):0).map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.id===me?'You':s.name)}</td>${l4?`<td>${rec(s.l4W,s.l4L)}</td>`:''}<td>${rec(s.spW||0,s.spL||0)}</td></tr>`).join('')
       }</tbody></table></div>
       <div class="note">${l4?`Last ${st.last4.length} wks = record over the most recent ${st.last4.length} weeks (sorted hottest first). `:''}Split games = record only on games where the group didn't all pick the same team, where the standings actually move.</div>`;
     }
     // Head-to-head: weeks you beat each person
     const hh=P.filter(s=>s.id!==me&&st.h2h[s.id]&&(st.h2h[s.id].W+st.h2h[s.id].L+st.h2h[s.id].T));
-    if(hh.length) html+=`<div class="sec">Head-to-head</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">You vs.</th><th>You won</th><th>They won</th><th>Tied</th></tr></thead><tbody>${
+    if(hh.length) html+=`<div class="sec">Head-to-head</div><div class="gridwrap"><table class="st h2h"><thead><tr><th class="n">You vs.</th><th>You</th><th>Them</th><th>Tied</th></tr></thead><tbody>${
       hh.map(s=>{ const r=st.h2h[s.id]; return `<tr><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name)}${esc(s.name)}</td><td class="${r.W>r.L?'best':''}">${r.W}</td><td>${r.L}</td><td>${r.T||'—'}</td></tr>`; }).join('')
-    }</tbody></table></div><div class="note">Finished weeks you both picked: who got more right that week.</div>`;
+    }</tbody></table></div><div class="note">Weeks won by each of you (finished weeks you both picked).</div>`;
     return html;
   }
 
