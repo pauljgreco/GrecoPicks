@@ -1196,7 +1196,7 @@
     if(sf.people){ sf.people=null; try{ saveSf(); }catch(e){} }   // the People picker is gone: always the whole group
     const sel=everyone.slice();
     const per={};
-    sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0,lone:0};});
+    sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0,lone:0,fav:0,favN:0};});
     const byGame={};
     h.picks.forEach(([gid,pid,pick,res])=>{ if(gmap[gid]&&per[pid]) (byGame[gid]=byGame[gid]||[]).push({pid,pick,res}); });
     games.forEach(g=>{
@@ -1215,6 +1215,7 @@
         s[x.res]++; s.seq.push(x.res);
         const w=s.weeks[k]||(s.weeks[k]={W:0,L:0}); w[x.res]++;
         if(x.pick===g.home) s['h'+x.res]++; else if(x.pick===g.away) s['a'+x.res]++;
+        { const ph=recPct(g.homePre), pa=recPct(g.awayPre); if(ph!=null&&pa!=null&&ph!==pa&&(x.pick===g.home||x.pick===g.away)){ s.favN++; if((x.pick===g.home)===(ph>pa)) s.fav++; } }   // took the team with the better record
         if(x.res==='W'){
           const mine=x.pick===g.home?g.homePre:x.pick===g.away?g.awayPre:'';
           const oth=x.pick===g.home?g.awayPre:x.pick===g.away?g.homePre:'';
@@ -1230,7 +1231,6 @@
     const done=k=>{ const total=(h.weekGames||{})[k]; return total?finalBy[k]===total:h.games.filter(g=>wkKey(g)===k).every(g=>g.status==='final'); };
     people.forEach(s=>{
       const n=s.W+s.L; s.pct=n?s.W/n:null;
-      let run=0; s.streak=0; s.seq.forEach(r=>{ run=r==='W'?run+1:0; if(run>s.streak) s.streak=run; });   // longest run of correct picks
       // perfect weeks: picked every game that week (in range) and got them all right
       s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return isReg(k)&&done(k)&&w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
     });
@@ -1295,10 +1295,10 @@
     }
 
     // Splits
-    html+=`<div class="sec">Fun stats</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th class="fsh">🎯<small>Upsets</small></th><th class="fsh">🐺<small>Lone wolf</small></th><th class="fsh">🔥<small>Streak</small></th><th class="fsh">🐑<small>With group</small></th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.ups||'—'}</td><td>${s.lone||'—'}</td><td>${s.streak||'—'}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
+    html+=`<div class="sec">Fun stats</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th class="fsh">🎯<small>Upsets</small></th><th class="fsh">🐺<small>Lone wolf</small></th><th class="fsh">🍽️<small>Favorites</small></th><th class="fsh">🐑<small>With group</small></th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.ups||'—'}</td><td>${s.lone||'—'}</td><td>${s.favN?Math.round(100*s.fav/s.favN)+'%':'—'}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
     }</tbody></table></div>
-    <div class="note">🎯 Upsets = correct picks of the team with the worse record going in. 🐺 Lone wolf = the only one (of 3+) to get a game right. 🔥 Streak = longest run of correct picks in a row. 🐑 With group = how often you picked the same team as most of the group.</div>`;
+    <div class="note">🎯 Upsets = correct picks of the team with the worse record going in. 🐺 Lone wolf = the only one (of 3+) to get a game right. 🍽️ Favorites = how often you took the team with the better record. 🐑 With group = how often you picked the same team as most of the group.</div>`;
     return html;
   }
 
