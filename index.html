@@ -417,6 +417,14 @@
   .phoneqr{display:flex;gap:14px;align-items:center;font-size:14px;line-height:1.4;margin:8px 0}
   .phoneqr .qr{flex:none;width:132px;height:132px;background:#fff;border-radius:10px;padding:4px;box-sizing:border-box}
   .phoneqr .qr svg{width:100%;height:100%;display:block}
+  /* Admin */
+  body.isadmin #hi .hin{display:none}   /* room for the extra button: the admin's header shows just the avatar */
+  .adminbtn{position:relative}
+  .abadge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;border-radius:99px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;font-style:normal;line-height:17px;text-align:center;padding:0 4px;box-sizing:border-box}
+  .atabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--sel);margin:0 0 12px}
+  .atabs button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:700;padding:8px 4px;border-radius:999px;cursor:pointer;position:relative}
+  .atabs button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .atabs i{font-style:normal;margin-left:4px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;padding:1px 6px}
 </style>
 </head>
 <body>
@@ -427,6 +435,7 @@
       <div class="right">
         <select id="week" aria-label="Week" hidden></select><button class="wkpill" id="wkBtn" aria-label="Choose week"><span id="wkLbl">Week</span><svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="icon" id="reload" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
+        <button class="icon adminbtn" id="adminBtn" aria-label="Admin" hidden><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 9.5-4-1.2-7-5-7-9.5V6z"/><path d="M9 12l2 2 4-4"/></svg><i class="abadge" id="adminBadge" hidden></i></button>
         <button class="icon" id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button>
         <button class="icon" id="helpBtn" aria-label="Help"><svg viewBox="0 0 24 24"><path d="M8.5 8.8a3.6 3.6 0 0 1 7 1.1c0 2.4-3.5 2.9-3.5 5.2"/><circle cx="12" cy="19" r=".9" fill="currentColor"/></svg></button>
       </div>
@@ -467,10 +476,6 @@
     </div>
     <h3>Hide people</h3>
     <div class="nbox"><button class="rowbtn" id="openHide"><span>Hide people<br><small id="hideCount">Only affects your screens</small></span><span class="chev">›</span></button></div>
-    <div id="peopleWrap" hidden>
-      <h3>People (only you see this)</h3>
-      <div class="nbox"><button class="rowbtn" id="openPeople"><span>Manage people<br><small id="pplCount">Add, links, groups, retire</small></span><span class="chev">›</span></button></div>
-    </div>
     <h3>Report a problem</h3>
     <div class="nbox rep">
       <p>Something not working or look wrong? Tell us what happened. Your name and phone details are sent along automatically.</p>
@@ -537,25 +542,34 @@
   </div>
 </div>
 
-<div id="peopleSheet" role="dialog" aria-modal="true" aria-label="People">
+<div id="peopleSheet" role="dialog" aria-modal="true" aria-label="Admin">
   <div class="sheet">
-    <div class="sheet-top"><h2>People</h2><button class="x" id="peopleClose" aria-label="Close">✕</button></div>
+    <div class="sheet-top"><h2>🛡️ Admin</h2><button class="x" id="peopleClose" aria-label="Close">✕</button></div>
+    <div class="atabs" role="tablist"><button data-atab="people" class="on">People<i id="atReq" hidden></i></button><button data-atab="invites">Invites</button><button data-atab="groups">Groups</button><button data-atab="tools">Tools</button></div>
+    <div class="apane" data-apane="people">
     <div id="reqList"></div>
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
-    <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
+    <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
+    <div id="people"><p>Loading…</p></div>
+    <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Delete permanently</b> (retired people only) removes them and all their picks for good.</div></details>
+    </div>
+    <div class="apane" data-apane="groups" hidden>
     <div class="invbox"><b>🖼️ Group photos</b><div id="gavList"></div><small>Only you can set these. They show on the group pills, recaps, shared pictures and invite links.</small></div>
+    </div>
+    <div class="apane" data-apane="invites" hidden>
     <div class="invbox" id="invBox">
       <b>🔗 Invite links</b>
       <div id="invList"></div>
       <div class="namerow" style="margin-top:8px"><select id="invGroup" aria-label="Group for the invite link"></select><input id="invNew" maxlength="30" autocomplete="off" placeholder="New group name" aria-label="New group name" hidden><button class="nbtn" id="invMake">Make link</button></div>
       <small>Anyone with the link can join that group for 7 days. You get a 🔔 when someone joins.</small>
     </div>
+    </div>
+    <div class="apane" data-apane="tools" hidden>
+    <button class="sbtn" data-nudge="ALL" style="width:100%;margin-top:8px">🔔 Remind everyone with open picks</button>
     <button class="sbtn" id="updNotice" style="width:100%;margin-top:8px" hidden></button>
     <button class="sbtn" id="avPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the avatar popup (just you)</button>
     <button class="sbtn" id="gsPreviewBtn" style="width:100%;margin-top:8px">👀 Preview the new-player checklist (just you)</button>
-    <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
-    <div id="people"><p>Loading…</p></div>
-    <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats.</div></details>
+    </div>
   </div>
 </div>
 
@@ -644,7 +658,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.26.2';
+  const APP_VERSION = '2.27.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -803,6 +817,9 @@
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
     const openN=s.games.filter(g=>!g.mine && !(g.locked||Date.now()>=new Date(g.kickoff).getTime())).length;
     document.querySelector('.tab[data-view="picks"]').innerHTML='Picks'+(openN?`<span class="badge" aria-label="${openN} open">${openN}</span>`:'');
+    document.getElementById('adminBtn').hidden=!(s.me&&s.me.isAdmin);
+    document.body.classList.toggle('isadmin',!!(s.me&&s.me.isAdmin));
+    if(s.me&&s.me.isAdmin&&!people){ const bd=document.getElementById('adminBadge'); bd.hidden=!s.requests; bd.textContent=s.requests||''; }
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
     { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?w.label.split(' · ')[0]:'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
     const m=document.getElementById('main');
@@ -812,7 +829,7 @@
     // Phone has an older app than what's live: anyone can fix it with one tap. App newer than the script: only the admin hears about it.
     const vWarn=(s.version&&verNewer(s.version,APP_VERSION))?`<div class="banner"><span>✨ <b>A new version of Greco Picks is ready.</b></span><button class="go" data-push="update">Update</button></div>`
       :(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
-    const rqBan=(s.me.isAdmin&&s.requests)?`<div class="banner"><span>🔔 ${s.requests} player request${s.requests>1?'s':''} waiting</span><button class="go" data-openreq="1">Review</button></div>`:'';
+    const rqBan='';   // requests now show as a badge on the 🛡️ Admin button
     m.innerHTML=vWarn+rqBan+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?slotsView(s):'<div class="empty">No games loaded yet.</div>');
     lockBar(s);
   }
@@ -2375,6 +2392,12 @@
     const nt=p.notifIssue?'⚠️ notifications need a fix':({on:'🔔 on',off:'🔕 off',blocked:'🔕 blocked',ios:'🔕 not on home screen',unsupported:'🔕 n/a',error:'⚠️ notif error'}[p.notifs]||'');
     return ['Seen '+esc(ago(p.lastSeen)), p.appVersion?(old?'⚠️ v'+esc(p.appVersion):'v'+esc(p.appVersion)):'', esc(p.device), nt].filter(Boolean).join(' · ');
   }
+  function adminTab(t){
+    document.querySelectorAll('#peopleSheet [data-atab]').forEach(b=>b.classList.toggle('on',b.dataset.atab===t));
+    document.querySelectorAll('#peopleSheet [data-apane]').forEach(p=>{ p.hidden=p.dataset.apane!==t; });
+    if(t==='groups') renderGavs();
+    const sh=document.querySelector('#peopleSheet .sheet'); if(sh) sh.scrollTop=0;
+  }
   function renderPeople(){
     const el=document.getElementById('people'); if(!el) return;
     if(!people){ el.innerHTML='<p>Loading…</p>'; return; }
@@ -2441,7 +2464,7 @@
       .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.textContent=t; });
   });
   function updateCounts(){
-    if(people){ const act=people.people.filter(p=>p.active).length, ret=people.people.length-act; const rq=(people.requests||[]).length; document.getElementById('pplCount').textContent=(rq?'🔔 '+rq+' request'+(rq>1?'s':'')+' · ':'')+act+' playing'+(ret?' · '+ret+' retired':'')+' · add, links, groups'; }
+    if(people){ const rq=(people.requests||[]).length, bd=document.getElementById('adminBadge'), at=document.getElementById('atReq'); bd.hidden=!rq; bd.textContent=rq||''; at.hidden=!rq; at.textContent=rq||''; }
     if(state){ const n=((state.me&&state.me.hidden)||[]).length; document.getElementById('hideCount').textContent=n?n+' hidden on your screens':'Only affects your screens'; }
   }
   // ---------- Invite links (admin) ----------
@@ -2544,7 +2567,9 @@
   (function(){
     document.getElementById('main').addEventListener('click',e=>{ if(e.target.closest('[data-openreq]')){ openPerson=''; renderPeople(); loadPeople(); document.getElementById('peopleSheet').classList.add('on'); } });
     const ps=document.getElementById('peopleSheet'), hs=document.getElementById('hideSheet');
-    document.getElementById('openPeople').addEventListener('click',()=>{ openPerson=''; renderPeople(); loadPeople(); ps.classList.add('on'); });
+    const openAdmin=tab=>{ openPerson=''; renderPeople(); loadPeople(); adminTab(tab||'people'); ps.classList.add('on'); };
+    document.getElementById('adminBtn').addEventListener('click',()=>openAdmin());
+    ps.querySelector('.atabs').addEventListener('click',e=>{ const b=e.target.closest('[data-atab]'); if(b) adminTab(b.dataset.atab); });
     document.getElementById('peopleClose').addEventListener('click',()=>ps.classList.remove('on'));
     ps.addEventListener('click',e=>{ if(e.target===ps) ps.classList.remove('on'); });
     document.getElementById('openHide').addEventListener('click',()=>{ document.getElementById('hSearch').value=''; renderHide(); hs.classList.add('on'); });
@@ -2680,7 +2705,7 @@
   document.getElementById('setBtn').addEventListener('click',()=>{
     refreshPushUI();
     updateVer();
-    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); setAvUI(); document.getElementById('peopleWrap').hidden=!state.me.isAdmin; if(state.me.isAdmin) loadPeople(); }
+    if(state){ document.getElementById('reqWrap').hidden=!!state.me.isAdmin; document.querySelectorAll('.adminName').forEach(x=>x.textContent=state.adminName||'Paul'); updateCounts(); setAvUI(); if(state.me.isAdmin) loadPeople(); }
     settings.classList.add('on');
   });
   document.getElementById('setClose').addEventListener('click',()=>settings.classList.remove('on'));
