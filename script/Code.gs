@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.29.2';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.29.3';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -267,6 +267,7 @@ function api_(p) {
     else if (p.api === 'report') data = report_(p.k, p.text, p.info);
     else if (p.api === 'rename') data = rename_(p.k, p.name);
     else if (p.api === 'team') data = setTeam_(p.k, p.team);
+    else if (p.api === 'adminname') data = adminRename_(p.k, p.pl, p.name, p.team);
     else if (p.api === 'people') data = people_(p.k);
     else if (p.api === 'addperson') data = addPerson_(p.k, p.name);
     else if (p.api === 'newlink') data = newLink_(p.k, p.pl);
@@ -1289,6 +1290,24 @@ function setTeamCell_(id, team) {
     if (String(vals[i][0]).trim().toUpperCase() === id) { sh.getRange(i + 1, 19).setNumberFormat('@').setValue(team); break; }
   }
   PLAYERS_ = null;
+}
+/** Admin: change anyone's name and team name. Everything is tied to their ID (P1, P2…), so picks, records and history follow. */
+function adminRename_(key, playerId, name, team) {
+  requireAdmin_(key);
+  const id = String(playerId || '').trim().toUpperCase();
+  if (!players_().some(p => p.id === id)) throw new Error('Couldn\'t find that person.');
+  name = cleanName_(name);
+  if (nameTaken_(name, id)) throw new Error('Someone already uses that name.');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+    for (let i = 1; i < vals.length; i++) if (String(vals[i][0]).trim().toUpperCase() === id) { sh.getRange(i + 1, 2).setValue(name); break; }
+    PLAYERS_ = null;
+    if (team !== undefined) setTeamCell_(id, cleanTeam_(team));
+    rebuildRecords_(readPicks_().vals);
+  } finally { lock.releaseLock(); }
+  return people_(key);
 }
 function setTeam_(key, team) {
   const me = playerForKey_(key);

@@ -818,7 +818,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.29.2';
+  const APP_VERSION = '2.29.3';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -2956,6 +2956,7 @@
         <div class="phead" data-pexp="${esc(p.id)}"><span style="display:flex;align-items:center;gap:10px">${av(p.id,'md',p.name)}<span><b>${esc(p.name)}${p.id===state.me.id?' (you)':''}</b>${p.team?` <small>· ${esc(p.team)}</small>`:''}${p.active?'':' <small>(retired)</small>'}<br><small>${esc(tags)}</small><br><small>${activity(p)}</small></span></span><span class="chev" style="color:var(--muted)">${open?'⌄':'›'}</span></div>
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
+          <div class="grp"><input data-nin="${esc(p.id)}" value="${esc(p.name)}" placeholder="Name" maxlength="20" aria-label="Name"><input data-tin="${esc(p.id)}" value="${esc(p.team||'')}" placeholder="Team name (optional)" maxlength="40" aria-label="Team name"><button class="sbtn" data-pp="name" data-id="${esc(p.id)}">Save</button></div>
           ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
           <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove avatar':'Remove avatar'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button><button class="warn" data-pp="delete" data-id="${esc(p.id)}">${armedDel===p.id?'Tap again: delete forever':'Delete permanently'}</button>`)}</div>
         </div>`:''}
@@ -3050,6 +3051,12 @@
       if(armedAv!==p.id){ armedAv=p.id; renderPeople(); setTimeout(()=>{ if(armedAv===p.id){ armedAv=''; renderPeople(); } },4000); return; }
       armedAv=''; b.disabled=true;
       apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s avatar removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; });
+    }
+    if(b.dataset.pp==='name'){
+      const nm=((document.querySelector(`[data-nin="${p.id}"]`)||{}).value||'').trim(), tm=((document.querySelector(`[data-tin="${p.id}"]`)||{}).value||'').trim();
+      if(!nm){ toast('Type a name first.'); return; }
+      b.disabled=true;
+      api('adminname',{pl:p.id,name:nm,team:tm}).then(d=>{ people=d; NAMES[p.id]=nm; TEAMN[p.id]=tm; renderPeople(); toast('Saved: '+nm+(tm?' · '+tm:'')+'.'); load(state&&state.selected,false); Object.keys(hist).forEach(k=>delete hist[k]); }).catch(err=>{ toast(err.message); b.disabled=false; });
     }
     if(b.dataset.pp==='groups'){
       const v=(document.querySelector(`[data-gin="${p.id}"]`)||{}).value||'';
