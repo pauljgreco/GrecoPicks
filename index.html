@@ -61,6 +61,17 @@
   #lockbar small{font-weight:400;opacity:.85}
   body.hasbar #main{padding-bottom:96px}
   /* tiebreaker */
+  .tb2{margin-top:12px;padding:14px;border-radius:14px;background:color-mix(in srgb,var(--accent) 7%,var(--card));border:1.5px solid color-mix(in srgb,var(--accent) 35%,var(--line))}
+  .tb2.need{border-color:#f59e0b;background:color-mix(in srgb,#f59e0b 9%,var(--card))}
+  .tbh{display:flex;align-items:center;gap:8px;font-size:17px}
+  .tbneed{margin-left:auto;font-size:12px;font-weight:800;color:#fff;background:#f59e0b;border-radius:99px;padding:3px 10px}
+  .tbok{margin-left:auto;font-size:13px;font-weight:700;color:#16a34a}
+  .tbq{font-size:14px;margin:6px 0 10px;line-height:1.4}
+  .tbrow{display:flex;gap:8px;align-items:center}
+  .tbrow input{flex:1;min-width:0;font:inherit;font-size:26px;font-weight:800;text-align:center;padding:8px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink)}
+  .tbstep{flex:none;width:48px;height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:24px;font-weight:800;cursor:pointer}
+  .tbrow .nbtn{flex:none;height:48px;padding:0 16px}
+  .tb2 small{display:block;color:var(--muted);margin-top:8px;font-size:12.5px}
   .tb{margin-top:10px;padding:10px;border:1px dashed var(--line);border-radius:10px;font-size:14px}
   .tb .namerow{margin-top:6px}
   .tb input{width:90px;flex:none}
@@ -233,8 +244,9 @@
   .person .acts button,.sbtn{font:inherit;font-size:14px;padding:6px 10px;border-radius:9px;border:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
   .person .acts button.warn{color:#ef4444;border-color:#ef4444}
   .right{gap:4px}
-  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet,#avSheet,#avIntro,#wkSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
-  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on{display:flex}
+  #help,#settings,#profile,#peopleSheet,#hideSheet,#spSheet,#recapSheet,#avSheet,#avIntro,#wkSheet,#tbSheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
+  #help.on,#settings.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#recapSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on,#tbSheet.on{display:flex}
+  #tbSheet{z-index:31}
   #avSheet{z-index:30}
   #avIntro{z-index:29}
   #recapSheet .sheet{max-height:94vh}
@@ -497,6 +509,14 @@
   <div class="sheet">
     <div class="sheet-top"><h2 id="pTitle">Profile</h2><button class="x" id="pClose" aria-label="Close">✕</button></div>
     <div id="pBody"></div>
+  </div>
+</div>
+
+<div id="tbSheet" role="dialog" aria-modal="true" aria-label="Tiebreaker">
+  <div class="sheet">
+    <div class="sheet-top"><h2>🎯 One more thing</h2><button class="x" id="tbClose" aria-label="Close">✕</button></div>
+    <div id="tbAsk"></div>
+    <small style="display:block;color:var(--muted);margin-top:10px">Your picks lock right after you save your guess.</small>
   </div>
 </div>
 
@@ -774,7 +794,12 @@
   }
 
   // Lock in picks (one game, a time slot, or everything). Locked picks are final and reveal everyone else's.
+  let tbPendingLock=null;
   function lockGames(ids,label){
+    if(tbNeeded()&&ids.indexOf(state.tiebreak.gameId)>=0){
+      const g=state.games.find(x=>x.id===state.tiebreak.gameId);
+      if(g&&g.mine){ tbPendingLock=[ids,label]; document.getElementById('tbAsk').innerHTML=`<p style="margin:0 0 4px"><b>${esc(g.away)} @ ${esc(g.home)}</b> is this week's tiebreaker game.</p><p style="color:var(--muted);margin:0 0 12px">Guess the total points scored. If people tie for the week's 👑, the closest guess wins.</p>${tbInput(null,'tbIn2')}`; document.getElementById('tbSheet').classList.add('on'); setTimeout(()=>{ const i=document.getElementById('tbIn2'); if(i) i.focus(); },300); return; }
+    }
     ids=ids.filter(id=>{ const g=state.games.find(x=>x.id===id); return g&&g.mine&&!g.mine.locked&&Date.now()<new Date(g.kickoff).getTime(); });
     if(!ids.length){ toast('Nothing to lock yet. Pick a team first.'); return; }
     const before=JSON.parse(JSON.stringify(state.games));
@@ -865,7 +890,7 @@
     const T={open:0,picked:0,locked:0,started:0}; slots.forEach(sl=>Object.keys(T).forEach(k=>T[k]+=sl.c[k]));
     const anyOpen=slots.some(slotOpen);
     const head=`<div class="wsum"><div><b>${esc(((s.weeks||[]).find(w=>w.key===s.selected)||{}).label||'').split(' · ')[0]}</b>
-        ${T.locked?`<span class="tg">🔒 ${T.locked} locked</span>`:''}${T.picked?`<a class="tg warn" data-jump="picked">✏️ ${T.picked} not locked</a>`:''}${T.open?`<a class="tg warn" data-jump="open">⬜ ${T.open} to pick</a>`:''}${T.started?`<span class="tg mut">${T.started} started</span>`:''}</div>
+        ${T.locked?`<span class="tg">🔒 ${T.locked} locked</span>`:''}${T.picked?`<a class="tg warn" data-jump="picked">✏️ ${T.picked} not locked</a>`:''}${T.open?`<a class="tg warn" data-jump="open">⬜ ${T.open} to pick</a>`:''}${tbNeeded()?`<a class="tg warn" data-jump="tb">🎯 Tiebreaker</a>`:''}${T.started?`<span class="tg mut">${T.started} started</span>`:''}</div>
         <button class="sbtn" data-slots="${anyOpen?'collapse':'expand'}">${anyOpen?'Collapse all':'Expand all'}</button></div>`;
     return head+slots.map(sl=>{
       const op=slotOpen(sl), done=sl.c.open+sl.c.picked===0;
@@ -893,6 +918,7 @@
     const all=e.target.closest('[data-slots]');
     if(all){ const p={}; slotsOf(state.games).forEach(sl=>p[sl.id]=all.dataset.slots==='expand'); setSlotPrefs(p); render(); return; }
     const j=e.target.closest('[data-jump]');
+    if(j&&j.dataset.jump==='tb'){ const gid=state.tiebreak.gameId; const sl=slotsOf(state.games).find(x=>x.games.some(y=>y.id===gid)); if(sl){ const p=slotPrefs(); p[sl.id]=true; setSlotPrefs(p); render(); } const el=document.getElementById('tbCard'); if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>{ const i=document.getElementById('tbIn'); if(i) i.focus({preventScroll:true}); },400); } return; }
     if(j){ const want=j.dataset.jump, g=state.games.slice().sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)).find(x=>gstate(x)===want); if(!g) return;
       const sl=slotsOf(state.games).find(x=>x.games.some(y=>y.id===g.id)); const p=slotPrefs(); p[sl.id]=true; setSlotPrefs(p); render();
       const el=document.getElementById('g-'+g.id); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }
@@ -1113,21 +1139,35 @@
   }
 
   // ---------- Tiebreaker (last game of the week) ----------
+  let tbSaving=false;
+  function tbInput(v,id){ return `<div class="tbrow"><button class="tbstep" data-tbstep="-1" aria-label="Minus one">−</button><input id="${id||'tbIn'}" type="number" inputmode="numeric" min="0" max="200" value="${v==null?'':esc(v)}" placeholder="45" aria-label="Total points guess"><button class="tbstep" data-tbstep="1" aria-label="Plus one">+</button><button class="nbtn" data-tbsave="${id||'tbIn'}">${id==='tbIn2'?'Save & lock':v==null?'Save':'Update'}</button></div>`; }
+  function tbNeeded(){ const t=state&&state.tiebreak; return !!(t&&!t.locked&&t.mine==null); }
+  // Save right away on screen; the script catches up in the background (no frozen button).
+  function saveTb(v){
+    const t=state.tiebreak, prev=t.mine; const n=Math.round(Number(v));
+    if(!isFinite(n)||n<0||n>200){ toast('Enter total points from 0 to 200.'); return Promise.reject(); }
+    t.mine=n; tbSaving=true; render();
+    const go=()=>api('tiebreak',{wk:t.week,guess:n});
+    return go().catch(()=>go()).then(r=>{ state.tiebreak=r; save(); tbSaving=false; render(); toast('🎯 Tiebreaker saved: '+r.mine); })
+      .catch(err=>{ t.mine=prev; tbSaving=false; render(); toast((err&&err.message)||'Couldn\'t save the tiebreaker. Try again.'); throw err; });
+  }
   function tbBox(g){
     const t=state.tiebreak; if(!t||t.gameId!==g.id) return '';
-    if(!t.locked) return `<div class="tb"><b>Tiebreaker</b> · guess the total points in this game. If people tie for the week's 👑, closest guess wins.
-      <div class="namerow"><input id="tbIn" type="number" inputmode="numeric" min="0" max="200" value="${t.mine==null?'':esc(t.mine)}" placeholder="e.g. 45"><button class="nbtn" data-tbsave="1">${t.mine==null?'Save':'Update'}</button></div>
-      <small style="color:var(--muted)">${t.mine==null?'No guess yet.':'Your guess: '+esc(t.mine)+'.'} ${esc(t.count)} ${t.count===1?'person has':'people have'} guessed. Everyone's guesses show at kickoff.</small></div>`;
+    if(!t.locked) return `<div class="tb2${t.mine==null?' need':''}" id="tbCard">
+      <div class="tbh"><b>🎯 Tiebreaker</b>${tbSaving?'<span class="tbok">Saving…</span>':t.mine==null?'<span class="tbneed">Needed</span>':'<span class="tbok">✓ Saved: '+esc(t.mine)+'</span>'}</div>
+      <div class="tbq">How many <b>total points</b> will be scored in this game? If people tie for the week's 👑, the closest guess wins.</div>
+      ${tbInput(t.mine)}
+      <small>${esc(t.count)} ${t.count===1?'person has':'people have'} guessed. Everyone's guesses show at kickoff.</small></div>`;
     const shown=new Set(shownPlayers().map(p=>p.id));
     const list=(t.all||[]).filter(x=>shown.has(x.id)).sort((a,b)=>t.total!=null?Math.abs(a.guess-t.total)-Math.abs(b.guess-t.total):a.guess-b.guess);
     return `<div class="tb"><b>Tiebreaker</b>${t.total!=null?` · total was <b>${esc(t.total)}</b>`:' · total points'}<br>${list.length?list.map(x=>`${av(x.id,'sm',x.name)}${esc(x.id===state.me.id?'You':x.name)} ${esc(x.guess)}${t.total!=null?` <small style="color:var(--muted)">(${Math.abs(x.guess-t.total)} off)</small>`:''}`).join(' · '):'No guesses.'}</div>`;
   }
   document.getElementById('main').addEventListener('click',e=>{
+    const st=e.target.closest('[data-tbstep]');
+    if(st){ const inp=st.parentNode.querySelector('input'); const cur=inp.value===''?44:Number(inp.value); inp.value=Math.max(0,Math.min(200,cur+Number(st.dataset.tbstep))); return; }
     const b=e.target.closest('[data-tbsave]'); if(!b||!state.tiebreak) return;
-    const v=document.getElementById('tbIn').value; if(v===''){ toast('Type a number first.'); return; }
-    b.disabled=true;
-    api('tiebreak',{wk:state.tiebreak.week,guess:v}).then(t=>{ state.tiebreak=t; save(); render(); toast('Tiebreaker saved: '+t.mine); })
-      .catch(err=>{ toast(err.message); b.disabled=false; });
+    const v=document.getElementById(b.dataset.tbsave).value; if(v===''){ toast('Type a number first.'); return; }
+    saveTb(v).catch(()=>{});
   });
 
   // ---------- Confetti ----------
@@ -1995,7 +2035,7 @@
     const el=document.getElementById('ptr'), ball=el.querySelector('.ball span'), label=el.querySelector('small');
     const hdr=document.querySelector('header');
     let y0=null, dist=0, busy=false;
-    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on');
+    const sheetOpen=()=>!!document.querySelector('#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on,#tbSheet.on');
     const place=d=>{ const top=hdr.getBoundingClientRect().bottom; el.style.transform=`translate(-50%,${Math.round(top-50+d)}px)`; };
     const hide=()=>{ el.className=''; el.style.transform='translate(-50%,-70px)'; };
     window.addEventListener('touchstart',e=>{
@@ -2692,6 +2732,17 @@
     if(!hist[curSeason()]){ const pr=loadHistory(); if(pr&&pr.then) pr.then(()=>{ if(document.getElementById('wkSheet').classList.contains('on')) openWeeks(); }); }
   }
   document.getElementById('wkBtn').addEventListener('click',openWeeks);
+  const tbs=document.getElementById('tbSheet');
+  document.getElementById('tbClose').addEventListener('click',()=>{ tbs.classList.remove('on'); tbPendingLock=null; toast('Not locked yet. Add your tiebreaker to lock that game.'); });
+  tbs.addEventListener('click',e=>{
+    if(e.target===tbs){ tbs.classList.remove('on'); tbPendingLock=null; return; }
+    const st=e.target.closest('[data-tbstep]'); if(st){ const inp=document.getElementById('tbIn2'); const cur=inp.value===''?44:Number(inp.value); inp.value=Math.max(0,Math.min(200,cur+Number(st.dataset.tbstep))); return; }
+    const b=e.target.closest('[data-tbsave]'); if(!b) return;
+    const v=document.getElementById('tbIn2').value; if(v===''){ toast('Type a number first.'); return; }
+    const pend=tbPendingLock; tbs.classList.remove('on');
+    saveTb(v).then(()=>{ if(pend) lockGames(pend[0],pend[1]); }).catch(()=>{});
+    tbPendingLock=null;
+  });
   document.getElementById('wkClose').addEventListener('click',()=>document.getElementById('wkSheet').classList.remove('on'));
   document.getElementById('wkSheet').addEventListener('click',e=>{
     if(e.target.id==='wkSheet'){ e.target.classList.remove('on'); return; }

@@ -1706,8 +1706,8 @@ function setTiebreak_(key, wk, guess) {
   const g = tieGame_(weekGames);
   if (!g) throw new Error('Week not found.');
   if (Date.now() >= g.kickoff.getTime()) throw new Error('The tiebreaker game has kicked off; guesses are locked.');
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  // Don't wait behind the 30-minute score update (that was the "frozen" Save): a guess only touches its own row.
+  const lock = { releaseLock: () => {} };
   try {
     const sh = ensureSheet_(TABS.TIEBREAK, ['Week', 'Player', 'Guess', 'At']);
     sh.getRange('A:A').setNumberFormat('@');
@@ -1957,8 +1957,16 @@ function notifications_(nowMs) {
     const ws = windows[t];
     const day = dayOf(new Date(Number(t)));
     const when = fmtTime_(new Date(Number(t)));
+    const tbG = ws.find(g => tieGame_(games.filter(x => weekKey_(x) === weekKey_(g))) === g);
+    const tbAll = tbG ? readTiebreaks_() : {};
     roster.filter(p => p.remind).forEach(p => {
       const open = ws.filter(g => !picks.map[g.id + '|' + p.id]);
+      const noTb = tbG && tbAll[weekKey_(tbG) + '|' + p.id] === undefined;
+      if (!open.length && noTb) {
+        const dk = 'RT|' + weekKey_(tbG) + '|' + p.id;
+        if (sent.indexOf(dk) < 0) { sendPush_([p.id], '🎯 Tiebreaker needed', 'Guess the total points for ' + tbG.away + ' @ ' + tbG.home + ' before ' + when.time + '.'); markSent_(sent, dk); }
+        return;
+      }
       if (!open.length) return;
       const dkey = 'RD|' + day + '|' + p.id;
       if (sent.indexOf(dkey) >= 0) return;   // already reminded today
