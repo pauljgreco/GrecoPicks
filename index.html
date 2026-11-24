@@ -260,10 +260,13 @@
   .brand .bl:empty{display:none}
   .brand .bl{letter-spacing:0;font-size:15px}
   /* holidays: an accent edge under the header, emoji around the title, and something falling once */
-  body.hol-thanks header{box-shadow:inset 0 -4px 0 #d9771f}
+  body.hol-thanks header{box-shadow:inset 0 -4px 0 #f59e0b;background:radial-gradient(120% 140% at 100% 0%,#f97316 0%,transparent 55%),linear-gradient(135deg,#4a1a06 0%,#8a2f0c 45%,#c2410c 100%);color:#fff}
+  body.hol-xmas header{background:radial-gradient(3px 3px at 20px 30px,rgba(255,255,255,.55) 50%,transparent 52%),radial-gradient(2px 2px at 70px 80px,rgba(255,255,255,.45) 50%,transparent 52%),radial-gradient(2.5px 2.5px at 130px 20px,rgba(255,255,255,.5) 50%,transparent 52%),radial-gradient(2px 2px at 170px 95px,rgba(255,255,255,.4) 50%,transparent 52%),linear-gradient(135deg,#0b3d1f 0%,#14532d 50%,#9f1239 100%);background-size:200px 120px,200px 120px,200px 120px,200px 120px,100% 100%;color:#fff}
+  body.hol-thanks header .tab,body.hol-xmas header .tab,body.hol-thanks .mine,body.hol-xmas .mine{color:rgba(255,255,255,.8)}
+  body.hol-thanks header .tab.on,body.hol-xmas header .tab.on{color:#fff}
   body.hol-xmas header{box-shadow:inset 0 -4px 0 0 transparent;border-bottom:4px solid transparent;border-image:repeating-linear-gradient(135deg,#c8102e 0 10px,#fff 10px 20px,#1d7a3a 20px 30px,#fff 30px 40px) 4}
-  body.hol-thanks .brand .bt{background:linear-gradient(90deg,#ffb347,#ffd08a,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent}
-  body.hol-xmas .brand .bt{background:linear-gradient(90deg,#ff6b6b,#fff,#7ee08a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  body.hol-thanks .brand .bt{background:linear-gradient(90deg,#fde68a,#fff7d6,#fdba74);-webkit-background-clip:text;background-clip:text;color:transparent}
+  body.hol-xmas .brand .bt{background:linear-gradient(90deg,#fecaca,#fff,#bbf7d0);-webkit-background-clip:text;background-clip:text;color:transparent}
   .cf.slow{animation-timing-function:linear}
   .cf.sway{animation-name:cfsway}
   @keyframes cfsway{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(calc(var(--dx)*.6),28vh) rotate(calc(var(--rot)*.25))}50%{transform:translate(calc(var(--dx)*-.4),55vh) rotate(calc(var(--rot)*.5))}75%{transform:translate(calc(var(--dx)*.5),82vh) rotate(calc(var(--rot)*.75))}100%{transform:translate(calc(var(--dx)*-.2),110vh) rotate(var(--rot))}}
