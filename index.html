@@ -457,9 +457,16 @@
   .top .icon{width:33px;height:33px}
   .top .icon svg{width:17px;height:17px}
   .top .wkpill{padding:7px 10px 7px 12px}
-  #hi .hin{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:19px;font-weight:900;letter-spacing:.01em;color:var(--bar-ink,#fff);text-shadow:0 1px 0 rgba(0,0,0,.25)}
+  #hi .hin{display:flex;flex-direction:column;min-width:0;line-height:1.15;color:var(--bar-ink,#fff)}
+  #hi .hin b{font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 0 rgba(0,0,0,.25)}
+  #hi .hin small{font-size:12.5px;font-weight:600;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .top{align-items:center}
+  #hi{flex:1}
+  .mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+  .mrow .mine{margin-top:0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow .wkpill{flex:none;font-size:15px}
   #hi{overflow:visible}
-  #hi .avwrap{position:relative;display:inline-flex;flex:none;width:30px;height:30px;margin-right:9px;border-radius:50%}
+  #hi .avwrap{position:relative;display:inline-flex;flex:none;width:36px;height:36px;margin-right:10px;border-radius:50%}
   #hi .avwrap .av{margin-right:0}
   #hi .avwrap.spot{animation:avpulse 1.8s ease-out infinite}
   @keyframes avpulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--bar-ink,#fff) 85%,transparent)}70%{box-shadow:0 0 0 13px transparent}100%{box-shadow:0 0 0 0 transparent}}
@@ -479,6 +486,8 @@
   @media (prefers-reduced-motion:reduce){#hi .avwrap.spot{animation:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--bar-ink,#fff) 60%,transparent)}}
   h1 .av{width:30px;height:30px;top:0;margin-right:9px;font-size:15px}
   h1 .av.ae{font-size:18px}
+  #hi .av{width:36px;height:36px;font-size:17px}
+  #hi .av.ae{font-size:21px}
   .avhead{display:flex;flex-direction:column;align-items:center;gap:10px;margin:4px 0 8px}
   .avhead .sbtn{font-size:14px}
   #avSheet .avcur{display:flex;justify-content:center;margin:6px 0 14px}
@@ -562,14 +571,14 @@
     <div class="top">
       <h1 id="hi" style="cursor:pointer">Greco Picks</h1>
       <div class="right">
-        <select id="week" aria-label="Week" hidden></select><button class="wkpill" id="wkBtn" aria-label="Choose week"><span id="wkLbl">Week</span><svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <select id="week" aria-label="Week" hidden></select>
         <button class="icon" id="reload" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
         <button class="icon adminbtn" id="adminBtn" aria-label="Admin" hidden><svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 9.5-4-1.2-7-5-7-9.5V6z"/><path d="M9 12l2 2 4-4"/></svg><i class="abadge" id="adminBadge" hidden></i></button>
         <button class="icon" id="setBtn" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg></button>
         <button class="icon" id="helpBtn" aria-label="Help"><svg viewBox="0 0 24 24"><path d="M8.5 8.8a3.6 3.6 0 0 1 7 1.1c0 2.4-3.5 2.9-3.5 5.2"/><circle cx="12" cy="19" r=".9" fill="currentColor"/></svg></button>
       </div>
     </div>
-    <div class="mine" id="mine"></div>
+    <div class="mrow"><div class="mine" id="mine"></div><button class="wkpill" id="wkBtn" aria-label="Choose week"><span id="wkLbl">Week</span><svg viewBox="0 0 24 24" width="14" height="14"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     <div class="tabs">
       <button class="tab on" data-view="picks">Picks</button>
       <button class="tab" data-view="group">Group</button>
@@ -970,7 +979,8 @@
   function render(){
     const s=state; if(!s) return;
     updateVer();
-    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+(avSpot()?avMe('',s.me.name):av(s.me.id,'',s.me.name,badgeOf(s.me.id)))+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin">'+esc(s.me.name)+'</span>';
+    noteNames(s.players); document.getElementById('hi').innerHTML='<span class="avwrap'+(avSpot()?' spot':'')+'">'+(avSpot()?avMe('',s.me.name):av(s.me.id,'',s.me.name,badgeOf(s.me.id)))+(avSpot()?'<span class="avplus">+</span><span class="avbubble">Pick your avatar!</span>':'')+'</span><span class="hin"><b>'+esc(s.me.name)+'</b>'+(TEAMN[s.me.id]?'<small>'+esc(TEAMN[s.me.id])+'</small>':'')+'</span>';
+    fitName();
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     { const po=/\|3\|/.test(s.selected||''), pm=String(s.my.season||'').match(/^(\d+)-0$/);
@@ -983,7 +993,7 @@
     document.body.classList.toggle('isadmin',!!(s.me&&s.me.isAdmin));
     if(s.me&&s.me.isAdmin&&!people){ const bd=document.getElementById('adminBadge'); bd.hidden=!s.requests; bd.textContent=s.requests||''; }
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
-    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?wkName(w.key):'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
+    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?wkName(w.key).replace(/^Wk /,'Week '):'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
@@ -1589,6 +1599,13 @@
       document.body.appendChild(el); setTimeout(()=>el.remove(),5000);
     }
   }
+  // Name next to the picture: shrinks (17px down to 12px) until the whole name fits
+  function fitName(){
+    const n=document.querySelector('#hi .hin b'); if(!n) return;
+    let sz=18; n.style.fontSize=sz+'px';
+    while(sz>13&&n.scrollWidth>n.clientWidth+1){ sz--; n.style.fontSize=sz+'px'; }
+  }
+  window.addEventListener('resize',()=>{ try{ fitName(); }catch(e){} });
   // ---------- Holidays: Thanksgiving week and Christmas week ----------
   // The header gets a themed edge and emoji around the title. Leaves / snow fall once on the first open of the week,
   // and once more on the day itself. Tap the title to see it again.
