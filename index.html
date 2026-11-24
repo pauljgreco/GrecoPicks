@@ -280,7 +280,18 @@
   .pchip.on{border-color:var(--accent);background:var(--sel);font-weight:800}
   .pchip:disabled{opacity:.45}
   .pq>small{display:block;color:var(--muted);font-size:12px;margin-top:5px}
-  .fsrow{display:flex;align-items:center;gap:10px}
+  .fsrow{display:flex;gap:10px}
+  .fsc{flex:1;min-width:0;padding:10px;border-radius:14px;border:1.5px solid var(--line);background:var(--card);text-align:center}
+  .fsc.on{border-color:var(--accent)}
+  .fst{display:flex;align-items:center;justify-content:center;gap:6px;font-weight:800;color:var(--muted);font-size:14px}
+  .fst img{width:24px;height:24px;object-fit:contain}
+  .fsn{font-size:40px;font-weight:900;line-height:1.1;margin:4px 0 8px;font-variant-numeric:tabular-nums}
+  .fsbtns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .fsbtns button{padding:8px 0;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-weight:800;font-size:15px;cursor:pointer;touch-action:manipulation}
+  .fsbtns button small{display:block;font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+  .fsbtns button:active{transform:scale(.96)}
+  #psBody .seg{position:sticky;top:-16px;z-index:2;background:var(--card);box-shadow:0 6px 10px -6px rgba(0,0,0,.25)}
+  .pgh{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:12px 2px 6px}
   .fsrow>span{font-weight:800;color:var(--muted)}
   .fsb{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
   .fsb img{width:26px;height:26px;object-fit:contain}
@@ -1318,7 +1329,7 @@
       {q:'margin',t:'Winning margin',o:[['1-3','1–3 points'],['4-7','4–7 points'],['8-14','8–14 points'],['15+','15 or more']],sheet:1},
       {q:'half',t:'Halftime leader',o:[['A',P.away.name,P.away.logo],['H',P.home.name,P.home.logo],['T','Tied']]},
       {q:'gator',t:'Gatorade color',o:Object.keys(GATOR).map(k=>[k,k==='None'?'None':k]),sheet:1},
-      {q:'mvp',t:'Super Bowl MVP',o:(P.mvp||[]).map(x=>[x.id,x.n]).concat([['OTHER','Someone else']]),sheet:1},
+      {q:'mvp',t:'Super Bowl MVP',o:(P.mvp||[]).map(x=>[x.id,x.n]).concat((P.roster||[]).map(x=>[x[0],x[1]])),sheet:1},
     ];
   }
   function propLabel(P,q,v){ if(v==null||v==='') return ''; if(q==='ou'&&v==='P') return 'Right on the line'; const x=propQs(P).find(y=>y.q===q); const o=x&&x.o.find(y=>y[0]===String(v)); return o?o[1]:String(v); }
@@ -1359,11 +1370,12 @@
         if(x.sheet) return `<button class="pq pqs" data-propsheet="${x.q}"><span class="pql">${esc(x.t)}</span><span class="pqv ${v?'on':'need'}">${v?esc(propLabel(P,x.q,v)):'Choose'} ›</span></button>`;
         return `<div class="pq"><div class="pql">${esc(x.t)}</div><div class="pchips">${x.o.map(([k,l,lg])=>`<button class="pchip${v===k?' on':''}" data-prop="${x.q}" data-v="${esc(k)}"${x.off?' disabled':''}>${lg?`<img src="${esc(lg)}" alt="">`:''}${esc(l)}</button>`).join('')}</div>${x.off?'<small>The over/under line shows up closer to the game.</small>':''}</div>`;
       };
-      const sb=k=>{ const t=k==='sa'?P.away:P.home; return `<button class="fsb${m[k]!=null?' on':''}" data-score="${k}">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}<b>${m[k]!=null?esc(m[k]):'–'}</b><small>${esc(t.abbr)}</small></button>`; };
+      const sb=k=>{ const t=k==='sa'?P.away:P.home; return `<div class="fsc${m[k]!=null?' on':''}"><div class="fst">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}${esc(t.abbr)}</div><div class="fsn">${m[k]!=null?esc(m[k]):'–'}</div>
+        <div class="fsbtns"><button data-sc="${k}" data-d="7">+7<small>TD</small></button><button data-sc="${k}" data-d="3">+3<small>FG</small></button><button data-sc="${k}" data-d="1">+1</button><button data-sc="${k}" data-d="-1">−1</button></div></div>`; };
       return `<div class="props${all?'':' need'}" id="tbCard"><div class="tbh"><b>🏈 Super Bowl props</b>${propSaving?'<span class="tbok">Saving…</span>':all?'<span class="tbok">✓ All set</span>':`<span class="tbneed">${n} of ${qs.length+1}</span>`}</div>
         <div class="tbq">One point for each right answer. The best score wins the props, and the final-score guess breaks ties. Everything locks at kickoff.</div>
         ${qs.map(row).join('')}
-        <div class="pq"><div class="pql">Final score <small>· tiebreaker</small></div><div class="fsrow">${sb('sa')}<span>–</span>${sb('sh')}</div></div>
+        <div class="pq"><div class="pql">Final score <small>· tiebreaker</small></div><div class="fsrow">${sb('sa')}${sb('sh')}</div></div>
         <small>${esc(P.count)} ${P.count===1?'person has':'people have'} finished. Everyone's answers show at kickoff.</small></div>`;
     }
     // after kickoff: your answers, what's been decided, and how the group split
@@ -1404,19 +1416,35 @@
     } else {
       const x=propQs(P).find(y=>y.q===q); title=x.t;
       let opts=x.o.slice(); if(mode==='admin'&&q==='ou') opts.push(['P','Right on the line (no point)']);
-      if(q==='mvp'){
-        const team=t=>{ const ps=(P.mvp||[]).filter(p=>p.t===t.abbr); return ps.length?`<div class="ptm">${t.logo?`<img src="${esc(t.logo)}" alt="">`:''}${esc(t.name)}</div>`+ps.map(p=>`<button class="prow${cur===p.id?' on':''}" data-pv="${esc(p.id)}"><img class="hs" src="${esc(hsUrl(p.id))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">${esc(p.n)}<span class="ps">${esc(p.pos)}</span></button>`).join(''):''; };
-        html=team(P.away)+team(P.home)+`<div class="ptm">Anyone else</div><button class="prow${cur==='OTHER'?' on':''}" data-pv="OTHER">🤷 Someone else</button>`;
-        if(!(P.mvp||[]).length) html=`<p style="color:var(--muted);margin:0 0 10px">The player list shows up closer to the game.</p>`+html;
-      } else html=opts.map(([v,l,lg])=>`<button class="prow${cur===v?' on':''}" data-pv="${esc(v)}">${q==='gator'?`<span class="dot" style="background:${GATOR[v]||'transparent'}${v==='None'?';border-style:dashed':''}"></span>`:lg?`<img src="${esc(lg)}" alt="" style="width:26px;height:26px;object-fit:contain">`:''}${esc(l)}${cur===v?'<span class="ps">✓</span>':''}</button>`).join('');
+      if(q==='mvp'){ mvpTeam=null; html=mvpPicker(P,cur); }
+      else html=opts.map(([v,l,lg])=>`<button class="prow${cur===v?' on':''}" data-pv="${esc(v)}">${q==='gator'?`<span class="dot" style="background:${GATOR[v]||'transparent'}${v==='None'?';border-style:dashed':''}"></span>`:lg?`<img src="${esc(lg)}" alt="" style="width:26px;height:26px;object-fit:contain">`:''}${esc(l)}${cur===v?'<span class="ps">✓</span>':''}</button>`).join('');
       if(mode==='admin') html+=`<button class="prow" data-pv="" style="justify-content:center;color:var(--muted)">${['first','ftype','half','ou','margin'].indexOf(q)>=0?'Clear (use ESPN)':'Clear'}</button>`;
     }
+    if(q==='mvp') mvpTeam=null;
     PS={q,mode}; document.getElementById('psTitle').textContent=(mode==='admin'?'Answer: ':'')+title; document.getElementById('psBody').innerHTML=html;
     psEl.classList.add('on'); psEl.querySelector('.sheet').scrollTop=0;
+  }
+  // MVP: ~10 likely MVPs on top, then either team's full roster grouped by position
+  let mvpTeam=null;
+  const POSG=[['Quarterbacks',['QB']],['Running backs',['RB','FB']],['Receivers',['WR']],['Tight ends',['TE']],['Offensive line',['OT','OG','G','T','C','OL']],['Defensive line',['DE','DT','NT','DL']],['Linebackers',['LB','OLB','ILB','MLB']],['Secondary',['CB','S','FS','SS','DB']],['Special teams',['K','PK','P','LS']]];
+  function mvpPicker(P,cur){
+    const row=(id,n,pos,lg)=>`<button class="prow${String(cur)===String(id)?' on':''}" data-pv="${esc(id)}"><img class="hs" src="${esc(hsUrl(id))}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">${esc(n)}<span class="ps">${lg?`<img src="${esc(lg)}" alt="" style="width:16px;height:16px;vertical-align:-3px;margin-right:4px">`:''}${esc(pos)}</span></button>`;
+    const logo=t=>t===P.away.abbr?P.away.logo:P.home.logo;
+    let html='';
+    if((P.mvp||[]).length) html+=`<div class="ptm">⭐ Likely MVPs</div>`+P.mvp.map(p=>row(p.id,p.n,p.pos,logo(p.t))).join('');
+    const ros=P.roster||[];
+    if(!ros.length) return html||`<p style="color:var(--muted);margin:0">The player list shows up closer to the game.</p>`;
+    const tm=mvpTeam||(ros.some(x=>String(x[0])===String(cur))?ros.find(x=>String(x[0])===String(cur))[3]:P.away.abbr);
+    html+=`<div class="ptm" style="margin-top:16px">Everyone else</div><div class="seg" style="margin-bottom:8px"><button data-mteam="${esc(P.away.abbr)}" class="${tm===P.away.abbr?'on':''}">${esc(P.away.name)}</button><button data-mteam="${esc(P.home.abbr)}" class="${tm===P.home.abbr?'on':''}">${esc(P.home.name)}</button></div>`;
+    const mine=ros.filter(x=>x[3]===tm), used=new Set();
+    POSG.forEach(([lab,ps])=>{ const l=mine.filter(x=>ps.indexOf(x[2])>=0).sort((a,b)=>a[1].localeCompare(b[1])); l.forEach(x=>used.add(x[0])); if(l.length) html+=`<div class="pgh">${esc(lab)}</div>`+l.map(x=>row(x[0],x[1],x[2])).join(''); });
+    const rest=mine.filter(x=>!used.has(x[0])); if(rest.length) html+=`<div class="pgh">Other</div>`+rest.map(x=>row(x[0],x[1],x[2])).join('');
+    return html;
   }
   document.getElementById('psClose').addEventListener('click',()=>psEl.classList.remove('on'));
   psEl.addEventListener('click',e=>{
     if(e.target===psEl){ psEl.classList.remove('on'); return; }
+    const mt=e.target.closest('[data-mteam]'); if(mt&&PS){ mvpTeam=mt.dataset.mteam; const P=state.props, cur=PS.mode==='admin'?(P.admin||{}).mvp:(P.mine||{}).mvp; const y=document.querySelector('#psBody .seg').offsetTop; document.getElementById('psBody').innerHTML=mvpPicker(P,cur); psEl.querySelector('.sheet').scrollTop=y-60; return; }
     const b=e.target.closest('[data-pv]'); if(!b||!PS) return;
     psEl.classList.remove('on');
     const v=(PS.q==='sa'||PS.q==='sh')?Number(b.dataset.pv):b.dataset.pv;
@@ -1425,7 +1453,7 @@
   document.getElementById('main').addEventListener('click',e=>{
     const c=e.target.closest('[data-prop]'); if(c){ setProp(c.dataset.prop,c.dataset.v); return; }
     const s=e.target.closest('[data-propsheet]'); if(s){ openPick(s.dataset.propsheet,'me'); return; }
-    const f=e.target.closest('[data-score]'); if(f){ openPick(f.dataset.score,'me'); return; }
+    const f=e.target.closest('[data-sc]'); if(f){ const P=state.props, k=f.dataset.sc, cur=(P.mine||{})[k]; setProp(k,Math.max(0,Math.min(99,(cur==null?0:Number(cur))+Number(f.dataset.d)))); return; }
   });
   // Admin: the right answers, the over/under line, the MVP list
   const sbaEl=document.getElementById('sbaSheet');

@@ -2288,7 +2288,7 @@ function propsView_(games, me, roster, now) {
   return {
     gameId: g.id, season: g.season, week: weekKey_(g), kickoff: g.kickoff.toISOString(), locked: locked, status: g.status,
     away: { abbr: g.awayAbbr, name: g.away, logo: g.awayLogo, score: g.awayScore }, home: { abbr: g.homeAbbr, name: g.home, logo: g.homeLogo, score: g.homeScore },
-    line: A.line, mvp: conf.mvp,
+    line: A.line, mvp: conf.mvp, roster: sbJson_('SB_ROSTER_' + g.season).list || [],
     mine: all[me.id] || {},
     count: roster.filter(p => propsDone_(all[p.id])).length,
     answers: locked || me.isAdmin ? A.answers : {},
@@ -2313,7 +2313,7 @@ function setProps_(key, json) {
     const v = inp[q];
     if (v === '' || v == null) { clean[q] = ''; return; }
     if (SB_OPTS[q]) { if (SB_OPTS[q].indexOf(String(v)) < 0) throw new Error('That answer isn\'t one of the choices.'); clean[q] = String(v); }
-    else if (q === 'mvp') { if (String(v) !== 'OTHER' && !conf.mvp.some(x => String(x.id) === String(v))) throw new Error('Pick a player from the list.'); clean[q] = String(v); }
+    else if (q === 'mvp') { if (!conf.mvp.some(x => String(x.id) === String(v)) && !sbRosterIds_(g)[String(v)]) throw new Error('Pick a player from the list.'); clean[q] = String(v); }
     else if (q === 'sa' || q === 'sh') { const n = Math.round(Number(v)); if (!isFinite(n) || n < 0 || n > 99) throw new Error('Scores go from 0 to 99.'); clean[q] = n; }
   });
   const sh = ensureSheet_('Props', ['Season', 'Player', 'Answers', 'At']);
@@ -2344,6 +2344,7 @@ function sbAdmin_(key, json) {
     if (SB_Q.indexOf(q) < 0) return;
     if (v === '' || v == null) { delete conf.ans[q]; return; }
     if (SB_OPTS[q] && SB_OPTS[q].concat(q === 'ou' ? ['P'] : []).indexOf(String(v)) < 0) throw new Error('That answer isn\'t one of the choices.');
+    if (q === 'mvp' && !conf.mvp.some(x => String(x.id) === String(v)) && !sbRosterIds_(g)[String(v)]) throw new Error('Pick a player from the list.');
     conf.ans[q] = String(v);
   });
   if ('line' in inp) {
@@ -2373,11 +2374,24 @@ function sbSummary_(g) {
   throw err;
 }
 
+/** Both teams' full rosters, saved once (SB_ROSTER_<season>) so anyone can pick any player for MVP. */
+function sbRosterList_(g, refetch) {
+  const have = sbJson_('SB_ROSTER_' + g.season);
+  if (have.list && have.list.length && !refetch && have.teams === g.awayAbbr + g.homeAbbr) return have.list;
+  const r = fetchRosters_(g);
+  const list = r.away.concat(r.home).map(x => [x.id, x.n, x.pos, x.t]);
+  if (list.length) sbSave_('SB_ROSTER_' + g.season, { teams: g.awayAbbr + g.homeAbbr, list: list });
+  return list;
+}
 /** Admin: both teams' rosters from ESPN, for editing the MVP list. */
 function sbRoster_(key) {
   requireAdmin_(key);
   const g = sbGame_(readGames_());
   if (!g) throw new Error('There\'s no Super Bowl on the schedule yet.');
+  const list = sbRosterList_(g, true).map(x => ({ id: x[0], n: x[1], pos: x[2], t: x[3] }));
+  return { away: list.filter(x => x.t === g.awayAbbr), home: list.filter(x => x.t === g.homeAbbr) };
+}
+function fetchRosters_(g) {
   const one = abbr => {
     const d = espnJson_('https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/' + abbr.toLowerCase() + '/roster');
     const out = [];
@@ -2386,6 +2400,7 @@ function sbRoster_(key) {
   };
   return { away: one(g.awayAbbr), home: one(g.homeAbbr) };
 }
+function sbRosterIds_(g) { const o = {}; (sbJson_('SB_ROSTER_' + g.season).list || []).forEach(x => { o[String(x[0])] = true; }); return o; }
 
 /** Season leaders from ESPN, used to build the MVP shortlist (about 10 per team). */
 function sbLeaders_(data, g) {
@@ -2411,8 +2426,10 @@ function sbTick_() {
   const conf = sbConf_(g.season), auto = sbAuto_(g.season);
   const cache = CacheService.getScriptCache();
   if (g.status === 'pre') {
-    if ((conf.mvp.length && auto.line != null) || cache.get('sb_pre')) return;
+    const haveRoster = (sbJson_('SB_ROSTER_' + g.season).teams || '') === g.awayAbbr + g.homeAbbr;
+    if ((conf.mvp.length && auto.line != null && haveRoster) || cache.get('sb_pre')) return;
     cache.put('sb_pre', '1', 3 * 3600);   // at most every 3 hours before the game
+    if (!haveRoster) { try { sbRosterList_(g, true); } catch (e) { Logger.log('Rosters: ' + e.message); } }
     const d = sbSummary_(g);
     const pc = (d.pickcenter || [])[0] || {};
     if (pc.overUnder != null && isFinite(Number(pc.overUnder))) { auto.line = Number(pc.overUnder); sbSave_('SB_AUTO_' + g.season, auto); }
