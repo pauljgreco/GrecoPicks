@@ -331,6 +331,9 @@
   .champ b{display:block;font-size:16px;margin:2px 0}
   .champ div>span{font-size:13px;color:var(--muted)}
   .partseg{margin-bottom:10px}
+  .st th.fsh{font-size:18px;text-align:center;line-height:1.1}
+  .st th.fsh small{display:block;font-size:10px;letter-spacing:.03em;margin-top:2px}
+  .st th.fsh~td{text-align:center}
   .fire{font-size:13px}
   #avSheet{z-index:30}
   #avIntro{z-index:29}
@@ -780,7 +783,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.28.0';
+  const APP_VERSION = '2.28.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1193,7 +1196,7 @@
     if(sf.people){ sf.people=null; try{ saveSf(); }catch(e){} }   // the People picker is gone: always the whole group
     const sel=everyone.slice();
     const per={};
-    sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0};});
+    sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0,lone:0};});
     const byGame={};
     h.picks.forEach(([gid,pid,pick,res])=>{ if(gmap[gid]&&per[pid]) (byGame[gid]=byGame[gid]||[]).push({pid,pick,res}); });
     games.forEach(g=>{
@@ -1202,6 +1205,9 @@
       const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
       const maj=(list.length>=3 && top.length && (top.length===1||top[0][1]>top[1][1]))?top[0][0]:null;
       const k=wkKey(g);
+      // lone wolf: the only one (of 3+ who picked) to get it right
+      const graded=list.filter(x=>x.res==='W'||x.res==='L'), right=graded.filter(x=>x.res==='W');
+      if(graded.length>=3&&right.length===1) per[right[0].pid].lone++;
       list.forEach(x=>{
         const s=per[x.pid];
         if(maj && x.pick!=='MISSED'){ s.withN++; if(x.pick===maj) s.withG++; }
@@ -1224,6 +1230,7 @@
     const done=k=>{ const total=(h.weekGames||{})[k]; return total?finalBy[k]===total:h.games.filter(g=>wkKey(g)===k).every(g=>g.status==='final'); };
     people.forEach(s=>{
       const n=s.W+s.L; s.pct=n?s.W/n:null;
+      let run=0; s.streak=0; s.seq.forEach(r=>{ run=r==='W'?run+1:0; if(run>s.streak) s.streak=run; });   // longest run of correct picks
       // perfect weeks: picked every game that week (in range) and got them all right
       s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return isReg(k)&&done(k)&&w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
     });
@@ -1288,10 +1295,10 @@
     }
 
     // Splits
-    html+=`<div class="sec">Splits</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Home picks</th><th>Away picks</th><th>Upsets</th><th>With group</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.hW}-${s.hL}</td><td>${s.aW}-${s.aL}</td><td>${s.ups}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
+    html+=`<div class="sec">Fun stats</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th class="fsh">🎯<small>Upsets</small></th><th class="fsh">🐺<small>Lone wolf</small></th><th class="fsh">🔥<small>Streak</small></th><th class="fsh">🐑<small>With group</small></th></tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.ups||'—'}</td><td>${s.lone||'—'}</td><td>${s.streak||'—'}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
     }</tbody></table></div>
-    <div class="note">Only games that have kicked off count. Upsets = correct picks of the team with the worse record going in. With group = how often a pick matched most of the selected people.</div>`;
+    <div class="note">🎯 Upsets = correct picks of the team with the worse record going in. 🐺 Lone wolf = the only one (of 3+) to get a game right. 🔥 Streak = longest run of correct picks in a row. 🐑 With group = how often you picked the same team as most of the group.</div>`;
     return html;
   }
 
