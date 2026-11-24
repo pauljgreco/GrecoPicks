@@ -454,7 +454,10 @@
   .av.md.at{padding:4px}.av.lg.at,.av.xl.at{padding:9px}
   #hi{display:flex;align-items:center;min-width:0;padding:2px 0}
   .top .right{flex:none}
-  #hi .hin{overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .top .icon{width:33px;height:33px}
+  .top .icon svg{width:17px;height:17px}
+  .top .wkpill{padding:7px 10px 7px 12px}
+  #hi .hin{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;font-size:19px;font-weight:900;letter-spacing:.01em;color:var(--bar-ink,#fff);text-shadow:0 1px 0 rgba(0,0,0,.25)}
   #hi{overflow:visible}
   #hi .avwrap{position:relative;display:inline-flex;flex:none;width:30px;height:30px;margin-right:9px;border-radius:50%}
   #hi .avwrap .av{margin-right:0}
@@ -543,7 +546,6 @@
   .phoneqr .qr svg{width:100%;height:100%;display:block}
   .since{display:block;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap;line-height:1.1}
   /* Admin */
-  #hi .hin{display:none}   /* room for the extra button: the admin's header shows just the avatar */
   .adminbtn{position:relative}
   .abadge{position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;border-radius:99px;background:#ef4444;color:#fff;font-size:11px;font-weight:800;font-style:normal;line-height:17px;text-align:center;padding:0 4px;box-sizing:border-box}
   .atabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--sel);margin:0 0 12px}
@@ -972,7 +974,7 @@
     document.getElementById('adminHelp').hidden=!s.me.isAdmin;
     document.getElementById('week').innerHTML=s.weeks.map(w=>`<option value="${esc(w.key)}"${w.key===s.selected?' selected':''}>${esc(w.label)}</option>`).join('');
     { const po=/\|3\|/.test(s.selected||''), pm=String(s.my.season||'').match(/^(\d+)-0$/);
-      document.getElementById('mine').innerHTML=`<b class="mname">${esc(s.me.name)}</b> · this week <b>${esc(s.my.week)}</b> · ${po?'playoffs':'season'} <b>${esc(s.my.season)}</b>${po&&pm&&+pm[1]>0?' 🔥':''}`; }
+      document.getElementById('mine').innerHTML=`You · this week <b>${esc(s.my.week)}</b> · ${po?'playoffs':'season'} <b>${esc(s.my.season)}</b>${po&&pm&&+pm[1]>0?' 🔥':''}`; }
     document.body.classList.toggle('sbwk',/\|3\|5$/.test(s.selected||''));
     document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
     const openN=s.games.filter(g=>!g.mine && !(g.locked||Date.now()>=new Date(g.kickoff).getTime())).length;
@@ -981,7 +983,7 @@
     document.body.classList.toggle('isadmin',!!(s.me&&s.me.isAdmin));
     if(s.me&&s.me.isAdmin&&!people){ const bd=document.getElementById('adminBadge'); bd.hidden=!s.requests; bd.textContent=s.requests||''; }
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
-    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?wkName(w.key).replace(/^Wk /,'Week '):'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
+    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?wkName(w.key):'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
