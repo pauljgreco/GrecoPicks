@@ -251,6 +251,14 @@
   #sbaSheet,#propSheet{position:fixed;inset:0;z-index:32;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center}
   #propSheet{z-index:33}
   #sbaSheet.on,#propSheet.on{display:flex}
+  #confSheet{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center}
+  #confSheet.on{display:flex}
+  #cfYes.danger{background:#dc2626;border-color:#dc2626;color:#fff}
+  .gchips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+  .gchip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px 7px 7px;border-radius:99px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+  .gchip.on{border-color:var(--accent);background:var(--sel);font-weight:800}
+  .gchip.on::after{content:'✓';color:var(--accent);font-weight:900}
+  .gchip.add{padding-left:12px;color:var(--muted);border-style:dashed}
   /* Super Bowl week: gold */
   body.sbwk header{box-shadow:inset 0 -4px 0 #d4a017}
   /* title row */
@@ -697,7 +705,7 @@
     <div class="namerow"><input id="addName" maxlength="20" autocomplete="off" placeholder="Add someone: their name" aria-label="New person's name"><button class="nbtn" id="addBtn">Add</button></div>
     <div class="ptools"><input id="pSearch" type="search" placeholder="Search names or groups" aria-label="Search people"><select id="pFilter" aria-label="Filter"></select></div>
     <div id="people"><p>Loading…</p></div>
-    <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Groups</b>: type group names separated by commas (e.g. <i>Greco's, Friends</i>); you're in every group automatically. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Delete permanently</b> (retired people only) removes them and all their picks for good.</div></details>
+    <details class="faq" style="margin-top:12px"><summary>How this works</summary><div>Tap a name to open it. <b>Name</b> and <b>team name</b>: edit and Save. <b>Groups</b>: tap a group to add or remove them (or <b>+ New group</b>), then <b>Save groups</b>; you're in every group automatically. New link, Retire, Delete and anything that notifies everyone ask you to confirm first. <b>New link</b> replaces someone's link (old one stops working). <b>Retire</b> is for people who stopped playing: they disappear for everyone and their link stops working, but their past picks stay in Stats. <b>Delete permanently</b> (retired people only) removes them and all their picks for good.</div></details>
     </div>
     <div class="apane" data-apane="groups" hidden>
     <div class="invbox"><b>🖼️ Group photos</b><div id="gavList"></div><small>Only you can set these. They show on the group pills, recaps, shared pictures and invite links.</small></div>
@@ -720,6 +728,13 @@
   </div>
 </div>
 
+<div id="confSheet" role="dialog" aria-modal="true" aria-label="Are you sure?">
+  <div class="sheet">
+    <h2 id="cfTitle" style="margin:4px 0 8px">Are you sure?</h2>
+    <div id="cfBody" style="color:var(--muted);margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px"><button class="sbtn" id="cfNo" style="flex:1">Cancel</button><button class="nbtn" id="cfYes" style="flex:1"></button></div>
+  </div>
+</div>
 <div id="sbaSheet" role="dialog" aria-modal="true" aria-label="Super Bowl answers">
   <div class="sheet">
     <div class="sheet-top"><h2>🏈 Super Bowl answers</h2><button class="x" id="sbaClose" aria-label="Close">✕</button></div>
@@ -2526,7 +2541,7 @@
     const el=document.getElementById('ptr'), ball=el.querySelector('.ball span'), label=el.querySelector('small');
     const hdr=document.querySelector('header');
     let y0=null, dist=0, busy=false;
-    const sheetOpen=()=>!!document.querySelector('#sbaSheet.on,#propSheet.on,#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on,#tbSheet.on');
+    const sheetOpen=()=>!!document.querySelector('#confSheet.on,#sbaSheet.on,#propSheet.on,#settings.on,#help.on,#profile.on,#peopleSheet.on,#hideSheet.on,#spSheet.on,#avSheet.on,#avIntro.on,#wkSheet.on,#tbSheet.on');
     const place=d=>{ const top=hdr.getBoundingClientRect().bottom; el.style.transform=`translate(-50%,${Math.round(top-50+d)}px)`; };
     const hide=()=>{ el.className=''; el.style.transform='translate(-50%,-70px)'; };
     window.addEventListener('touchstart',e=>{
@@ -2879,14 +2894,29 @@
   document.getElementById('pClose').addEventListener('click',()=>document.getElementById('profile').classList.remove('on'));
   document.getElementById('profile').addEventListener('click',e=>{ if(e.target.id==='profile') e.target.classList.remove('on'); });
 
+  // ---------- "Are you sure?" sheet for anything that can't be undone or that notifies people ----------
+  function askConfirm(o){
+    return new Promise(res=>{
+      const el=document.getElementById('confSheet'), yes=document.getElementById('cfYes'), no=document.getElementById('cfNo');
+      document.getElementById('cfTitle').textContent=o.title||'Are you sure?';
+      document.getElementById('cfBody').innerHTML=o.body||'';
+      yes.textContent=o.ok||'Yes'; yes.classList.toggle('danger',!!o.danger);
+      const done=v=>{ el.classList.remove('on'); yes.onclick=no.onclick=el.onclick=null; res(v); };
+      yes.onclick=()=>done(true); no.onclick=()=>done(false); el.onclick=e=>{ if(e.target===el) done(false); };
+      el.classList.add('on');
+    });
+  }
   // ---------- Nudge (admin) ----------
   document.addEventListener('click',e=>{
     const b=e.target.closest('[data-nudge]'); if(!b) return;
-    const id=b.dataset.nudge, txt=b.textContent; b.disabled=true; b.textContent='Sending…';
+    const id=b.dataset.nudge, txt=b.textContent;
+    const go=()=>{ b.disabled=true; b.textContent='Sending…';
     api('nudge',{pl:id}).then(r=>{
       if(id==='ALL') toast(r.sent.length?'Reminded '+r.sent.join(', ')+'.'+(r.skipped.length?' Skipped: '+r.skipped.join(', ')+'.':''):'Nobody to remind. '+r.skipped.join(', '));
       else toast('Reminder sent to '+r.sent.join(', ')+'.');
-    }).catch(err=>toast(err.message)).finally(()=>{ b.disabled=false; b.textContent=txt; });
+    }).catch(err=>toast(err.message)).finally(()=>{ b.disabled=false; b.textContent=txt; }); };
+    if(id==='ALL') askConfirm({title:'Remind everyone?',body:'Sends a notification to <b>everyone who still has open picks</b> this week.',ok:'🔔 Send reminders'}).then(ok=>{ if(ok) go(); });
+    else go();
   });
 
   // ---------- Hide people (just for you) ----------
@@ -2957,8 +2987,8 @@
         ${open?`<div class="pdetail">
           <small style="word-break:break-all;display:block">${p.link?esc(p.link):'No link yet'}</small>
           <div class="grp"><input data-nin="${esc(p.id)}" value="${esc(p.name)}" placeholder="Name" maxlength="20" aria-label="Name"><input data-tin="${esc(p.id)}" value="${esc(p.team||'')}" placeholder="Team name (optional)" maxlength="40" aria-label="Team name"><button class="sbtn" data-pp="name" data-id="${esc(p.id)}">Save</button></div>
-          ${p.id===people.adminId?'':`<div class="grp"><input data-gin="${esc(p.id)}" value="${esc((p.groups||[]).join(', '))}" placeholder="Groups, e.g. Greco's" maxlength="80"><button class="sbtn" data-pp="groups" data-id="${esc(p.id)}">Save</button></div>`}
-          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">${armedLink===p.id?'Tap again: new link':'New link'}</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">${armedAv===p.id?'Tap again: remove avatar':'Remove avatar'}</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">${armedRetire===p.id?'Tap again: retire':'Retire'}</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button><button class="warn" data-pp="delete" data-id="${esc(p.id)}">${armedDel===p.id?'Tap again: delete forever':'Delete permanently'}</button>`)}</div>
+          ${p.id===people.adminId?'':groupChips(p)}
+          <div class="acts">${p.link&&p.active?`<button data-pp="share" data-id="${esc(p.id)}">${navigator.share?'Send link':'Copy link'}</button>${navigator.share?`<button data-pp="copy" data-id="${esc(p.id)}">Copy</button>`:''}<button class="warn" data-pp="new" data-id="${esc(p.id)}">New link</button>`:''}${p.id===people.adminId?'':(AVS.map[p.id]&&p.id!==state.me.id?`<button class="warn" data-pp="rmav" data-id="${esc(p.id)}">Remove avatar</button>`:'')+(p.active?`<button class="warn" data-pp="retire" data-id="${esc(p.id)}">Retire</button>`:`<button data-pp="return" data-id="${esc(p.id)}">Bring back</button><button class="warn" data-pp="delete" data-id="${esc(p.id)}">Delete permanently</button>`)}</div>
         </div>`:''}
       </div>`;
     }).join('')||'<p>No one matches.</p>';
@@ -2966,6 +2996,20 @@
     updNoticeUI();
     updateCounts();
   }
+  // Groups for one person: tap to add/remove, "+ New group" for a new one, then Save
+  const GSEL={};
+  function groupChips(p){
+    const cur=GSEL[p.id]||(GSEL[p.id]=new Set(p.groups||[]));
+    const all=Array.from(new Set((people.groups||[]).concat(Array.from(cur)))).sort((a,b)=>a.localeCompare(b));
+    const changed=JSON.stringify(Array.from(cur).sort())!==JSON.stringify((p.groups||[]).slice().sort());
+    return `<div class="pgr"><small style="color:var(--muted);font-weight:700">Groups</small><div class="gchips">${all.map(g=>`<button class="gchip${cur.has(g)?' on':''}" data-gtog="${esc(g)}" data-id="${esc(p.id)}">${gav(g,'sm')}${esc(g)}</button>`).join('')}<button class="gchip add" data-gnew="${esc(p.id)}">+ New group</button></div>${changed?`<button class="nbtn" data-pp="groups" data-id="${esc(p.id)}" style="width:100%">Save groups</button>`:''}</div>`;
+  }
+  document.addEventListener('click',e=>{
+    const t=e.target.closest('[data-gtog]'); if(t){ const s=GSEL[t.dataset.id]; if(!s) return; if(s.has(t.dataset.gtog)) s.delete(t.dataset.gtog); else s.add(t.dataset.gtog); renderPeople(); return; }
+    const n=e.target.closest('[data-gnew]'); if(n){ const box=document.createElement('div'); box.className='namerow'; box.style.margin='6px 0';
+      box.innerHTML=`<input maxlength="30" placeholder="New group name" aria-label="New group name"><button class="sbtn">Add</button>`; n.parentNode.after(box); const i=box.querySelector('input'); i.focus();
+      const add=()=>{ const v=i.value.trim(); if(!v) return; GSEL[n.dataset.gnew].add(v); renderPeople(); }; box.querySelector('button').onclick=add; i.onkeydown=ev=>{ if(ev.key==='Enter') add(); }; n.disabled=true; return; }
+  });
   function renderReqs(){
     const el=document.getElementById('reqList'); if(!el) return;
     const rs=(people&&people.requests)||[];
@@ -2992,8 +3036,10 @@
     const old=people.people.filter(p=>p.active&&(!p.appVersion||verNewer(people.current,p.appVersion)));
     b.hidden=!old.length; b.textContent='✨ Send update notice to '+old.length+' '+(old.length===1?'person':'people')+' on an old version';
   }
-  document.getElementById('updNotice').addEventListener('click',()=>{
-    const b=document.getElementById('updNotice'); b.disabled=true; const t=b.textContent; b.textContent='Sending…';
+  document.getElementById('updNotice').addEventListener('click',async()=>{
+    const b=document.getElementById('updNotice');
+    if(!(await askConfirm({title:'Send the update notice?',body:'Sends a notification to everyone on an old version of the app, telling them to update.',ok:'✨ Send it'}))) return;
+    b.disabled=true; const t=b.textContent; b.textContent='Sending…';
     api('updnotice',{}).then(r=>toast((r.sent.length?'Sent to '+r.sent.join(', ')+'.':'Nobody to send to.')+(r.skipped.length?' Skipped: '+r.skipped.join(', ')+'.':'')))
       .catch(e=>toast(e.message)).finally(()=>{ b.disabled=false; b.textContent=t; });
   });
@@ -3042,15 +3088,14 @@
   }
   document.getElementById('people').addEventListener('click',e=>{
     const h=e.target.closest('[data-pexp]');
-    if(h){ openPerson=openPerson===h.dataset.pexp?'':h.dataset.pexp; armedLink=''; armedRetire=''; renderPeople(); return; }
+    if(h){ delete GSEL[h.dataset.pexp]; openPerson=openPerson===h.dataset.pexp?'':h.dataset.pexp; armedLink=''; armedRetire=''; renderPeople(); return; }
     const b=e.target.closest('[data-pp]'); if(!b||!people) return;
     const p=people.people.find(x=>x.id===b.dataset.id); if(!p) return;
     if(b.dataset.pp==='share') shareLink(p.name,p.link);
     if(b.dataset.pp==='copy') copyText(p.link,'Link copied.');
     if(b.dataset.pp==='rmav'){
-      if(armedAv!==p.id){ armedAv=p.id; renderPeople(); setTimeout(()=>{ if(armedAv===p.id){ armedAv=''; renderPeople(); } },4000); return; }
-      armedAv=''; b.disabled=true;
-      apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s avatar removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; });
+      askConfirm({title:'Remove '+p.name+'\'s picture?',body:'They\'ll go back to a colored initial until they pick a new one.',ok:'Remove',danger:true}).then(ok=>{ if(!ok) return; b.disabled=true;
+      apiPost('avatar',{pl:p.id,av:''}).then(()=>{ delete AVS.map[p.id]; AVS.stamps[p.id]=''; saveAvs(); renderPeople(); render(); toast(p.name+'\'s avatar removed.'); }).catch(err=>{ toast(err.message); b.disabled=false; }); });
     }
     if(b.dataset.pp==='name'){
       const nm=((document.querySelector(`[data-nin="${p.id}"]`)||{}).value||'').trim(), tm=((document.querySelector(`[data-tin="${p.id}"]`)||{}).value||'').trim();
@@ -3059,34 +3104,31 @@
       api('adminname',{pl:p.id,name:nm,team:tm}).then(d=>{ people=d; NAMES[p.id]=nm; TEAMN[p.id]=tm; renderPeople(); toast('Saved: '+nm+(tm?' · '+tm:'')+'.'); load(state&&state.selected,false); Object.keys(hist).forEach(k=>delete hist[k]); }).catch(err=>{ toast(err.message); b.disabled=false; });
     }
     if(b.dataset.pp==='groups'){
-      const v=(document.querySelector(`[data-gin="${p.id}"]`)||{}).value||'';
+      const v=Array.from(GSEL[p.id]||[]).join(', ');
       b.disabled=true;
-      api('groups',{pl:p.id,groups:v}).then(d=>{ people=d; renderPeople(); toast('Groups saved for '+p.name+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); b.disabled=false; });
+      api('groups',{pl:p.id,groups:v}).then(d=>{ people=d; delete GSEL[p.id]; renderPeople(); toast('Groups saved for '+p.name+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); b.disabled=false; });
     }
     if(b.dataset.pp==='retire'){
-      if(armedRetire!==p.id){ armedRetire=p.id; renderPeople(); setTimeout(()=>{ if(armedRetire===p.id){ armedRetire=''; renderPeople(); } },4000); return; }
-      armedRetire=''; b.disabled=true;
-      api('active',{pl:p.id,on:'0'}).then(d=>{ people=d; renderPeople(); toast(p.name+' retired. Their picks stay in Stats.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
+      askConfirm({title:'Retire '+p.name+'?',body:'They disappear for everyone and their link stops working. Their past picks stay in Stats, and you can bring them back any time.',ok:'Retire',danger:true}).then(ok=>{ if(!ok) return; b.disabled=true;
+      api('active',{pl:p.id,on:'0'}).then(d=>{ people=d; renderPeople(); toast(p.name+' retired. Their picks stay in Stats.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); }); });
     }
     if(b.dataset.pp==='delete'){
-      if(armedDel!==p.id){ armedDel=p.id; renderPeople(); toast('This removes '+p.name+' and all their picks for good.'); setTimeout(()=>{ if(armedDel===p.id){ armedDel=''; renderPeople(); } },5000); return; }
-      armedDel=''; b.disabled=true;
-      api('delete',{pl:p.id}).then(d=>{ people=d; delete AVS.map[p.id]; saveAvs(); renderPeople(); toast(p.name+' deleted'+(d.deleted&&d.deleted.picks?' (with '+d.deleted.picks+' picks)':'')+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
+      askConfirm({title:'Delete '+p.name+' for good?',body:'This removes them and <b>all of their picks</b> forever. It can\'t be undone.',ok:'Delete forever',danger:true}).then(ok=>{ if(!ok) return; b.disabled=true;
+      api('delete',{pl:p.id}).then(d=>{ people=d; delete AVS.map[p.id]; saveAvs(); renderPeople(); toast(p.name+' deleted'+(d.deleted&&d.deleted.picks?' (with '+d.deleted.picks+' picks)':'')+'.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); }); });
     }
     if(b.dataset.pp==='return'){
       b.disabled=true;
       api('active',{pl:p.id,on:'1'}).then(d=>{ people=d; renderPeople(); toast(p.name+' is back. Their old link works again.'); load(state&&state.selected,false); }).catch(err=>{ toast(err.message); renderPeople(); });
     }
     if(b.dataset.pp==='new'){
-      if(armedLink!==p.id){ armedLink=p.id; renderPeople(); setTimeout(()=>{ if(armedLink===p.id){ armedLink=''; renderPeople(); } },4000); return; }
-      armedLink=''; b.disabled=true; b.textContent='Making…';
+      askConfirm({title:'New link for '+p.name+'?',body:(p.id===state.me.id?'Your':'Their')+' current link <b>stops working right away</b>. '+(p.id===state.me.id?'This phone switches to the new one.':'You\'ll need to send them the new one.'),ok:'Make new link',danger:true}).then(ok=>{ if(!ok) return; b.disabled=true; b.textContent='Making…';
       api('newlink',{pl:p.id}).then(d=>{
         if(d.myNewKey){ KEY=d.myNewKey; try{ localStorage.setItem('nflpicks_key',KEY); }catch(x){} }
         people=d; renderPeople();
         const np=d.people.find(x=>x.id===p.id);
         toast('New link made for '+p.name+'. Their old link no longer works.');
         if(np&&np.id!==state.me.id) setTimeout(()=>shareLink(np.name,np.link),300);
-      }).catch(err=>{ toast(err.message); renderPeople(); });
+      }).catch(err=>{ toast(err.message); renderPeople(); }); });
     }
   });
   document.getElementById('addBtn').addEventListener('click',()=>{
