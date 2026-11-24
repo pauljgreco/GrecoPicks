@@ -716,6 +716,9 @@ function parseGames_(data) {
     const seasonType = Number((ev.season && ev.season.type) || (data.season && data.season.type));
     if (seasonType !== 2 && seasonType !== 3) return;                         // skip preseason
     if (['AFC', 'NFC'].indexOf(home.team.abbreviation) >= 0) return;        // skip Pro Bowl
+    // skip playoff games whose teams aren't decided yet (ESPN lists them as TBD placeholders)
+    const tbd = t => !t.abbreviation || /^TBD$/i.test(t.abbreviation) || /TBD|winner|seed/i.test(String(t.displayName || ''));
+    if (tbd(home.team) || tbd(away.team)) return;
 
     const st = ((comp.status || ev.status || {}).type) || {};
     const completed = !!st.completed;
@@ -1677,7 +1680,7 @@ function crown_(games, pickVals, roster) {
   // 💩 fewest wins that week, among people who made at least one pick. None if everyone tied.
   const played = w.filter(x => x.rec !== '0-0');
   const low = Math.min.apply(null, played.map(x => x.wins));
-  const losers = played.length > 1 && low < top ? played.filter(x => x.wins === low) : [];
+  const losers = played.length > 1 && low < top && byWeek[done[0]].length >= 3 ? played.filter(x => x.wins === low) : [];   // no 💩 in tiny playoff weeks
   return {
     label: weekLabel_(parts[1], parts[2]), key: done[0], ids: winners.map(x => x.id), names: winners.map(x => x.name), rec: winners[0].rec, tb: tb,
     poop: losers.length ? { ids: losers.map(x => x.id), names: losers.map(x => x.name), rec: losers[0].rec } : null,

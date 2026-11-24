@@ -195,6 +195,7 @@
   .grid .hid{color:var(--muted)}
   /* Stats */
   .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .filters.fl1 select{flex:0 0 auto;width:auto;max-width:100%}
   .filters select{font-size:16px;padding:7px 8px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1;min-width:0}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
   .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
@@ -438,6 +439,7 @@
   .atabs button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:700;padding:8px 4px;border-radius:999px;cursor:pointer;position:relative}
   .atabs button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
   .atabs i{font-style:normal;margin-left:4px;background:#ef4444;color:#fff;border-radius:99px;font-size:11px;padding:1px 6px}
+  .offs{text-align:center;padding:18px;margin:0 0 12px;border-radius:16px;background:var(--card);border:1.5px solid var(--accent)}.offs .big{font-size:42px}.offs b{display:block;font-size:18px;margin:6px 0}.offs div{color:var(--muted);font-size:14px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -847,7 +849,7 @@
     document.body.classList.toggle('isadmin',!!(s.me&&s.me.isAdmin));
     if(s.me&&s.me.isAdmin&&!people){ const bd=document.getElementById('adminBadge'); bd.hidden=!s.requests; bd.textContent=s.requests||''; }
     document.getElementById('week').style.visibility = view==='stats' ? 'hidden' : '';
-    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?w.label.split(' · ')[0]:'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
+    { const w=s.weeks.find(x=>x.key===s.selected); document.getElementById('wkLbl').textContent=w?wkName(w.key).replace(/^Wk /,'Week '):'Week'; document.getElementById('wkBtn').style.visibility=view==='stats'?'hidden':''; }
     const m=document.getElementById('main');
     if(view==='group'){ m.innerHTML=groupView(); return; }
     if(view==='stats'){ m.innerHTML=statsView(); return; }
@@ -855,8 +857,10 @@
     // Phone has an older app than what's live: anyone can fix it with one tap. App newer than the script: only the admin hears about it.
     const vWarn=(s.version&&verNewer(s.version,APP_VERSION))?`<div class="banner"><span>✨ <b>A new version of Greco Picks is ready.</b></span><button class="go" data-push="update">Update</button></div>`
       :(s.me.isAdmin&&s.version!==APP_VERSION)?`<div class="banner"><span>⚠️ App ${esc(APP_VERSION)} but script ${esc(s.version||'older')}. The script deploy may have failed; check GitHub → Actions.</span></div>`:'';
-    const rqBan='';   // requests now show as a badge on the 🛡️ Admin button
-    m.innerHTML=vWarn+rqBan+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?slotsView(s):'<div class="empty">No games loaded yet.</div>');
+    const rqBan='';
+    const sbOver=(()=>{ const k=s.selected||''; return /\|3\|5$/.test(k)&&s.games.length&&s.games.every(g=>g.status==='final'); })();
+    const offCard=sbOver?`<div class="offs"><div class="big">🏆</div><b>That's a wrap on the ${esc(s.selected.split('|')[0])} season!</b><div>Thanks for playing. Your Wrapped is ready on the Stats tab, and picks open again when the new season kicks off in September.</div><button class="nbtn" data-gowrap="1">🎁 See your Wrapped</button></div>`:'';   // requests now show as a badge on the 🛡️ Admin button
+    m.innerHTML=vWarn+rqBan+offCard+(pushBanner())+groupBar()+recapButton()+crownLine()+(s.games.length?slotsView(s):'<div class="empty">No games loaded yet.</div>');
     lockBar(s);
   }
 
@@ -957,7 +961,7 @@
   function pooped(id){ if(!betweenWeeks()) return false; const c=curCrown(); return !!(c&&c.poop&&c.poop.ids.indexOf(id)>=0); }
   function tag(id){ return (crowned(id)?'👑 ':'')+(pooped(id)?'💩 ':''); }
   // Last week's badge for the avatar corner: 💯 perfect week, 👑 top, 💩 bottom
-  function badgeOf(id){ if(crowned(id)){ const c=curCrown(); return c&&/-0$/.test(String(c.rec||''))?'💯':'👑'; } return pooped(id)?'💩':''; }
+  function badgeOf(id){ if(crowned(id)){ const c=curCrown(); const m=String((c&&c.rec)||'').match(/^(\d+)-0$/); return m&&+m[1]>=3?'💯':'👑'; } return pooped(id)?'💩':''; }
   function crownLine(){
     if(!betweenWeeks()) return '';
     const c=curCrown(); if(!c) return '';
@@ -1029,6 +1033,8 @@
   }
   const sinceWk=id=>JOINED[id]?'Wk '+JOINED[id].split('|')[2]:'';
   const sinceTag=id=>JOINED[id]?`<small class="since">since ${esc(sinceWk(id))}</small>`:'';
+  // games in a week (from the season's history); tiny playoff weeks skip 💩 / 💯
+  function wkGamesN(h,k){ const t=h&&h.weekGames&&h.weekGames[k]; return t||((h&&h.games)||[]).filter(g=>wkKey(g)===k).length; }
   const wkName=k=>{const [a,b,c]=k.split('|').map(Number); const n=b===3?({1:'Wild Card',2:'Divisional',3:'Conf. Champ.',5:'Super Bowl'}[c]||('Post Wk '+c)):('Wk '+c); return n;};
   function recPct(r){ const m=String(r||'').split('-').map(Number); if(m.length<2||m.some(isNaN)) return null; const w=m[0],l=m[1],t=m[2]||0,n=w+l+t; return n?(w+t/2)/n:null; }
   const fmtPct=x=>x==null?'—':x.toFixed(3).replace(/^0/,'');
@@ -1053,7 +1059,8 @@
     const withPicks=new Set(h.picks.map(x=>x[1]));
     const sg=curGroup(), hid=hiddenSet();
     const everyone=h.players.filter(p=>(p.active||withPicks.has(p.id)) && (p.id===state.me.id || (inGrp(p,sg) && !hid.has(p.id)))).map(p=>p.id);
-    const sel=(sf.people||everyone).filter(id=>everyone.indexOf(id)>=0);
+    if(sf.people){ sf.people=null; try{ saveSf(); }catch(e){} }   // the People picker is gone: always the whole group
+    const sel=everyone.slice();
     const per={};
     sel.forEach(id=>{per[id]={id,name:names[id]||id,W:0,L:0,weeks:{},seq:[],hW:0,hL:0,aW:0,aL:0,ups:0,withG:0,withN:0};});
     const byGame={};
@@ -1087,7 +1094,7 @@
     people.forEach(s=>{
       const n=s.W+s.L; s.pct=n?s.W/n:null;
       // perfect weeks: picked every game that week (in range) and got them all right
-      s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return done(k)&&w.L===0&&w.W>0&&w.W===(wkSize[k]||0); }).length;
+      s.perfect=Object.keys(s.weeks).filter(k=>{ const w=s.weeks[k]; return done(k)&&w.L===0&&w.W>0&&w.W===(wkSize[k]||0)&&w.W>=3; }).length;
     });
     people.sort((a,b)=>((b.pct==null?-1:b.pct)-(a.pct==null?-1:a.pct))||(b.W-a.W)||a.name.localeCompare(b.name));
     let rank=0,prev=null; people.forEach((s,i)=>{ const key=s.pct+'|'+s.W; if(key!==prev){rank=i+1;prev=key;} s.rank=s.pct==null?'':rank; });
@@ -1104,12 +1111,12 @@
     const me=state.me.id;
 
     const seasonOpts=(h.seasons.length>1?[['all','All seasons']]:[]).concat(h.seasons.map(x=>[String(x),String(x)+' season']));
-    const rangeOpts=[['season','Whole season'],['week','Single week…'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
+    const rangeOpts=[['season',(season==='all'?'All seasons':String(season)+' season')],['week','Single week…'],['reg','Regular season'],['post','Playoffs'],['span','Span of weeks…']];
     const opt=(list,val)=>list.map(([v,t])=>`<option value="${esc(v)}"${String(v)===String(val)?' selected':''}>${esc(t)}</option>`).join('');
     const wkOpts=v=>st.weeksAll.map(k=>`<option value="${esc(k)}"${k===v?' selected':''}>${esc(wkName(k)+(season==='all'?' '+k.split('|')[0]:''))}</option>`).join('');
-    let html=groupBar()+wrapButton(h,season)+`<div class="filters">
-        <select data-sf="season">${opt(seasonOpts,season)}</select>
-        <select data-sf="range">${opt(rangeOpts,sf.range)}</select>
+    // One clean row: the range, plus a season menu only when there's more than one season to choose from.
+    let html=groupBar()+wrapButton(h,season)+`<div class="filters fl1">
+        <select data-sf="range" aria-label="Range">${opt(rangeOpts,sf.range)}</select>${seasonOpts.length>1?`<select data-sf="season" aria-label="Season">${opt(seasonOpts,season)}</select>`:''}
       </div>`;
     if(sf.range==='week'){
       const cur=st.weeksAll.indexOf(sf.week)>=0?sf.week:(st.weeksAll.indexOf(state.selected)>=0?state.selected:st.weeksAll[st.weeksAll.length-1]);
@@ -1118,7 +1125,7 @@
     if(sf.range==='span') html+=`<div class="filters"><select data-sf="from">${wkOpts(sf.from||st.weeksAll[0])}</select><select data-sf="to">${wkOpts(sf.to||st.weeksAll[st.weeksAll.length-1])}</select></div>`;
     const allOn=st.sel.length===st.everyone.length;
     const pl=allOn?(curGroup()?gname(curGroup()):'Everyone')+' ('+st.everyone.length+')':(st.sel.length===1?(st.sel[0]===me?'Just you':st.names[st.sel[0]]):st.sel.length+' people');
-    html+=`<button class="spbtn" data-spick="1"><span>People: <b>${esc(pl)}</b></span><span style="color:var(--muted)">›</span></button>`;
+    // (People picker removed: the group pills choose who's included; Settings → Hide people hides anyone.)
 
     if(!st.gameCount) return html+'<div class="empty">No finished games in this range yet.</div>';
     const P=st.people;
@@ -1253,9 +1260,9 @@
     let crown=played.filter(id=>rec[id].W===top&&top>0);
     const c=curCrown(); let byTb=false;
     if(c&&c.key===wk&&c.tb&&c.ids.some(id=>crown.indexOf(id)>=0)&&c.ids.length<crown.length){ crown=crown.filter(id=>c.ids.indexOf(id)>=0); byTb=true; }   // tiebreaker, when it decided the week
-    const poop=played.length>1&&low<top?played.filter(id=>rec[id].W===low):[];
+    const poop=played.length>1&&low<top&&wkGamesN(h,wk)>=3?played.filter(id=>rec[id].W===low):[];   // no 💩 in tiny playoff weeks
     const tagOf=id=>crown.indexOf(id)>=0?'👑 ':poop.indexOf(id)>=0?'💩 ':'';
-    const badgeRc=id=>crown.indexOf(id)>=0?(rec[id].L===0?'💯':'👑'):poop.indexOf(id)>=0?'💩':'';
+    const badgeRc=id=>crown.indexOf(id)>=0?(rec[id].L===0&&rec[id].W>=3?'💯':'👑'):poop.indexOf(id)>=0?'💩':'';
     const ord=n=>n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]);
     let html='';
     // your line
@@ -1321,7 +1328,7 @@
       let winners=played.filter(id=>per[id][k].W===top&&top>0);
       const c=curCrown(); if(c&&c.key===k) winners=winners.filter(id=>c.ids.indexOf(id)>=0).length?winners.filter(id=>c.ids.indexOf(id)>=0):winners;   // the server knows the tiebreaker for the latest week
       winners.forEach(id=>crowns[id]++);
-      if(low<top) played.filter(id=>per[id][k].W===low).forEach(id=>poops[id]++);
+      if(low<top&&wkGamesN(h,k)>=3) played.filter(id=>per[id][k].W===low).forEach(id=>poops[id]++);
     });
     const rankThru=last=>{ const rows=ids.map(id=>{ let W=0,L=0; Object.keys(per[id]).forEach(k=>{ if(wkOrder(k)<=wkOrder(last)&&k.split('|')[0]===season){ W+=per[id][k].W; L+=per[id][k].L; } }); return {id,W,L,pct:W+L?W/(W+L):-1}; })
       .filter(r=>r.pct>=0).sort((a,b)=>b.pct-a.pct||b.W-a.W); const out={}; let rk=0,prev=null; rows.forEach((r,i)=>{ const key=r.pct+'|'+r.W; if(key!==prev){ rk=i+1; prev=key; } out[r.id]=rk; }); return out; };
@@ -1345,7 +1352,7 @@
     // 👑 / 💩: server's (knows the tiebreaker) when it's the same week, else most / fewest wins
     let c=curCrown(); if(!c||c.key!==wk){ const top=wkRows.length?wkRows[0].W:0, low=wkRows.length?wkRows[wkRows.length-1].W:0;
       c={ids:wkRows.filter(r=>r.W===top&&top>0).map(r=>r.id),poop:low<top?{ids:wkRows.filter(r=>r.W===low).map(r=>r.id)}:null}; }
-    wkRows.forEach(r=>{ r.tag=c.ids.indexOf(r.id)>=0?(r.L===0?'💯':'👑'):(c.poop&&c.poop.ids.indexOf(r.id)>=0?'💩':''); });
+    wkRows.forEach(r=>{ r.tag=c.ids.indexOf(r.id)>=0?(r.L===0&&r.W>=3?'💯':'👑'):(c.poop&&c.poop.ids.indexOf(r.id)>=0?'💩':''); });
     const seRows=members.filter(p=>S[p.id].W+S[p.id].L>0).map(p=>({id:p.id,name:p.name,W:S[p.id].W,L:S[p.id].L,pct:S[p.id].W/(S[p.id].W+S[p.id].L)}))
       .sort((a,b)=>b.pct-a.pct||b.W-a.W||a.name.localeCompare(b.name));
     const rank=rows=>{ let r=0,prev=null; rows.forEach((x,i)=>{ const k=x.pct!=null?x.pct+'|'+x.W:x.W+'|'+x.L; if(k!==prev){ r=i+1; prev=k; } x.rank=r; }); };
@@ -1499,7 +1506,7 @@
     let best=null, worst=null;
     wks.forEach(k=>{ const w=wk[k], n=w.W+w.L, pc=w.W/n; if(!best||w.W>best.w.W||(w.W===best.w.W&&pc>best.pc)) best={k,w,pc}; if(n>=3&&(!worst||pc<worst.pc||(pc===worst.pc&&w.L>worst.w.L))) worst={k,w,pc}; });
     const wsz={}; h.games.forEach(g=>{ wsz[wkKey(g)]=(wsz[wkKey(g)]||0)+1; });
-    const perfectWks=wks.filter(k=>wk[k].L===0&&wk[k].W===wsz[k]).length;
+    const perfectWks=wks.filter(k=>wk[k].L===0&&wk[k].W===wsz[k]&&wsz[k]>=3).length;
     // teams
     const teamName=(g,a)=>a===g.away?g.awayName:a===g.home?g.homeName:a;
     const teamLogo=(g,a)=>a===g.away?g.awayLogo:a===g.home?g.homeLogo:'';
@@ -2716,6 +2723,11 @@
       setSp(cur);
     });
   })();
+  document.getElementById('main').addEventListener('click',e=>{
+    if(!e.target.closest('[data-gowrap]')) return;
+    view='stats'; document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view==='stats')); render(); window.scrollTo(0,0);
+    const tryOpen=n=>{ const w=document.querySelector('[data-wrapped]'); if(w) w.click(); else if(n>0) setTimeout(()=>tryOpen(n-1),500); }; tryOpen(10);
+  });
   document.getElementById('main').addEventListener('click',e=>{
     const b=e.target.closest('[data-gpill]'); if(!b) return;
     try{ localStorage.setItem('nflpicks_group',b.dataset.gpill); }catch(x){}
