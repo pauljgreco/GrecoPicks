@@ -1208,6 +1208,8 @@
       // lone wolf: the only one (of 3+ who picked) to get it right
       const graded=list.filter(x=>x.res==='W'||x.res==='L'), right=graded.filter(x=>x.res==='W');
       if(graded.length>=3&&right.length===1) per[right[0].pid].lone++;
+      // split games: the group (people shown) didn't all pick the same team, so the result moved the standings
+      if(graded.length>=2&&new Set(graded.map(x=>x.pick)).size>1) graded.forEach(x=>{ per[x.pid]['sp'+x.res]=(per[x.pid]['sp'+x.res]||0)+1; });
       list.forEach(x=>{
         const s=per[x.pid];
         if(maj && x.pick!=='MISSED'){ s.withN++; if(x.pick===maj) s.withG++; }
@@ -1238,7 +1240,13 @@
     let rank=0,prev=null; people.forEach((s,i)=>{ const key=s.pct+'|'+s.W; if(key!==prev){rank=i+1;prev=key;} s.rank=s.pct==null?'':rank; });
     const weeks=Array.from(new Set(games.map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
     const inProgress=weeks.some(k=>!done(k));
-    return {people, weeks, weeksAll, everyone, names, sel, gameCount:games.length, inProgress, done, part};
+    // last 4 weeks (with any graded picks) in this range
+    const last4=weeks.filter(k=>people.some(s=>s.weeks[k])).slice(-4);
+    people.forEach(s=>{ s.l4W=0; s.l4L=0; last4.forEach(k=>{ const w=s.weeks[k]; if(w){ s.l4W+=w.W; s.l4L+=w.L; } }); });
+    // head-to-head: finished weeks where both picked, who had more wins
+    const h2h={}; const meS=people.find(s=>s.id===state.me.id);
+    if(meS) people.forEach(o=>{ if(o.id===meS.id) return; const r={W:0,L:0,T:0}; weeks.filter(done).forEach(k=>{ const a=meS.weeks[k], b=o.weeks[k]; if(!a||!b) return; if(a.W>b.W) r.W++; else if(a.W<b.W) r.L++; else r.T++; }); h2h[o.id]=r; });
+    return {people, weeks, weeksAll, everyone, names, sel, gameCount:games.length, inProgress, done, part, last4, h2h};
   }
 
   function statsView(){
@@ -1278,9 +1286,12 @@
     const ex=(lastWk&&season!=='all')?seasonExtras(h,lastWk,P.map(s=>s.id)):{crowns:{},poops:{},move:{}};
     if(sf.range!=='season') ex.move={};
     const showHw=!post&&sf.range==='season'&&season!=='all';
+    // games back: only when everyone shown has played the same weeks (no late joiners), e.g. from next season on
+    const showGb=P.length>1&&P.every(s=>!JOINED[s.id]);
+    const gb=s=>{ const d=(P[0].W-P[0].L)-(s.W-s.L); return d<=0?'—':(d/2).toFixed(1).replace(/\.0$/,''); };
     html+=champCard(post,h);
-    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}${post?'':'<th title="Perfect weeks">💯</th>'}</tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}${moveTxt(ex.move[s.id])}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}${post&&s.L===0&&s.W>0?' <span class="fire" title="Still perfect in the playoffs">🔥</span>':''}</td><td>${s.W}-${s.L}${post?'':sinceTag(s.id)}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}${post?'':`<td>${s.perfect||'—'}</td>`}</tr>`).join('')
+    html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th>${showGb?'<th title="Games behind the leader">GB</th>':''}${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}${post?'':'<th title="Perfect weeks">💯</th>'}</tr></thead><tbody>${
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}${moveTxt(ex.move[s.id])}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}${post&&s.L===0&&s.W>0?' <span class="fire" title="Still perfect in the playoffs">🔥</span>':''}</td><td>${s.W}-${s.L}${post?'':sinceTag(s.id)}</td><td>${fmtPct(s.pct)}</td>${showGb?`<td>${gb(s)}</td>`:''}${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}${post?'':`<td>${s.perfect||'—'}</td>`}</tr>`).join('')
     }</tbody></table></div>${post?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last round · ':''}🔥 = still perfect in the playoffs. No 👑/💩/💯 in the playoffs.</div>`:Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
     if(post) html+=propsTable(h);
 
@@ -1294,11 +1305,20 @@
       }</tbody></table></div>`;
     }
 
-    // Splits
-    html+=`<div class="sec">Breakdown</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Upsets</th><th>Only one right</th><th>With group</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.ups||'—'}</td><td>${s.lone||'—'}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
-    }</tbody></table></div>
-    <div class="note">Upsets = correct picks of the team with the worse record going in. Only one right = games where you were the only one (of 3+) to get it right. With group = how often you picked the same team as most of the group.</div>`;
+    // Breakdown: who's hot, and where the standings actually moved
+    if(P.length>1){
+      const l4=st.last4.length>1&&sf.range!=='week';
+      const rec=(w,l)=>w+l?`${w}-${l}`:'—';
+      html+=`<div class="sec">Breakdown</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th>${l4?`<th>Last ${st.last4.length} wks</th>`:''}<th>Split games</th></tr></thead><tbody>${
+        P.slice().sort((a,b)=>l4?((b.l4W/(b.l4W+b.l4L||1))-(a.l4W/(a.l4W+a.l4L||1))||b.l4W-a.l4W):0).map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.id===me?'You':s.name)}</td>${l4?`<td>${rec(s.l4W,s.l4L)}</td>`:''}<td>${rec(s.spW||0,s.spL||0)}</td></tr>`).join('')
+      }</tbody></table></div>
+      <div class="note">${l4?`Last ${st.last4.length} wks = record over the most recent ${st.last4.length} weeks (sorted hottest first). `:''}Split games = record only on games where the group didn't all pick the same team, where the standings actually move.</div>`;
+    }
+    // Head-to-head: weeks you beat each person
+    const hh=P.filter(s=>s.id!==me&&st.h2h[s.id]&&(st.h2h[s.id].W+st.h2h[s.id].L+st.h2h[s.id].T));
+    if(hh.length) html+=`<div class="sec">Head-to-head</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">You vs.</th><th>You won</th><th>They won</th><th>Tied</th></tr></thead><tbody>${
+      hh.map(s=>{ const r=st.h2h[s.id]; return `<tr><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name)}${esc(s.name)}</td><td class="${r.W>r.L?'best':''}">${r.W}</td><td>${r.L}</td><td>${r.T||'—'}</td></tr>`; }).join('')
+    }</tbody></table></div><div class="note">Finished weeks you both picked: who got more right that week.</div>`;
     return html;
   }
 
