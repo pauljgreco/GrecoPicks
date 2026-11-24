@@ -253,6 +253,20 @@
   #sbaSheet.on,#propSheet.on{display:flex}
   /* Super Bowl week: gold */
   body.sbwk header{box-shadow:inset 0 -4px 0 #d4a017}
+  /* title row */
+  .brand{display:flex;align-items:baseline;gap:6px;margin:-2px 0 8px;font-weight:900;font-size:15px;letter-spacing:.06em;text-transform:uppercase;cursor:default;user-select:none;-webkit-user-select:none}
+  .brand .bt{opacity:.96}
+  .brand .bv{font-size:10px;font-weight:600;letter-spacing:.02em;text-transform:none;opacity:.5}
+  .brand .bl:empty{display:none}
+  .brand .bl{letter-spacing:0;font-size:15px}
+  /* holidays: an accent edge under the header, emoji around the title, and something falling once */
+  body.hol-thanks header{box-shadow:inset 0 -4px 0 #d9771f}
+  body.hol-xmas header{box-shadow:inset 0 -4px 0 0 transparent;border-bottom:4px solid transparent;border-image:repeating-linear-gradient(135deg,#c8102e 0 10px,#fff 10px 20px,#1d7a3a 20px 30px,#fff 30px 40px) 4}
+  body.hol-thanks .brand .bt{background:linear-gradient(90deg,#ffb347,#ffd08a,#ffb347);-webkit-background-clip:text;background-clip:text;color:transparent}
+  body.hol-xmas .brand .bt{background:linear-gradient(90deg,#ff6b6b,#fff,#7ee08a);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .cf.slow{animation-timing-function:linear}
+  .cf.sway{animation-name:cfsway}
+  @keyframes cfsway{0%{transform:translate(0,0) rotate(0)}25%{transform:translate(calc(var(--dx)*.6),28vh) rotate(calc(var(--rot)*.25))}50%{transform:translate(calc(var(--dx)*-.4),55vh) rotate(calc(var(--rot)*.5))}75%{transform:translate(calc(var(--dx)*.5),82vh) rotate(calc(var(--rot)*.75))}100%{transform:translate(calc(var(--dx)*-.2),110vh) rotate(var(--rot))}}
   .sbhero{position:relative;overflow:hidden;margin:4px 0 12px;padding:16px 14px 14px;border-radius:18px;text-align:center;color:#fff;background:radial-gradient(120% 90% at 50% 0%,#3b2f0b 0%,#14110a 60%,#0b0a07 100%);border:1.5px solid #d4a017;box-shadow:0 6px 20px rgba(212,160,23,.18)}
   .sbhero:before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,215,90,.10) 45%,transparent 60%);pointer-events:none}
   .sbt{font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#f5cd57}
@@ -535,6 +549,7 @@
 <body>
 <header>
   <div class="wrap">
+    <div class="brand" id="brand" role="button" aria-label="Greco Picks"><span class="bl" id="brandL"></span><span class="bt">Greco Picks</span><span class="bl" id="brandR"></span><span class="bv" id="brandVer"></span></div>
     <div class="top">
       <h1 id="hi" style="cursor:pointer">Greco Picks</h1>
       <div class="right">
@@ -785,7 +800,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.28.1';
+  const APP_VERSION = '2.29.0';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -881,7 +896,7 @@
     spin(true); if(busy) document.body.classList.add('busy');
     sentN=pushReady&&!isDesktop?pushStatus():'';   // computers don't report (keeps the phone's status)
     return api('state', {wk: wk||'', v: APP_VERSION, d: deviceLabel(), n: sentN})
-      .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); setTimeout(maybeAvIntro,900); linkUser(); setTimeout(dailyLinkCheck,4000); if(openRecapFromLink()) return; setTimeout(party,400); } })
+      .then(s=>{ if(!pending){ state=s; save(); noteNames(s.players); render(); syncAvatars(s.players); setTimeout(maybeAvIntro,900); linkUser(); setTimeout(dailyLinkCheck,4000); if(openRecapFromLink()) return; setTimeout(()=>{ const h=holidayFx(); setTimeout(party,h?7000:0); },400); } })
       .catch(e=>{ if(!state) showMsg(e.message); else toast(e.message); })
       .finally(()=>{ spin(false); document.body.classList.remove('busy'); });
   }
@@ -1565,6 +1580,47 @@
       document.body.appendChild(el); setTimeout(()=>el.remove(),5000);
     }
   }
+  // ---------- Holidays: Thanksgiving week and Christmas week ----------
+  // The header gets a themed edge and emoji around the title. Leaves / snow fall once on the first open of the week,
+  // and once more on the day itself. Tap the title to see it again.
+  function holidayNow(d){
+    try{ const q=new URLSearchParams(location.search).get('holiday'); if(q==='thanks'||q==='xmas') return {k:q,day:true,id:q+'-test'}; if(q==='none') return null; }catch(e){}
+    d=d||new Date(); const y=d.getFullYear(), day0=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime(), t=day0(d);
+    const nov1=new Date(y,10,1), tg=new Date(y,10,1+((4-nov1.getDay()+7)%7)+21);   // 4th Thursday of November
+    if(t>=day0(tg)-3*864e5&&t<=day0(tg)+3*864e5) return {k:'thanks',day:t===day0(tg),id:'thanks'+y};
+    const xm=new Date(y,11,25); if(t>=day0(xm)-6*864e5&&t<=day0(xm)+1*864e5) return {k:'xmas',day:t===day0(xm),id:'xmas'+y};
+    return null;
+  }
+  const HOL_FX={thanks:['🍂','🍁','🍂','🍃','🍁','🦃'],xmas:['❄️','❄️','❄️','❅','🎄','⛄','🎁']};
+  function fall(chars,n){
+    try{ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return; }catch(e){}
+    for(let i=0;i<n;i++){
+      const el=document.createElement('div'); el.className='cf sway'; el.textContent=chars[Math.floor(Math.random()*chars.length)];
+      el.style.fontSize=(16+Math.random()*16)+'px'; el.style.left=(Math.random()*100)+'vw';
+      el.style.setProperty('--dx',(Math.random()*80-40)+'px'); el.style.setProperty('--rot',(Math.random()*360-180)+'deg');
+      el.style.animationDuration=(5+Math.random()*3)+'s'; el.style.animationDelay=(Math.random()*2.5)+'s';
+      document.body.appendChild(el); setTimeout(()=>el.remove(),11000);
+    }
+  }
+  function applyHoliday(){
+    const h=holidayNow();
+    document.body.classList.toggle('hol-thanks',!!h&&h.k==='thanks'); document.body.classList.toggle('hol-xmas',!!h&&h.k==='xmas');
+    document.getElementById('brandL').textContent=h?(h.k==='thanks'?'🦃':'🎄'):'';
+    document.getElementById('brandR').textContent=h?(h.k==='thanks'?'🍂':'❄️'):'';
+    document.getElementById('brandVer').textContent='v'+APP_VERSION;
+    return h;
+  }
+  function holidayFx(){
+    const h=applyHoliday(); if(!h) return false;
+    let seen={}; try{ seen=JSON.parse(localStorage.getItem('nflpicks_hol')||'{}'); }catch(e){}
+    const k=h.day?h.id+'-day':h.id; if(seen[k]&&!/-test$/.test(h.id)) return false;
+    seen[k]=1; try{ localStorage.setItem('nflpicks_hol',JSON.stringify(seen)); }catch(e){}
+    fall(HOL_FX[h.k],h.k==='xmas'?55:45);
+    if(h.day) setTimeout(()=>toast(h.k==='thanks'?'Happy Thanksgiving! 🦃':'Merry Christmas! 🎄'),900);
+    return true;
+  }
+  document.getElementById('brand').addEventListener('click',()=>{ const h=applyHoliday(); if(h) fall(HOL_FX[h.k],h.k==='xmas'?55:45); });
+  applyHoliday();
   function party(){
     if(!state||!state.last||!state.last.between) return;
     let seen={}; try{ seen=JSON.parse(localStorage.getItem('nflpicks_party')||'{}'); }catch(e){}
