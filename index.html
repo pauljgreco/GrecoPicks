@@ -1295,10 +1295,10 @@
     }
 
     // Splits
-    html+=`<div class="sec">Fun stats</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th class="fsh">🎯<small>Upsets</small></th><th class="fsh">🐺<small>Lone wolf</small></th><th class="fsh">🐑<small>With group</small></th></tr></thead><tbody>${
+    html+=`<div class="sec">Breakdown</div><div class="gridwrap"><table class="st"><thead><tr><th class="n">Name</th><th>Upsets</th><th>Only one right</th><th>With group</th></tr></thead><tbody>${
       P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="n">${av(s.id,'',s.name)}${esc(s.name)}</td><td>${s.ups||'—'}</td><td>${s.lone||'—'}</td><td>${s.withN?Math.round(100*s.withG/s.withN)+'%':'—'}</td></tr>`).join('')
     }</tbody></table></div>
-    <div class="note">🎯 Upsets = correct picks of the team with the worse record going in. 🐺 Lone wolf = the only one (of 3+) to get a game right. 🐑 With group = how often you picked the same team as most of the group.</div>`;
+    <div class="note">Upsets = correct picks of the team with the worse record going in. Only one right = games where you were the only one (of 3+) to get it right. With group = how often you picked the same team as most of the group.</div>`;
     return html;
   }
 
