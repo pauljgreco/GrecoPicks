@@ -429,6 +429,7 @@
   .phoneqr{display:flex;gap:14px;align-items:center;font-size:14px;line-height:1.4;margin:8px 0}
   .phoneqr .qr{flex:none;width:132px;height:132px;background:#fff;border-radius:10px;padding:4px;box-sizing:border-box}
   .phoneqr .qr svg{width:100%;height:100%;display:block}
+  .since{display:block;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap;line-height:1.1}
   /* Admin */
   body.isadmin #hi .hin{display:none}   /* room for the extra button: the admin's header shows just the avatar */
   .adminbtn{position:relative}
@@ -1008,13 +1009,26 @@
     if(!season || histLoading || (hist[season] && !force)) return;
     histLoading=true; spin(true);
     return api('history',{season:season})
-      .then(h=>{ hist[season]=h; noteNames(h.players); if(view==='stats') render(); })
+      .then(h=>{ hist[season]=h; noteNames(h.players); noteJoined(h); if(view==='stats') render(); })
       .catch(e=>toast(e.message))
       .finally(()=>{ histLoading=false; spin(false); });
   }
 
   const wkKey=g=>g.season+'|'+g.type+'|'+g.week;
   const wkOrder=k=>{const [a,b,c]=k.split('|').map(Number); return a*1000+b*100+c;};
+  // Late joiners: the first week someone picked, when it's after the season's first week. Shown as "since Wk 12".
+  const JOINED={};
+  function noteJoined(h){
+    try{
+      const wk={}; h.games.forEach(g=>{ wk[g.id]=wkKey(g); });
+      const reg=Array.from(new Set(h.games.filter(g=>g.type===2).map(wkKey))).sort((a,b)=>wkOrder(a)-wkOrder(b));
+      if(!reg.length) return; const first={};
+      h.picks.forEach(x=>{ const k=wk[x[0]]; if(!k||x[2]==='MISSED') return; if(!first[x[1]]||wkOrder(k)<wkOrder(first[x[1]])) first[x[1]]=k; });
+      Object.keys(first).forEach(id=>{ if(wkOrder(first[id])>wkOrder(reg[0])) JOINED[id]=first[id]; else delete JOINED[id]; });
+    }catch(e){}
+  }
+  const sinceWk=id=>JOINED[id]?'Wk '+JOINED[id].split('|')[2]:'';
+  const sinceTag=id=>JOINED[id]?`<small class="since">since ${esc(sinceWk(id))}</small>`:'';
   const wkName=k=>{const [a,b,c]=k.split('|').map(Number); const n=b===3?({1:'Wild Card',2:'Divisional',3:'Conf. Champ.',5:'Super Bowl'}[c]||('Post Wk '+c)):('Wk '+c); return n;};
   function recPct(r){ const m=String(r||'').split('-').map(Number); if(m.length<2||m.some(isNaN)) return null; const w=m[0],l=m[1],t=m[2]||0,n=w+l+t; return n?(w+t/2)/n:null; }
   const fmtPct=x=>x==null?'—':x.toFixed(3).replace(/^0/,'');
@@ -1117,7 +1131,7 @@
     if(sf.range!=='season') ex.move={};
     const showHw=(sf.range==='season'||sf.range==='reg')&&season!=='all';
     html+=`<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Standings${shareWk?`<button class="sbtn" data-sharest="${esc(shareWk)}">📸 Share</button>`:''}</div><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th>${showHw?'<th title="Weeks won">👑</th><th title="Weeks finished last">💩</th>':''}<th title="Perfect weeks">💯</th></tr></thead><tbody>${
-      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}${moveTxt(ex.move[s.id])}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}</td><td>${s.W}-${s.L}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
+      P.map(s=>`<tr class="${s.id===me?'me':''}"><td class="rk">${esc(s.rank)}${moveTxt(ex.move[s.id])}</td><td class="n pname" data-prof="${esc(s.id)}">${av(s.id,'',s.name,badgeOf(s.id))}${nmTeam(s.id,s.name,anyTeam(P.map(q=>q.id)))}</td><td>${s.W}-${s.L}${sinceTag(s.id)}</td><td>${fmtPct(s.pct)}</td>${showHw?`<td>${ex.crowns[s.id]||'—'}</td><td>${ex.poops[s.id]||'—'}</td>`:''}<td>${s.perfect||'—'}</td></tr>`).join('')
     }</tbody></table></div>${Object.keys(ex.move).length||showHw?`<div class="note">${Object.keys(ex.move).length?'▲▼ = change in rank since last week · ':''}${showHw?'👑 = weeks won · 💩 = weeks finished last · ':''}💯 = perfect weeks</div>`:'<div class="note">💯 = perfect weeks</div>'}`;
 
     // Week by week
@@ -1259,7 +1273,7 @@
     Array.from(new Set(h.games.map(wkKey))).filter(k=>wkOrder(k)<=wkOrder(wk)&&k.split('|')[0]===wk.split('|')[0]&&fin[k]===((h.weekGames||{})[k]||wsz[k])).forEach(k=>{
       const kg=h.games.filter(g=>wkKey(g)===k); ids.forEach(id=>{ const all=kg.every(g=>((by[g.id]||{})[id]||{}).r==='W'); if(all&&kg.length) perf[id]++; }); });
     if(sd.seRows.length) html+=`<h3>${esc(sd.season)} season, through ${esc(label)}</h3><div class="gridwrap"><table class="st"><thead><tr><th class="rk">#</th><th class="n">Name</th><th>W-L</th><th>Pct</th><th>👑</th><th>💩</th><th>💯</th></tr></thead><tbody>${
-      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}${moveTxt(x.move)}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name,anyTeam(sd.seRows.map(q=>q.id)))}</td><td>${x.W}-${x.L}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
+      sd.seRows.map(x=>`<tr class="${x.id===me?'me':''}"><td class="rk">${x.rank}${moveTxt(x.move)}</td><td class="n">${av(x.id,'',x.name)}${nmTeam(x.id,x.id===me?'You':x.name,anyTeam(sd.seRows.map(q=>q.id)))}</td><td>${x.W}-${x.L}${sinceTag(x.id)}</td><td>${fmtPct(x.pct)}</td><td>${x.c||'—'}</td><td>${x.p||'—'}</td><td>${perf[x.id]||'—'}</td></tr>`).join('')
     }</tbody></table></div>`;
     // notable (only what happened, everyone involved)
     const only=[], none=[]; let all=0, allN=0;
@@ -1544,7 +1558,7 @@
     if(timing) add(`<div class="kick">Your pick timing</div><div class="emo pop">${timing.e}</div><div class="mid">${esc(timing.t)}</div><div class="sub">${esc(timing.d)}</div>`);
     add(`<div class="kick">Your picking style</div><div class="emo pop">${persona.e}</div><div class="mid">${esc(persona.t)}</div><div class="sub">${esc(persona.d)}</div>`);
     const summary=[['Record',W+'-'+L],['Rank',rank&&ranked.length>1?'#'+rank+' of '+ranked.length:'—'],['Best week',best?wkName(best.k)+' '+best.w.W+'-'+best.w.L:'—'],['Perfect weeks',String(perfectWks)],['Ride or die',ride?ride[1].name:'—'],['Upsets',String(ups)],['Pick twin',ag.length?names[ag[0].id]:'—'],['Style',persona.t]];
-    add(`<div class="kick">${esc(season)} Wrapped · ${esc(state.me.name)}</div><div class="sum pop">${summary.map(([a,b])=>`<div><small>${esc(a)}</small><b>${esc(b)}</b></div>`).join('')}</div><button class="wbtn" data-wshare="1">Share</button>`);
+    add(`<div class="kick">${esc(season)} Wrapped · ${esc(state.me.name)}${JOINED[me]?' · since Week '+esc(JOINED[me].split('|')[2]):''}</div><div class="sum pop">${summary.map(([a,b])=>`<div><small>${esc(a)}</small><b>${esc(b)}</b></div>`).join('')}</div><button class="wbtn" data-wshare="1">Share</button>`);
     const shareText=`My ${season} Greco Picks Wrapped 🏈\n`+summary.map(([a,b])=>a+': '+b).join('\n');
     return {slides:slides.map((html,i)=>({html,bg:bgs[i%bgs.length]})), shareText};
   }
@@ -2213,7 +2227,7 @@
       </div>
       <div class="pbtns"><button class="sbtn" id="pCancel">Cancel</button><button class="nbtn" id="pSave">Save</button></div>`
       :`<div class="phero">${av(id,'xl',p.name,badgeOf(id))}
-        <div class="pnm">${esc(p.name)}</div>${p.team?`<div class="ptm">${esc(p.team)}</div>`:''}
+        <div class="pnm">${esc(p.name)}</div>${p.team?`<div class="ptm">${esc(p.team)}</div>`:''}${JOINED[id]?`<div class="ptm" style="font-size:13px">Joined in Week ${esc(JOINED[id].split('|')[2])}</div>`:''}
         ${me?`<div class="pbtns"><button class="sbtn" id="pEdit">✏️ Edit profile</button><button class="sbtn" id="pShare">↗ Share</button></div>`:''}
       </div>`;
     document.getElementById('pBody').innerHTML=hero+(me&&edit?'':`
@@ -2808,7 +2822,12 @@
   } else if(!KEY){
     showMsg('Open your personal link once to sign in.<br>Ask Paul for it if you don\'t have it.');
   } else {
-    if(params.get('join')){ try{ const u=new URL(location.href); u.searchParams.delete('join'); history.replaceState(null,'',u.pathname+(u.search||'')); }catch(e){} setTimeout(()=>toast('You\'re already in Greco Picks on this phone.'),1500); }
+    if(/^[A-Za-z0-9]{6}$/.test(params.get('join')||'')){
+      const code=params.get('join').toUpperCase();
+      try{ const u=new URL(location.href); u.searchParams.delete('join'); history.replaceState(null,'',u.pathname+(u.search||'')); }catch(e){}
+      // Already playing on this phone: add you to that group instead of making a second you.
+      api('joinme',{code}).then(r=>{ if(r.added){ toast('🎉 You\'re in the '+r.group+' group too!'); load(state&&state.selected,false); } else if(r.already) toast('You\'re already in the '+r.group+' group.'); else toast(r.message||'That invite link isn\'t active anymore.'); }).catch(e=>toast(e.message));
+    }
     try{ const c=localStorage.getItem(CACHE_KEY); if(c){ state=JSON.parse(c); state.weeks=state.weeks||[]; render(); } }catch(e){}
     load('', false);
   }

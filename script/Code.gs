@@ -284,6 +284,7 @@ function api_(p) {
     else if (p.api === 'invites') data = invitesList_(p.k);
     else if (p.api === 'joininfo') data = joinInfo_(p.code);
     else if (p.api === 'join') data = join_(p.code, p.name, p.team);
+    else if (p.api === 'joinme') data = joinExisting_(p.k, p.code);
     else if (p.api === 'request') data = requestAdd_(p.k, p.name, p.note);
     else if (p.api === 'resolve') data = resolveRequest_(p.k, p.id, p.action, p.name, p.groups);
     else throw new Error('Unknown request.');
@@ -1504,6 +1505,27 @@ function splitList_(v) {
 /** "Greco" -> "Greco group" (left alone if the name already ends in "group"). */
 function groupPhrase_(g) { return /group$/i.test(g) ? g : g + ' group'; }
 
+/** Someone already playing taps an invite link: add that group to their groups (no second account). */
+function joinExisting_(key, code) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  const x = invRows_().find(r => r.code === String(code || '').toUpperCase());
+  if (!x || !x.live) return { added: false, message: 'That invite link isn\'t active anymore. Ask ' + adminName_() + ' for a new one.' };
+  if (me.isAdmin) return { already: true, group: x.group };
+  const meP = players_().find(p => p.id === me.id);
+  if (meP.groups.some(g => g.toLowerCase() === x.group.toLowerCase())) return { already: true, group: x.group };
+  const sh = playersSheet_(), vals = sh.getDataRange().getValues();
+  for (let i = 1; i < vals.length; i++) {
+    if (String(vals[i][0]).trim().toUpperCase() !== me.id) continue;
+    sh.getRange(i + 1, 10).setValue(meP.groups.concat([x.group]).join(', '));
+    break;
+  }
+  PLAYERS_ = null;
+  invSheet_().getRange(x.row, 6).setValue(x.uses + 1);
+  try { sendPush_([adminId_()], '🎉 ' + meP.name + ' joined ' + x.group, 'They were already playing, so they were added to the ' + x.group + ' group (no new account).', ''); } catch (e) { }
+  return { added: true, group: x.group };
+}
+
 function adminName_() { return (players_().find(p => p.id === adminId_()) || { name: 'Paul' }).name; }
 
 function adminId_() { return (settings_().AdminPlayer || 'P1').toUpperCase(); }
@@ -2046,8 +2068,10 @@ function notifications_(nowMs) {
     roster.filter(p => p.results).forEach(p => {
       const b = board.find(x => x.id === p.id);
       if (!b || b.week === '0-0') return;
-      const group = p.id === adminId_() ? '' : (p.groups[0] || null);
-      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + leadLine(group, p) + ' Tap to see your recap.', '?recap=' + encodeURIComponent(wk));
+      // One leader line per group they're in (up to 3); the admin gets everyone; no group = others with no group.
+      const gs = p.id === adminId_() ? [''] : (p.groups.length ? p.groups.slice(0, 3) : [null]);
+      const lines = gs.map(g => leadLine(g, p)).filter(Boolean);
+      sendPush_([p.id], weekLabel_(type, week) + ' results', 'You went ' + b.week + '. ' + lines.join(' ') + ' Tap to see your recap.', '?recap=' + encodeURIComponent(wk));
     });
     markSent_(sent, key);
   });
