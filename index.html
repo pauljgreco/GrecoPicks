@@ -807,7 +807,7 @@
 
 <script>
   // ---------- Who is this? (key comes from the personal link, then is remembered) ----------
-  const APP_VERSION = '2.29.0';
+  const APP_VERSION = '2.29.1';
   const params = new URLSearchParams(location.search);
   const urlKey = (params.get('k') || '').toLowerCase();
   let KEY = '';
@@ -1615,6 +1615,11 @@
     document.getElementById('brandL').textContent=h?(h.k==='thanks'?'🦃':'🎄'):'🏈';
     document.getElementById('brandR').textContent=h?(h.k==='thanks'?'🍂':'❄️'):'';
     document.getElementById('brandVer').textContent='v'+APP_VERSION;
+    // the refresh ball and the phone's status bar follow the holiday too
+    const ball=document.querySelector('#ptr .ball span'); if(ball) ball.textContent=h?(h.k==='thanks'?'🦃':'⛄'):'🏈';
+    const meta=document.querySelector('meta[name=theme-color]');
+    if(meta){ if(!meta.dataset.base) meta.dataset.base=meta.getAttribute('content')||'#0b1f3a';
+      meta.setAttribute('content',h?(h.k==='thanks'?'#4a1a06':'#0b3d1f'):meta.dataset.base); }
     return h;
   }
   function holidayFx(){
@@ -2602,7 +2607,8 @@
     const t=THEMES.find(x=>x.id===id), meta=document.querySelector('meta[name=theme-color]');
     setTeamVars(t||null);
     try{ if(t){ localStorage.setItem('nflpicks_tteam',t.id); localStorage.setItem('nflpicks_tvars',JSON.stringify({bar:t.bar,al:t.al,ol:t.ol,ad:t.ad,od:t.od,ink:t.ink||''})); } else { localStorage.removeItem('nflpicks_tteam'); localStorage.removeItem('nflpicks_tvars'); } }catch(e){}
-    if(meta) meta.setAttribute('content',t?(t.ink||t.bar):'#0b1f3a');
+    if(meta){ meta.setAttribute('content',t?(t.ink||t.bar):'#0b1f3a'); meta.dataset.base=meta.getAttribute('content'); }
+    try{ applyHoliday(); }catch(e){}
     teamUI();
   }
   function teamUI(){
