@@ -129,6 +129,7 @@ function refreshGames() {
     try { openNextWeekEarly_(); } catch (e) { Logger.log('Next week not loaded yet: ' + e.message); }
     gradeAndRecord_();
     try { sbTick_(); } catch (e) { Logger.log('Super Bowl props: ' + e.message); }
+    try { storeChamps_(); } catch (e) { Logger.log('Champs: ' + e.message); }
     try { notifications_(); } catch (e) { Logger.log('Notifications skipped: ' + e.message); }
     try { archiveOldSeasons_(); } catch (e) { Logger.log('Archive skipped: ' + e.message); }
   } finally {
@@ -455,6 +456,7 @@ function getState(key, wk) {
     crowns: crowns_(games, picks.vals, roster, groups, me.isAdmin),
     tiebreak: tiebreakView_(weekGames, sel, me, roster, now),
     champs: champs_(games, picks.vals, roster, groups, me.isAdmin),
+    reign: reignView_(games, groups, me.isAdmin),
     props: propsView_(games, me, roster, now),
     last: lastWeekFor_(games, picks.vals, me, roster),
     version: SCRIPT_VERSION,
@@ -621,6 +623,8 @@ function history_(key, season) {
       awayPre: g.awayRecordPre, homePre: g.homeRecordPre, awayLogo: g.awayLogo, homeLogo: g.homeLogo,
     })),
     picks: pickRows,
+    props: want === 'all' ? null : propsHistory_(games.filter(g => g.season === want), me),
+    champs: want === 'all' ? null : champsHistory_(want, me),
     // every week's total game count (including games not played yet), so the app knows which weeks are finished
     weekGames: (() => { const o = {}; games.filter(g => want === 'all' || g.season === want).forEach(g => { const k = weekKey_(g); o[k] = (o[k] || 0) + 1; }); return o; })(),
   };
@@ -2454,4 +2458,62 @@ function sbTick_() {
   }
   if (g.status === 'final') auto.complete = true;
   sbSave_('SB_AUTO_' + g.season, auto);
+}
+
+// ---------- Reigning champ ----------
+// Once the regular season is final, each group's champ is saved (CHAMPS_<season>), so it survives the summer archive.
+// The reigning (most recent) champ gets a gold ring on their picture all the next season, and keeps the 🏆 badge
+// until the next season's Week 1 is final. The playoff champ doesn't carry over.
+function storeChamps_() {
+  const games = readGames_(), reg = games.filter(g => g.seasonType === 2);
+  if (!reg.length) return;
+  const season = Math.max.apply(null, reg.map(g => g.season));
+  if (!reg.filter(g => g.season === season).every(g => g.status === 'final')) return;
+  const roster = players_().filter(p => p.active), picks = readPicks_();
+  const out = { season: season, g: {} };
+  [''].concat(groupNames_()).forEach(grp => {
+    const both = champFor_(games, picks.vals, grp ? roster.filter(p => inGroup_(p, grp)) : roster), c = both.reg;
+    if (c) out.g[grp] = { ids: c.ids, names: c.names, rec: c.rec };
+    if (both.post) (out.post = out.post || {})[grp] = { ids: both.post.ids, names: both.post.names, rec: both.post.rec };
+  });
+  const key = 'CHAMPS_' + season, val = JSON.stringify(out);
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty(key) !== val) props.setProperty(key, val);
+}
+
+function reignView_(games, groups, isAdmin) {
+  const props = PropertiesService.getScriptProperties();
+  const seasons = props.getKeys().map(k => (/^CHAMPS_(\d{4})$/.exec(k) || [])[1]).filter(Boolean).map(Number).sort((a, b) => b - a);
+  if (!seasons.length) return null;
+  let c; try { c = JSON.parse(props.getProperty('CHAMPS_' + seasons[0])); } catch (e) { return null; }
+  // 🏆 stays on their picture until the next season's Week 1 is final
+  const wk1 = games.filter(g => g.season === c.season + 1 && g.seasonType === 2 && g.week === 1);
+  const badge = !(wk1.length && wk1.every(g => g.status === 'final'));
+  const g = {};
+  (isAdmin ? [''] : []).concat(groups).forEach(k => { if (c.g[k]) g[k] = { ids: c.g[k].ids, names: c.g[k].names, rec: c.g[k].rec }; });
+  return { season: c.season, badge: badge, g: g };
+}
+
+/** A past (or current) season's Super Bowl props, for Stats: everyone you can see, their answers and scores. */
+function propsHistory_(seasonGames, me) {
+  const g = sbGame_(seasonGames);
+  if (!g || Date.now() < g.kickoff.getTime()) return null;
+  const all = readProps_(g.season);
+  if (!Object.keys(all).length) return null;
+  const roster = players_().filter(p => all[p.id] && canSee_(me, p));
+  const board = propsBoard_(g, roster), conf = sbConf_(g.season), A = sbAnswers_(g);
+  return {
+    season: g.season, gameId: g.id, locked: true, status: g.status, line: A.line, answers: A.answers, mvp: conf.mvp,
+    roster: sbJson_('SB_ROSTER_' + g.season).list || [],
+    away: { abbr: g.awayAbbr, name: g.away, logo: g.awayLogo, score: g.awayScore }, home: { abbr: g.homeAbbr, name: g.home, logo: g.homeLogo, score: g.homeScore },
+    all: roster.map(p => ({ id: p.id, name: p.name, a: all[p.id], score: board[p.id].score, off: board[p.id].off })),
+  };
+}
+/** Saved champs for a season (regular season + playoffs), limited to your groups. */
+function champsHistory_(season, me) {
+  let c; try { c = JSON.parse(PropertiesService.getScriptProperties().getProperty('CHAMPS_' + season) || 'null'); } catch (e) { c = null; }
+  if (!c) return null;
+  const out = {};
+  (me.isAdmin ? [''] : []).concat(myGroups_(me)).forEach(k => { out[k] = { season: c.season, reg: (c.g || {})[k] || null, post: (c.post || {})[k] || null }; });
+  return out;
 }
