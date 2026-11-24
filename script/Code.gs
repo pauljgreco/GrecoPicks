@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.27.0';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.28.0';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -128,6 +128,7 @@ function refreshGames() {
     });
     try { openNextWeekEarly_(); } catch (e) { Logger.log('Next week not loaded yet: ' + e.message); }
     gradeAndRecord_();
+    try { sbTick_(); } catch (e) { Logger.log('Super Bowl props: ' + e.message); }
     try { notifications_(); } catch (e) { Logger.log('Notifications skipped: ' + e.message); }
     try { archiveOldSeasons_(); } catch (e) { Logger.log('Archive skipped: ' + e.message); }
   } finally {
@@ -275,6 +276,9 @@ function api_(p) {
     else if (p.api === 'nudge') data = nudge_(p.k, p.pl);
     else if (p.api === 'tiebreak') data = setTiebreak_(p.k, p.wk, p.guess);
     else if (p.api === 'lock') data = lockPicks_(p.k, p.g);
+    else if (p.api === 'props') data = setProps_(p.k, p.a);
+    else if (p.api === 'sbadmin') data = sbAdmin_(p.k, p.a);
+    else if (p.api === 'sbroster') data = sbRoster_(p.k);
     else if (p.api === 'updnotice') data = updateNotice_(p.k);
     else if (p.api === 'pushok') data = pushFixed_(p.k);
     else if (p.api === 'avatars') data = avatars_(p.k);
@@ -450,6 +454,8 @@ function getState(key, wk) {
     crown: crown_(games, picks.vals, roster),
     crowns: crowns_(games, picks.vals, roster, groups, me.isAdmin),
     tiebreak: tiebreakView_(weekGames, sel, me, roster, now),
+    champs: champs_(games, picks.vals, roster, groups, me.isAdmin),
+    props: propsView_(games, me, roster, now),
     last: lastWeekFor_(games, picks.vals, me, roster),
     version: SCRIPT_VERSION,
   };
@@ -620,7 +626,7 @@ function history_(key, season) {
   };
 }
 
-/** Ranked by season win % (late joiners aren't penalized), then total wins. */
+/** Ranked by season win % (late joiners aren't penalized), then total wins. Regular season and playoffs are counted separately. */
 function leaderboard_(vals, parts, roster) {
   const t = {};
   roster.forEach(p => { t[p.id] = { id: p.id, name: p.name, wW: 0, wL: 0, sW: 0, sL: 0 }; });
@@ -629,6 +635,7 @@ function leaderboard_(vals, parts, roster) {
     if (res !== 'W' && res !== 'L') return;
     const x = t[String(r[P.Player]).toUpperCase()];
     if (!x || String(r[P.Season]) !== parts[0]) return;
+    if (parts[1] && String(r[P.SeasonType]) !== String(parts[1])) return;   // the playoffs are their own mini-season
     x['s' + res]++;
     if (String(r[P.SeasonType]) === parts[1] && String(r[P.Week]) === parts[2]) x['w' + res]++;
   });
@@ -1615,6 +1622,7 @@ function deletePerson_(key, playerId) {
     };
     const picks = dropRows(ss_().getSheetByName(TABS.PICKS), P.Player) + dropRows(ss_().getSheetByName(TABS.PICKS_ARCH), P.Player);
     dropRows(ss_().getSheetByName(TABS.TIEBREAK), 1);
+    dropRows(ss_().getSheetByName('Props'), 1);
     dropRows(playersSheet_(), 0);
     PLAYERS_ = null;
     try { rebuildRecords_(readPicks_().vals); } catch (e) { Logger.log('rebuildRecords after delete: ' + e.message); }
@@ -1657,6 +1665,7 @@ function crown_(games, pickVals, roster) {
     .sort((a, b) => { const x = a.split('|').map(Number), y = b.split('|').map(Number); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; });
   if (!done.length) return null;
   const parts = done[0].split('|');
+  if (parts[1] === '3') return null;   // no 👑/💩/💯 in the playoffs
   const board = leaderboard_(pickVals, parts, roster);
   const w = board.map(b => ({ id: b.id, name: b.name, rec: b.week, wins: Number(b.week.split('-')[0]) }));
   const top = Math.max.apply(null, w.map(x => x.wins).concat([0]));
@@ -1851,7 +1860,7 @@ function milestones_(games, picks, roster, now) {
   roster.forEach(p => {
     const st = stats[p.id];
     [50, 100, 250, 500, 1000].forEach(n => { if (st.W >= n) sends.push([p, 'M|' + p.id + '|W|' + n, n + ' correct picks! 🎯', 'You just hit ' + n + ' correct picks all-time in Greco Picks.']); });
-    if (Object.keys(st.weeks).some(k => st.weeks[k].W === weekSize[k] && st.weeks[k].n === weekSize[k] && weekSize[k] >= 4))
+    if (Object.keys(st.weeks).some(k => st.weeks[k].W === weekSize[k] && st.weeks[k].n === weekSize[k] && weekSize[k] >= 4 && k.split('|')[1] === '2'))   // regular-season weeks only
       sends.push([p, 'M|' + p.id + '|perfect', 'Your first perfect week! 🎉', 'Every single pick right. Legendary.']);
     [10, 25, 50].forEach(n => { if (st.ups >= n) sends.push([p, 'M|' + p.id + '|U|' + curSeason + '|' + n, n + ' upsets called 🎯', 'You\'ve called ' + n + ' upsets this season.']); });
   });
@@ -1984,12 +1993,18 @@ function notifications_(nowMs) {
     const when = fmtTime_(new Date(Number(t)));
     const tbG = ws.find(g => tieGame_(games.filter(x => weekKey_(x) === weekKey_(g))) === g);
     const tbAll = tbG ? readTiebreaks_() : {};
+    const isSb = tbG && tbG.seasonType === 3 && tbG.week === 5;
+    const sbProps = isSb ? readProps_(tbG.season) : {};
     roster.filter(p => p.remind).forEach(p => {
       const open = ws.filter(g => !picks.map[g.id + '|' + p.id]);
-      const noTb = tbG && tbAll[weekKey_(tbG) + '|' + p.id] === undefined;
+      const noTb = tbG && (isSb ? !propsDone_(sbProps[p.id]) : tbAll[weekKey_(tbG) + '|' + p.id] === undefined);
       if (!open.length && noTb) {
         const dk = 'RT|' + weekKey_(tbG) + '|' + p.id;
-        if (sent.indexOf(dk) < 0) { sendPush_([p.id], '🎯 Tiebreaker needed', 'Guess the total points for ' + tbG.away + ' @ ' + tbG.home + ' before ' + when.time + '.'); markSent_(sent, dk); }
+        if (sent.indexOf(dk) < 0) {
+          if (isSb) sendPush_([p.id], '🏈 Finish your Super Bowl props', 'Your props and final-score guess lock at kickoff (' + when.time + ').');
+          else sendPush_([p.id], '🎯 Tiebreaker needed', 'Guess the total points for ' + tbG.away + ' @ ' + tbG.home + ' before ' + when.time + '.');
+          markSent_(sent, dk);
+        }
         return;
       }
       if (!open.length) return;
@@ -2036,7 +2051,8 @@ function notifications_(nowMs) {
       const [, type, week] = cur.split('|');
       // only people who still have games to pick this week
       const ids = roster.filter(p => p.newweek && wkGames.some(g => g.status === 'pre' && !picks.map[g.id + '|' + p.id])).map(p => p.id);
-      sendPush_(ids, weekLabel_(type, week) + ' is up', 'The ' + weekLabel_(type, week) + ' games are ready. Make your picks!');
+      if (type === '3' && week === '5') sendPush_(ids, '🏈 Super Bowl picks and props are open', 'Make your pick, then answer 8 quick props and guess the final score. Everything locks at kickoff.');
+      else sendPush_(ids, weekLabel_(type, week) + ' is up', 'The ' + weekLabel_(type, week) + ' games are ready. Make your picks!');
     }
     PropertiesService.getScriptProperties().setProperty('LAST_NEW_WEEK', cur);
   }
@@ -2053,6 +2069,7 @@ function notifications_(nowMs) {
     if (now - last > 3 * 86400e3) { markSent_(sent, key); return; }   // too old, skip quietly
     const [season, type, week] = wk.split('|');
     const board = leaderboard_(picks.vals, [season, type, week], roster);
+    const regOver = type === '2' && !games.some(g => g.seasonType === 2 && String(g.season) === season && g.status !== 'final');
     // Season lead within each person's own (first) group; the admin and people with no group get everyone.
     const leadFor = {};
     const leadLine = (group, p) => {
@@ -2060,9 +2077,18 @@ function notifications_(nowMs) {
         const gb = group ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => inGroup_(x, group)))
           : group === null ? leaderboard_(picks.vals, [season, type, week], roster.filter(x => !x.groups.length)) : board;   // null = no group: only others with no group
         const top = gb.filter(b => b.rank === 1);
-        leadFor[group] = { top: top, label: group ? 'the ' + groupPhrase_(group) : 'the season' };
+        leadFor[group] = { top: top, label: type === '3' ? (group ? 'the ' + groupPhrase_(group) + ' playoffs' : 'the playoffs') : (group ? 'the ' + groupPhrase_(group) : 'the season') };
+        // last week of the regular season / the Super Bowl: name the champ instead of the leader
+        if (regOver && type === '2') leadFor[group].champ = champFor_(games, picks.vals, group ? roster.filter(x => inGroup_(x, group)) : group === null ? roster.filter(x => !x.groups.length) : roster).reg;
+        if (type === '3' && week === '5') leadFor[group].champ = champFor_(games, picks.vals, group ? roster.filter(x => inGroup_(x, group)) : group === null ? roster.filter(x => !x.groups.length) : roster).post;
       }
       const L = leadFor[group];
+      if (L.champ) {
+        const what = type === '3' ? 'playoff champ' : 'regular-season champ', where = group ? ' of the ' + groupPhrase_(group) : '';
+        const icon = type === '3' ? '🥇 ' : '🏆 ';
+        if (L.champ.ids.indexOf(p.id) >= 0) return icon + (L.champ.ids.length > 1 ? 'You\'re a co-' : 'You\'re the ') + what + where + '!';
+        return icon + L.champ.names.join(' & ') + (L.champ.ids.length > 1 ? ' are co-' + what + 's' : ' is the ' + what) + where + '.';
+      }
       if (!L.top.length) return '';
       if (L.top.length > 1) return 'Tied for the lead in ' + L.label + ' at ' + L.top[0].season + '.';
       if (L.top[0].id === p.id) return 'You lead ' + L.label + ' at ' + L.top[0].season + '!';
@@ -2146,4 +2172,269 @@ function notifications_(nowMs) {
     }
     markSent_(sent, key);
   });
+}
+
+
+// ======================================================================
+// Champions and Super Bowl props
+// ======================================================================
+// The regular season and the playoffs are two separate standings.
+//   🏆 regular-season champ: best record once every regular-season game is final (ties share it).
+//   🥇 playoff champ: best playoff record once the Super Bowl is final; ties go to Super Bowl props, then the final-score guess.
+
+function champs_(games, pickVals, roster, groups, withEveryone) {
+  const out = withEveryone !== false ? { '': champFor_(games, pickVals, roster) } : {};
+  (groups || groupNames_()).forEach(g => { out[g] = champFor_(games, pickVals, roster.filter(p => inGroup_(p, g))); });
+  return out;
+}
+
+function champFor_(games, pickVals, roster) {
+  const reg = games.filter(g => g.seasonType === 2);
+  if (!reg.length) return { reg: null, post: null };
+  const season = Math.max.apply(null, reg.map(g => g.season));
+  const out = { season: season, reg: null, post: null };
+  const regG = reg.filter(g => g.season === season);
+  if (regG.every(g => g.status === 'final')) {
+    const b = leaderboard_(pickVals, [String(season), '2', '0'], roster).filter(x => x.rank === 1);
+    if (b.length) out.reg = { ids: b.map(x => x.id), names: b.map(x => x.name), rec: b[0].season };
+  }
+  const sb = sbGame_(games.filter(g => g.season === season));
+  if (sb && sb.status === 'final') {
+    const rows = leaderboard_(pickVals, [String(season), '3', '0'], roster).filter(x => x.pct >= 0);
+    if (rows.length) {
+      const pv = propsBoard_(sb, roster);
+      const top = Math.max.apply(null, rows.map(x => x.wins));
+      let best = rows.filter(x => x.wins === top);
+      const sc = id => (pv[id] || { score: -1 }).score, off = id => (pv[id] && pv[id].off != null) ? pv[id].off : Infinity;
+      if (best.length > 1) { const m = Math.max.apply(null, best.map(x => sc(x.id))); best = best.filter(x => sc(x.id) === m); }
+      if (best.length > 1) { const m = Math.min.apply(null, best.map(x => off(x.id))); if (m !== Infinity) best = best.filter(x => off(x.id) === m); }
+      out.post = { ids: best.map(x => x.id), names: best.map(x => x.name), rec: best[0].season };
+    }
+  }
+  return out;
+}
+
+// ---------- Super Bowl props ----------
+// Props tab: Season | Player | Answers (JSON) | At. Answers use these keys:
+//   coin H/T · first A/H (away/home scores first) · ftype TD/FG/SF · ou O/U (total points vs the line)
+//   margin 1-3/4-7/8-14/15+ · half A/H/T (halftime leader or tied) · gator (Gatorade color) · mvp (ESPN player id or OTHER)
+//   sa / sh: final-score guess (away / home). Their sum also goes on the Tiebreakers tab.
+// Script properties: SB_CONF_<season> {line, mvp:[{id,n,pos,t}], ans:{...answers you set}}; SB_AUTO_<season> {...answers from ESPN}.
+const SB_Q = ['coin', 'first', 'ftype', 'ou', 'margin', 'half', 'gator', 'mvp'];
+const SB_OPTS = {
+  coin: ['H', 'T'], first: ['A', 'H'], ftype: ['TD', 'FG', 'SF'], ou: ['O', 'U'], margin: ['1-3', '4-7', '8-14', '15+'],
+  half: ['A', 'H', 'T'], gator: ['Orange', 'Yellow', 'Blue', 'Purple', 'Red', 'Green', 'Clear', 'None'],
+};
+
+function sbGame_(games) {
+  return games.filter(g => g.seasonType === 3 && g.week === 5).sort((a, b) => b.season - a.season || a.kickoff - b.kickoff)[0] || null;
+}
+function sbJson_(name) {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(name) || '{}') || {}; } catch (e) { return {}; }
+}
+function sbConf_(season) { const c = sbJson_('SB_CONF_' + season); c.mvp = c.mvp || []; c.ans = c.ans || {}; return c; }
+function sbAuto_(season) { return sbJson_('SB_AUTO_' + season); }
+function sbSave_(name, obj) { PropertiesService.getScriptProperties().setProperty(name, JSON.stringify(obj)); }
+
+let PROPS_ = {};
+function readProps_(season) {
+  if (PROPS_[season]) return PROPS_[season];
+  const sh = ss_().getSheetByName('Props');
+  const o = {};
+  if (sh && sh.getLastRow() > 1) sh.getDataRange().getValues().slice(1).forEach(r => {
+    if (String(r[0]) !== String(season)) return;
+    try { o[String(r[1]).toUpperCase()] = JSON.parse(String(r[2] || '{}')); } catch (e) { /* skip a bad row */ }
+  });
+  PROPS_[season] = o;
+  return o;
+}
+function propsDone_(a) { return !!a && SB_Q.every(q => a[q] !== undefined && a[q] !== '') && a.sa !== undefined && a.sh !== undefined; }
+
+/** The right answers so far: ESPN's (scored automatically), then anything the admin set (wins). */
+function sbAnswers_(g) {
+  const conf = sbConf_(g.season), auto = sbAuto_(g.season), out = {};
+  ['first', 'ftype', 'half'].forEach(q => { if (auto[q]) out[q] = auto[q]; });
+  const line = conf.line != null ? Number(conf.line) : (auto.line != null ? Number(auto.line) : null);
+  if (g.status === 'final') {
+    const a = Number(g.awayScore || 0), h = Number(g.homeScore || 0), total = a + h, m = Math.abs(a - h);
+    if (line != null) out.ou = total > line ? 'O' : total < line ? 'U' : 'P';   // P = landed exactly on the line: nobody gets it
+    out.margin = m <= 3 ? '1-3' : m <= 7 ? '4-7' : m <= 14 ? '8-14' : '15+';
+  }
+  Object.keys(conf.ans).forEach(q => { if (conf.ans[q] !== '' && conf.ans[q] != null) out[q] = conf.ans[q]; });
+  return { answers: out, line: line };
+}
+
+/** Everyone's props score: {id: {score, graded, off}}. off = how far the final-score guess was (only once final). */
+function propsBoard_(g, roster) {
+  const all = readProps_(g.season), ans = sbAnswers_(g).answers, out = {};
+  roster.forEach(p => {
+    const a = all[p.id]; if (!a) return;
+    let score = 0;
+    SB_Q.forEach(q => { if (ans[q] !== undefined && a[q] === ans[q]) score++; });
+    const off = g.status === 'final' && a.sa !== undefined && a.sh !== undefined
+      ? Math.abs(Number(a.sa) - Number(g.awayScore || 0)) + Math.abs(Number(a.sh) - Number(g.homeScore || 0)) : null;
+    out[p.id] = { score: score, off: off };
+  });
+  return out;
+}
+
+/** What the app needs for the Super Bowl props card (null when there's no Super Bowl on the schedule). */
+function propsView_(games, me, roster, now) {
+  const g = sbGame_(games);
+  if (!g) return null;
+  const conf = sbConf_(g.season), all = readProps_(g.season), A = sbAnswers_(g);
+  const locked = now >= g.kickoff.getTime();
+  const board = propsBoard_(g, roster);
+  return {
+    gameId: g.id, season: g.season, week: weekKey_(g), kickoff: g.kickoff.toISOString(), locked: locked, status: g.status,
+    away: { abbr: g.awayAbbr, name: g.away, logo: g.awayLogo, score: g.awayScore }, home: { abbr: g.homeAbbr, name: g.home, logo: g.homeLogo, score: g.homeScore },
+    line: A.line, mvp: conf.mvp,
+    mine: all[me.id] || {},
+    count: roster.filter(p => propsDone_(all[p.id])).length,
+    answers: locked || me.isAdmin ? A.answers : {},
+    auto: Object.keys(sbAuto_(g.season)).filter(k => ['first', 'ftype', 'half'].indexOf(k) >= 0),
+    all: locked ? roster.filter(p => all[p.id]).map(p => ({ id: p.id, name: p.name, a: all[p.id], score: board[p.id].score, off: board[p.id].off })) : [],
+    admin: me.isAdmin ? conf.ans : undefined,
+  };
+}
+
+/** Save some or all of your props (JSON object). Only before kickoff. */
+function setProps_(key, json) {
+  const me = playerForKey_(key);
+  if (!me) throw new Error('This link is no longer valid.');
+  let inp;
+  try { inp = JSON.parse(String(json || '{}')); } catch (e) { throw new Error('Couldn\'t read that.'); }
+  const games = readGames_(), g = sbGame_(games);
+  if (!g) throw new Error('There\'s no Super Bowl on the schedule yet.');
+  if (Date.now() >= g.kickoff.getTime()) throw new Error('The Super Bowl has kicked off. Props are locked.');
+  const conf = sbConf_(g.season);
+  const clean = {};
+  Object.keys(inp || {}).forEach(q => {
+    const v = inp[q];
+    if (v === '' || v == null) { clean[q] = ''; return; }
+    if (SB_OPTS[q]) { if (SB_OPTS[q].indexOf(String(v)) < 0) throw new Error('That answer isn\'t one of the choices.'); clean[q] = String(v); }
+    else if (q === 'mvp') { if (String(v) !== 'OTHER' && !conf.mvp.some(x => String(x.id) === String(v))) throw new Error('Pick a player from the list.'); clean[q] = String(v); }
+    else if (q === 'sa' || q === 'sh') { const n = Math.round(Number(v)); if (!isFinite(n) || n < 0 || n > 99) throw new Error('Scores go from 0 to 99.'); clean[q] = n; }
+  });
+  const sh = ensureSheet_('Props', ['Season', 'Player', 'Answers', 'At']);
+  const vals = sh.getDataRange().getValues();
+  let row = 0, cur = {};
+  for (let i = 1; i < vals.length; i++) if (String(vals[i][0]) === String(g.season) && String(vals[i][1]).toUpperCase() === me.id) { row = i + 1; try { cur = JSON.parse(String(vals[i][2] || '{}')); } catch (e) { cur = {}; } break; }
+  Object.keys(clean).forEach(q => { if (clean[q] === '') delete cur[q]; else cur[q] = clean[q]; });
+  if (row) sh.getRange(row, 3, 1, 2).setValues([[JSON.stringify(cur), new Date()]]);
+  else sh.appendRow([g.season, me.id, JSON.stringify(cur), new Date()]);
+  PROPS_ = {};
+  // the final-score guess doubles as the week's tiebreaker (total points)
+  if (cur.sa !== undefined && cur.sh !== undefined && ('sa' in clean || 'sh' in clean)) {
+    try { setTiebreak_(key, weekKey_(g), Number(cur.sa) + Number(cur.sh)); } catch (e) { Logger.log('Props tiebreak: ' + e.message); }
+  }
+  return propsView_(games, me, players_().filter(p => p.active && canSee_(me, p)), Date.now());
+}
+
+/** Admin: set answers (coin, gator, mvp, or fix any other), the over/under line, or the MVP list. */
+function sbAdmin_(key, json) {
+  const me = requireAdmin_(key) || playerForKey_(key);
+  let inp;
+  try { inp = JSON.parse(String(json || '{}')); } catch (e) { throw new Error('Couldn\'t read that.'); }
+  const games = readGames_(), g = sbGame_(games);
+  if (!g) throw new Error('There\'s no Super Bowl on the schedule yet.');
+  const conf = sbConf_(g.season);
+  if (inp.ans) Object.keys(inp.ans).forEach(q => {
+    const v = inp.ans[q];
+    if (SB_Q.indexOf(q) < 0) return;
+    if (v === '' || v == null) { delete conf.ans[q]; return; }
+    if (SB_OPTS[q] && SB_OPTS[q].concat(q === 'ou' ? ['P'] : []).indexOf(String(v)) < 0) throw new Error('That answer isn\'t one of the choices.');
+    conf.ans[q] = String(v);
+  });
+  if ('line' in inp) {
+    const n = Number(inp.line);
+    if (inp.line === '' || inp.line == null) delete conf.line;
+    else if (!isFinite(n) || n < 10 || n > 99) throw new Error('The line should be between 10 and 99.');
+    else conf.line = Math.round(n * 2) / 2;
+  }
+  if (Array.isArray(inp.mvp)) {
+    conf.mvp = inp.mvp.slice(0, 40).map(x => ({ id: String(x.id).replace(/\D/g, '').slice(0, 12), n: String(x.n || '').slice(0, 40), pos: String(x.pos || '').slice(0, 4), t: String(x.t || '').toUpperCase().slice(0, 3) }))
+      .filter(x => x.id && x.n && (x.t === g.awayAbbr || x.t === g.homeAbbr));
+  }
+  sbSave_('SB_CONF_' + g.season, conf);
+  return propsView_(games, me, players_().filter(p => p.active), Date.now());
+}
+
+function espnJson_(url) {
+  const r = UrlFetchApp.fetch(url, FETCH_OPTS);
+  if (r.getResponseCode() !== 200) throw new Error(r.getResponseCode() + ' ' + url);
+  return JSON.parse(r.getContentText());
+}
+function sbSummary_(g) {
+  const urls = ['https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=' + g.id,
+    'https://site.web.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=' + g.id];
+  let err;
+  for (const u of urls) { try { return espnJson_(u); } catch (e) { err = e; } }
+  throw err;
+}
+
+/** Admin: both teams' rosters from ESPN, for editing the MVP list. */
+function sbRoster_(key) {
+  requireAdmin_(key);
+  const g = sbGame_(readGames_());
+  if (!g) throw new Error('There\'s no Super Bowl on the schedule yet.');
+  const one = abbr => {
+    const d = espnJson_('https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/' + abbr.toLowerCase() + '/roster');
+    const out = [];
+    (d.athletes || []).forEach(grp => (grp.items || []).forEach(a => out.push({ id: String(a.id), n: a.displayName || a.fullName || '', pos: ((a.position || {}).abbreviation) || '', t: abbr })));
+    return out;
+  };
+  return { away: one(g.awayAbbr), home: one(g.homeAbbr) };
+}
+
+/** Season leaders from ESPN, used to build the MVP shortlist (about 10 per team). */
+function sbLeaders_(data, g) {
+  const byTeam = {};
+  (data.leaders || []).forEach(t => {
+    const abbr = String(((t.team || {}).abbreviation) || '').toUpperCase();
+    if (abbr !== g.awayAbbr && abbr !== g.homeAbbr) return;
+    const list = byTeam[abbr] = byTeam[abbr] || [];
+    (t.leaders || []).forEach(cat => (cat.leaders || []).slice(0, 2).forEach(l => {
+      const a = l.athlete || {}; if (!a.id || list.some(x => x.id === String(a.id))) return;
+      list.push({ id: String(a.id), n: a.displayName || a.shortName || '', pos: ((a.position || {}).abbreviation) || '', t: abbr });
+    }));
+  });
+  const order = ['QB', 'RB', 'WR', 'TE'];
+  const sortIt = l => l.sort((a, b) => { const x = order.indexOf(a.pos), y = order.indexOf(b.pos); return (x < 0 ? 9 : x) - (y < 0 ? 9 : y); }).slice(0, 10);
+  return sortIt(byTeam[g.awayAbbr] || []).concat(sortIt(byTeam[g.homeAbbr] || []));
+}
+
+/** Runs with every refresh: fills the MVP list and line before the game, and scores the ESPN props during/after it. */
+function sbTick_() {
+  const g = sbGame_(readGames_());
+  if (!g) return;
+  const conf = sbConf_(g.season), auto = sbAuto_(g.season);
+  const cache = CacheService.getScriptCache();
+  if (g.status === 'pre') {
+    if ((conf.mvp.length && auto.line != null) || cache.get('sb_pre')) return;
+    cache.put('sb_pre', '1', 3 * 3600);   // at most every 3 hours before the game
+    const d = sbSummary_(g);
+    const pc = (d.pickcenter || [])[0] || {};
+    if (pc.overUnder != null && isFinite(Number(pc.overUnder))) { auto.line = Number(pc.overUnder); sbSave_('SB_AUTO_' + g.season, auto); }
+    if (!conf.mvp.length) { const l = sbLeaders_(d, g); if (l.length) { conf.mvp = l; sbSave_('SB_CONF_' + g.season, conf); } }
+    return;
+  }
+  if (auto.complete) return;
+  const d = sbSummary_(g);
+  const sp = (d.scoringPlays || []).slice();
+  if (sp.length) {
+    const f = sp[0], a = Number(f.awayScore || 0), h = Number(f.homeScore || 0), pts = a + h;
+    auto.first = a > 0 ? 'A' : 'H';
+    const txt = String(((f.type || {}).text) || f.text || '');
+    auto.ftype = pts === 2 || /safety/i.test(txt) ? 'SF' : pts === 3 || /field goal/i.test(txt) ? 'FG' : 'TD';
+  }
+  const comp = ((d.header || {}).competitions || [])[0] || {};
+  const period = Number(((comp.status || {}).period) || 0);
+  if (period >= 3 || g.status === 'final') {
+    const half = side => { const c = (comp.competitors || []).find(x => x.homeAway === side) || {}; return (c.linescores || []).slice(0, 2).reduce((s, x) => s + Number(x.displayValue != null ? x.displayValue : (x.value || 0)), 0); };
+    const A = half('away'), H = half('home');
+    if (comp.competitors) auto.half = A > H ? 'A' : H > A ? 'H' : 'T';
+  }
+  if (g.status === 'final') auto.complete = true;
+  sbSave_('SB_AUTO_' + g.season, auto);
 }
