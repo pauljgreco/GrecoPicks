@@ -24,7 +24,7 @@
  * Put the app's address in AppURL on the Settings tab and showLinks will use it.
  */
 
-const SCRIPT_VERSION = '2.26.1';   // shown in the app (⚙). Use the same number in the deployment description.
+const SCRIPT_VERSION = '2.26.2';   // shown in the app (⚙). Use the same number in the deployment description.
 const TZ = 'America/New_York';
 const TABS = { SETTINGS: 'Settings', PLAYERS: 'Players', GAMES: 'Games', PICKS: 'Picks', RECORDS: 'Records', PREVIEW: 'Preview',
   TIEBREAK: 'Tiebreakers', GAMES_ARCH: 'Games Archive', PICKS_ARCH: 'Picks Archive' };
@@ -2074,11 +2074,11 @@ function notifications_(nowMs) {
         const items = [];
         const seen = {};
         found.forEach(f => {
-          if (seen[f.game.id] || mine.indexOf(f.grp) < 0) return;   // one line per game, in their first group where it happened
-          const grp = mine.find(x => found.some(y => y.game.id === f.game.id && y.grp === x));
-          const it = found.find(y => y.game.id === f.game.id && y.grp === grp);
-          seen[f.game.id] = 1;
-          items.push(it);
+          // every group they're in where it happened (labeled), not just the first one
+          const k = f.game.id + '|' + f.grp;
+          if (seen[k] || mine.indexOf(f.grp) < 0) return;
+          seen[k] = 1;
+          items.push(f);
         });
         if (!items.length) return;
         const oneGroup = items.every(x => x.grp === items[0].grp);
@@ -2090,7 +2090,8 @@ function notifications_(nowMs) {
             ? 'You were the only one in the ' + groupPhrase_(x.grp) + ' to pick ' + x.team + '!'
             : 'Only ' + x.hero.name + ' picked ' + x.team + ' in the ' + groupPhrase_(x.grp) + '.';
         } else {
-          body = items.length + ' upsets today' + (oneGroup ? ' in the ' + groupPhrase_(items[0].grp) : '') + ': ' + items.map(line).join('; ') + '.';
+          const shown = items.slice(0, 4), more = items.length - shown.length;
+          body = items.length + ' upsets today' + (oneGroup ? ' in the ' + groupPhrase_(items[0].grp) : '') + ': ' + shown.map(line).join('; ') + (more ? '; and ' + more + ' more' : '') + '.';
         }
         sendPush_([p.id], items.length === 1 ? 'Upset alert 👀' : 'Today\'s upsets 👀', body);
       });
