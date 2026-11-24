@@ -1317,7 +1317,7 @@
       {q:'ou',t:'Total points',o:[['O',ln?'Over '+ln:'Over'],['U',ln?'Under '+ln:'Under']],off:!ln},
       {q:'margin',t:'Winning margin',o:[['1-3','1–3 points'],['4-7','4–7 points'],['8-14','8–14 points'],['15+','15 or more']],sheet:1},
       {q:'half',t:'Halftime leader',o:[['A',P.away.name,P.away.logo],['H',P.home.name,P.home.logo],['T','Tied']]},
-      {q:'gator',t:'Gatorade shower color',o:Object.keys(GATOR).map(k=>[k,k==='None'?'No shower':k]),sheet:1},
+      {q:'gator',t:'Gatorade color',o:Object.keys(GATOR).map(k=>[k,k==='None'?'None':k]),sheet:1},
       {q:'mvp',t:'Super Bowl MVP',o:(P.mvp||[]).map(x=>[x.id,x.n]).concat([['OTHER','Someone else']]),sheet:1},
     ];
   }
